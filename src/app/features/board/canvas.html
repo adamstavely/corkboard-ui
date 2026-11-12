@@ -15,10 +15,19 @@
         [note]="note"
         [selected]="selection().has(note.id)"
         [editing]="editing() === note.id"
+        [peer]="peerMarks().get(note.id) ?? null"
+        [provider]="provider()"
         (editorChange)="editor.set($event)"
       />
     }
   </div>
+
+  @for (pointer of peerPointers(); track pointer.id) {
+    <div class="peer-pointer" [style.transform]="'translate(' + pointer.x + 'px, ' + pointer.y + 'px)'" [style.--peer-color]="pointer.color" aria-hidden="true">
+      <svg width="16" height="20" viewBox="0 0 16 20"><path d="M1 1 L1 16 L5 12 L8 19 L11 18 L8 11 L14 11 Z" /></svg>
+      <span class="peer-name">{{ pointer.name }}</span>
+    </div>
+  }
 
   @if (marqueeScreen(); as m) {
     <div class="marquee" [style.left.px]="m.x" [style.top.px]="m.y" [style.width.px]="m.w" [style.height.px]="m.h"></div>

@@ -1,4 +1,4 @@
-import { Component, computed, effect, ElementRef, HostListener, input, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, HostListener, input, signal, untracked, viewChild } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { SelectionToolbar } from '@adamstavely/trenchcoat/angular/selection-toolbar';
 import {
@@ -7,9 +7,11 @@ import {
   type SelectionToolbarCommand,
   type SelectionToolbarItem,
 } from '@adamstavely/trenchcoat/selection-toolbar';
+import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
 import { NOTE_COLORS, type BoardDoc, type NoteColor } from './board-doc';
 import { NoteView } from './note';
+import type { Presence } from './presence';
 import { intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
 type Gesture =
@@ -58,6 +60,10 @@ const isEditable = (el: EventTarget | null) =>
 })
 export class Canvas {
   readonly board = input.required<BoardDoc>();
+  /** Who else is here, and where this person's pointer and selection go out to them. */
+  readonly presence = input<Presence | undefined>(undefined);
+  /** The live connection, for others' carets inside notes. */
+  readonly provider = input<HocuspocusProvider | undefined>(undefined);
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
@@ -87,6 +93,26 @@ export class Canvas {
     return { x: m.x * zoom + x, y: m.y * zoom + y, w: m.w * zoom, h: m.h * zoom };
   });
 
+  /** Others' pointers, in screen space so they stay the same size at any zoom. */
+  protected readonly peerPointers = computed(() => {
+    const { x, y, zoom } = this.viewport();
+    return (this.presence()?.peers() ?? [])
+      .filter((p) => p.pointer)
+      .map((p) => ({ id: p.clientId, name: p.user.name, color: p.user.color, x: p.pointer!.x * zoom + x, y: p.pointer!.y * zoom + y }));
+  });
+
+  /** Per note, the first other person who has it selected or is writing in it. */
+  protected readonly peerMarks = computed(() => {
+    const marks = new Map<string, { name: string; color: string; editing: boolean }>();
+    for (const p of this.presence()?.peers() ?? []) {
+      if (p.editing) marks.set(p.editing, { name: p.user.name, color: p.user.color, editing: true });
+      for (const id of p.selection) {
+        if (!marks.has(id)) marks.set(id, { name: p.user.name, color: p.user.color, editing: false });
+      }
+    }
+    return marks;
+  });
+
   // The note editor and its formatting bar
   protected readonly editor = signal<Editor | null>(null);
   protected readonly editorElement = computed(() => this.editor()?.view.dom ?? null);
@@ -95,6 +121,19 @@ export class Canvas {
   protected readonly values = signal<Record<string, string>>({});
 
   constructor() {
+    // Others see what this person has selected and which note they're writing in.
+    effect(() => this.presence()?.setSelection(this.selection()));
+    effect(() => this.presence()?.setEditing(this.editing()));
+
+    // A note that's gone – deleted by someone else, or by undo – can't stay selected or open here.
+    effect(() => {
+      const ids = new Set(this.board().notes().map((n) => n.id));
+      const editing = this.editing();
+      if (editing && !ids.has(editing)) this.editing.set(null);
+      const selection = untracked(this.selection);
+      if ([...selection].some((id) => !ids.has(id))) this.selection.set(new Set([...selection].filter((id) => ids.has(id))));
+    });
+
     effect((onCleanup) => {
       const editor = this.editor();
       if (!editor) {
@@ -165,9 +204,10 @@ export class Canvas {
 
   @HostListener('window:pointermove', ['$event'])
   protected onPointerMove(e: PointerEvent): void {
+    const screen = this.#screenPoint(e);
+    this.#sharePointer(e, screen);
     const g = this.#gesture;
     if (!g) return;
-    const screen = this.#screenPoint(e);
     if (g.kind === 'pan') {
       this.viewport.update((v) => ({ ...v, x: v.x + screen.x - g.last.x, y: v.y + screen.y - g.last.y }));
       g.last = screen;
@@ -245,11 +285,9 @@ export class Canvas {
       e.preventDefault();
       if (e.shiftKey) this.board().undo.redo();
       else this.board().undo.undo();
-      this.#dropMissing();
     } else if (mod && e.key.toLowerCase() === 'y') {
       e.preventDefault();
       this.board().undo.redo();
-      this.#dropMissing();
     } else if (mod && e.key.toLowerCase() === 'a') {
       e.preventDefault();
       this.selection.set(new Set(this.board().notes().map((n) => n.id)));
@@ -308,16 +346,18 @@ export class Canvas {
     }
   }
 
+  /** Sends where this person's pointer is on the board, or that it has left. */
+  #sharePointer(e: PointerEvent, screen: Point): void {
+    const presence = this.presence();
+    if (!presence) return;
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const over = screen.x >= 0 && screen.y >= 0 && screen.x <= width && screen.y <= height && e.pointerType !== 'touch';
+    presence.setPointer(over ? toWorld(this.viewport(), screen) : null);
+  }
+
   #edit(id: string): void {
     this.selection.set(new Set([id]));
     this.editing.set(id);
-  }
-
-  /** After undo or redo, forget selected notes that no longer exist. */
-  #dropMissing(): void {
-    const ids = new Set(this.board().notes().map((n) => n.id));
-    const kept = [...this.selection()].filter((id) => ids.has(id));
-    if (kept.length !== this.selection().size) this.selection.set(new Set(kept));
   }
 
   #screenPoint(e: MouseEvent): Point {

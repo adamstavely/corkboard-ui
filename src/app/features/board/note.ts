@@ -1,4 +1,5 @@
-import { Component, computed, effect, ElementRef, input, output, viewChild, ViewEncapsulation } from '@angular/core';
+import { Component, computed, effect, ElementRef, input, output, untracked, viewChild, ViewEncapsulation } from '@angular/core';
+import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { Editor } from '@tiptap/core';
 import type { Note } from './board-doc';
 import { noteExtensions, renderNoteText } from './note-text';
@@ -10,13 +11,20 @@ import { noteExtensions, renderNoteText } from './note-text';
  */
 @Component({
   selector: 'app-note',
-  template: `<div class="text" #text></div>`,
+  template: `
+    <div class="text" #text></div>
+    @if (peer(); as peer) {
+      <span class="note-peer" [style.background]="peer.color">{{ peer.name }}{{ peer.editing ? ' is writing' : '' }}</span>
+    }
+  `,
   styleUrl: './note.css',
   encapsulation: ViewEncapsulation.None,
   host: {
     '[attr.data-note-id]': 'note().id',
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
+    '[class.peer-selected]': '!!peer()',
+    '[style.--peer-color]': 'peer()?.color',
     '[style.transform]': '"translate(" + note().x + "px, " + note().y + "px)"',
     '[style.width.px]': 'note().w',
     '[style.height.px]': 'note().h',
@@ -28,6 +36,10 @@ export class NoteView {
   readonly note = input.required<Note>();
   readonly selected = input(false);
   readonly editing = input(false);
+  /** Someone else who has this note selected or is writing in it. */
+  readonly peer = input<{ name: string; color: string; editing: boolean } | null>(null);
+  /** The board's live connection, so others' carets show while this note is edited. */
+  readonly provider = input<HocuspocusProvider | undefined>(undefined);
   /** The live editor while this note is being edited; null when editing stops. */
   readonly editorChange = output<Editor | null>();
 
@@ -41,7 +53,8 @@ export class NoteView {
       const el = this.text().nativeElement;
       if (this.editing()) {
         el.replaceChildren();
-        const editor = new Editor({ element: el, extensions: noteExtensions(fragment), autofocus: 'end' });
+        const extensions = noteExtensions(fragment, untracked(this.provider));
+        const editor = new Editor({ element: el, extensions, autofocus: 'end' });
         // Tiptap's autofocus waits for an animation frame, which a background tab may not get; take focus now too.
         editor.view.focus();
         this.editorChange.emit(editor);

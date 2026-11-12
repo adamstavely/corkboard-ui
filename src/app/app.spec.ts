@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { Auth } from './core/auth';
+import { Session } from './core/session';
 
 describe('App', () => {
   async function render(signedIn: boolean) {
@@ -10,6 +11,7 @@ describe('App', () => {
       providers: [
         provideRouter([]),
         { provide: Auth, useValue: { signedIn: () => signedIn, profile: () => ({ name: 'Ada', email: 'ada@x.test' }) } },
+        { provide: Session, useValue: { org: () => undefined } },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(App);

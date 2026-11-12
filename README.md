@@ -2,7 +2,7 @@
 
 **Corkboard** is a collaborative whiteboard where a model you bring (any provider) can group notes, draft action items and build timelines. This is the frontend; the backend is [corkboard-api](https://github.com/adamstavely/corkboard-api).
 
-Angular 21 with [Trench Coat](https://github.com/adamstavely/legendary-chainsaw) web components. Each board is a Yjs document, and note text is edited with Tiptap bound to that document. That means real-time sync (Hocuspocus) and model edits can come later without changing the canvas.
+Angular 21 with [Trench Coat](https://github.com/adamstavely/legendary-chainsaw) web components. Each board is a Yjs document shared live through Hocuspocus, and note text is edited with Tiptap bound to that document. Model edits can arrive the same way later without changing the canvas.
 
 ## Run it locally
 
@@ -23,13 +23,15 @@ Sign in as `ada` or `grace` with the password `corkboard`. These are test users 
 - **Pan and zoom:** scroll to pan, or hold Space (or the middle button) and drag. Pinch or ⌘/Ctrl-scroll to zoom.
 - **Undo:** ⌘/Ctrl-Z, and ⇧⌘Z or Ctrl-Y to redo.
 - **Light and dark:** follows the OS until you change it under Dark mode in the account menu.
+- **Together:** everyone on a board sees changes as they happen, along with each other's pointers, which notes they have selected, who is writing where, and their carets inside a note. Their avatars appear in the board's bar.
+- **Search:** ⌘K, or the field in the header, finds boards by title or by what their notes say.
 
-Changes save themselves shortly after you make them.
+Changes go to the server as you make them, and it saves them. Offline edits are kept and sent when you reconnect.
 
 ## How it fits together
 
 - `features/board/board-doc.ts` is the board model: a Y.Doc with a map of nodes, each note holding its text as a Y.XmlFragment. Every change to the board goes through it.
-- `features/board/board-sync.ts` loads the document and saves it back. It's a stand-in for real-time sync, which will replace it with a Hocuspocus provider.
+- `features/board/board-connection.ts` connects the BoardDoc to the API's `/collab` socket with a Hocuspocus provider, and reports sync status. `presence.ts` handles pointers, selections and editing over the awareness channel.
 - `features/board/canvas.ts` handles pan, zoom, selection and dragging. `note.ts` draws a note's text, and creates a Tiptap editor only for the note being edited.
 - `core/auth.ts` handles OIDC sign-in with authorization code + PKCE (oidc-client-ts). Settings come from `/config.json`, which the Docker image writes from `OIDC_AUTHORITY` and `OIDC_CLIENT_ID`.
 

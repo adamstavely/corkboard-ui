@@ -3,6 +3,8 @@ export default {
   '/api': {
     target: process.env.API_URL ?? 'http://localhost:3700',
     secure: false,
+    // The collaboration socket (/api/collab) goes the same way.
+    ws: true,
     pathRewrite: { '^/api': '' },
   },
 };

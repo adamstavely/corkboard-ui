@@ -8,6 +8,8 @@ import { LookProvider } from '@adamstavely/trenchcoat/angular/look-provider';
 import type { HeaderNavAccountSelect } from '@adamstavely/trenchcoat/header-nav';
 import { profileMenuIcon, type ProfileMenuItem } from '@adamstavely/trenchcoat/profile-menu';
 import { Auth, CALLBACK_PATH } from './core/auth';
+import { Session } from './core/session';
+import { BoardSearch } from './features/search/board-search';
 import { ThemeService } from './core/theme';
 
 const THEME = 'theme';
@@ -15,12 +17,13 @@ const SIGN_OUT = 'sign-out';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, LookProvider, HeaderBrand, HeaderNav],
+  imports: [RouterOutlet, LookProvider, HeaderBrand, HeaderNav, BoardSearch],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App {
   protected readonly auth = inject(Auth);
+  protected readonly session = inject(Session);
   readonly #router = inject(Router);
   readonly #theme = inject(ThemeService);
 
