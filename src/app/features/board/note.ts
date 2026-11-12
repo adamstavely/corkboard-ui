@@ -16,6 +16,11 @@ import { noteExtensions, renderNoteText } from './note-text';
     @if (peer(); as peer) {
       <span class="note-peer" [style.background]="peer.color">{{ peer.name }}{{ peer.editing ? ' is writing' : '' }}</span>
     }
+    @if (comments()) {
+      <span class="note-comments" [attr.aria-label]="comments() + (comments() === 1 ? ' comment' : ' comments')">
+        <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v8H6l-3 3v-3H2z" /></svg>{{ comments() }}
+      </span>
+    }
   `,
   styleUrl: './note.css',
   encapsulation: ViewEncapsulation.None,
@@ -38,6 +43,8 @@ export class NoteView {
   readonly editing = input(false);
   /** Someone else who has this note selected or is writing in it. */
   readonly peer = input<{ name: string; color: string; editing: boolean } | null>(null);
+  /** Comments in its open thread, shown as a badge; 0 for none. */
+  readonly comments = input(0);
   /** The board's live connection, so others' carets show while this note is edited. */
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
   /** The live editor while this note is being edited; null when editing stops. */

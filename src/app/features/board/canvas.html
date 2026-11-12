@@ -35,6 +35,11 @@
         } @else {
           <div class="frame-title" [title]="frame.title || 'Untitled frame'">{{ frame.title || 'Untitled frame' }}</div>
         }
+        @if (commentCounts().get(frame.id); as count) {
+          <span class="frame-comments" [attr.aria-label]="count + (count === 1 ? ' comment' : ' comments')">
+            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v8H6l-3 3v-3H2z" /></svg>{{ count }}
+          </span>
+        }
         @if (selection().has(frame.id) && selection().size === 1) {
           <div class="frame-resize" aria-hidden="true"></div>
         }
@@ -46,6 +51,7 @@
         [selected]="selection().has(note.id)"
         [editing]="editing() === note.id"
         [peer]="peerMarks().get(note.id) ?? null"
+        [comments]="commentCounts().get(note.id) ?? 0"
         [provider]="provider()"
         (editorChange)="editor.set($event)"
       />

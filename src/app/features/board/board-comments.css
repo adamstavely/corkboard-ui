@@ -1,0 +1,109 @@
+/* Docked at the board's upper right, like sharing. */
+.comments {
+  position: absolute;
+  top: calc(var(--tc-space-4) + 40px);
+  right: var(--tc-space-4);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  width: min(380px, calc(100% - 2 * var(--tc-space-4)));
+  max-height: calc(100% - 2 * var(--tc-space-4) - 96px);
+  overflow: auto;
+}
+
+/* Trench Coat's thread always has a reply box; people who can't comment don't get one. */
+.read-only ::ng-deep .ui-ct__composer {
+  display: none;
+}
+
+.head,
+.thread-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.spacer {
+  flex: 1;
+}
+.thread-actions {
+  justify-content: flex-end;
+}
+.resolved {
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+}
+
+.all,
+.problem,
+.note {
+  margin: 0;
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+.problem {
+  color: var(--tc-status-danger-fg);
+}
+.note,
+.empty {
+  color: var(--tc-text-muted);
+}
+
+h2 {
+  margin: 0 0 var(--tc-space-2);
+  font-size: var(--tc-font-size-md);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+.empty {
+  margin: 0;
+}
+
+ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-1);
+  margin: 0 0 var(--tc-space-2);
+  padding: 0;
+  list-style: none;
+}
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.thread:hover {
+  background: color-mix(in srgb, var(--tc-text-strong) 6%, transparent);
+}
+.thread:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+}
+.thread.is-resolved {
+  opacity: 0.7;
+}
+.label {
+  font-weight: var(--tc-font-weight-medium);
+  color: var(--tc-text-strong);
+}
+.last {
+  overflow: hidden;
+  color: var(--tc-text-primary);
+  font-size: var(--tc-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+}

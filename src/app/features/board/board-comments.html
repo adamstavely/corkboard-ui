@@ -1,0 +1,74 @@
+<aside class="comments" aria-label="Comments" [class.read-only]="!canComment()">
+  <div class="head">
+    @if (nodeId()) {
+      <tc-button size="sm" variant="ghost" label="All comments" (click)="show.emit('')"></tc-button>
+    }
+    <span class="spacer"></span>
+    <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+  </div>
+
+  @if (problem(); as problem) {
+    <p class="problem" role="alert">{{ problem }}</p>
+  }
+
+  @if (nodeId()) {
+    @if (messages().length || canComment()) {
+      <!-- A fresh element once the thread exists: Trench Coat's thread holds its message area at the height it had
+           when the first comment was sent, which for an empty thread would hide that comment. -->
+      @for (key of [threadKey()]; track key) {
+        <tc-comment-thread
+          [heading]="heading()"
+          [messages]="messages()"
+          [currentUser]="currentUser()"
+          [onReply]="onReply"
+          (tc-messages-change)="onMessages($event)"
+        ></tc-comment-thread>
+      }
+    } @else {
+      <p class="note">No comments on this yet.</p>
+    }
+    @if (thread(); as thread) {
+      @if (canComment()) {
+        <div class="thread-actions">
+          @if (thread.resolvedAt) {
+            <span class="resolved">Resolved</span>
+            <tc-button size="sm" variant="ghost" label="Reopen" [loading]="busy()" (click)="setResolved(false)"></tc-button>
+          } @else {
+            <tc-button size="sm" variant="secondary" label="Resolve" [loading]="busy()" (click)="setResolved(true)"></tc-button>
+          }
+        </div>
+      } @else if (thread.resolvedAt) {
+        <p class="note">Resolved.</p>
+      }
+    }
+    @if (!canComment()) {
+      <p class="note">Only commenters, updaters and owners of this board can comment.</p>
+    }
+  } @else {
+    <section class="all">
+      <h2>Comments</h2>
+      @if (list().length === 0) {
+        <p class="empty">{{ canComment() ? 'Select a note or frame to comment on it.' : 'No comments yet.' }}</p>
+      }
+      <ul>
+        @for (item of list(); track item.id) {
+          <li>
+            <button type="button" class="thread" [class.is-resolved]="item.resolved" (click)="show.emit(item.nodeId)">
+              <span class="label">{{ item.label }}</span>
+              <span class="last">{{ item.last }}</span>
+              <span class="meta">{{ item.count }} comment{{ item.count === 1 ? '' : 's' }}{{ item.resolved ? ' · resolved' : '' }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+      @if (resolvedCount()) {
+        <tc-button
+          size="sm"
+          variant="ghost"
+          [label]="showResolved() ? 'Hide resolved' : 'Show ' + resolvedCount() + ' resolved'"
+          (click)="showResolved.set(!showResolved())"
+        ></tc-button>
+      }
+    </section>
+  }
+</aside>

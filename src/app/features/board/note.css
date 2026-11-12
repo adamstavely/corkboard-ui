@@ -99,3 +99,28 @@ app-note .note-caret__label {
   line-height: 14px;
   white-space: nowrap;
 }
+
+/* Open comments: a badge on the top-right corner. */
+app-note .note-comments,
+.frame-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--tc-accent-text);
+  color: var(--tc-surface-raised);
+  font-size: 11px;
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 16px;
+  pointer-events: none;
+}
+app-note .note-comments {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+.note-comments svg path,
+.frame-comments svg path {
+  fill: currentColor;
+}
