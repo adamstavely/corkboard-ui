@@ -4,6 +4,7 @@ import { html } from 'lit';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
+import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
 import { Api } from '../../api/generated/api';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
@@ -34,7 +35,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, Button, Dialog, Skeleton],
+  imports: [Canvas, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -58,14 +59,20 @@ export class BoardPage {
   protected readonly status = computed<ConnectionStatus>(() => this.connection()?.status() ?? 'connecting');
   protected readonly statusText = computed(() => STATUS_TEXT[this.status()]);
 
-  /** Everyone else here, once each however many tabs they have open. */
+  readonly #me = signal<PresenceUser | undefined>(undefined);
+
+  /** Everyone on the board, you first, once each however many tabs they have open. */
   protected readonly people = computed(() => {
-    const seen = new Map<string, { id: string; name: string; initials: string; color: string }>();
+    const me = this.#me();
+    const seen = new Map<string, { id: string; name: string; initials: string; color: string; me: boolean }>();
+    if (me) seen.set(me.id, { ...me, name: `${me.name} (you)`, initials: initials(me.name), me: true });
     for (const { user } of this.connection()?.presence.peers() ?? []) {
-      if (!seen.has(user.id)) seen.set(user.id, { ...user, initials: initials(user.name) });
+      if (!seen.has(user.id)) seen.set(user.id, { ...user, initials: initials(user.name), me: false });
     }
     return [...seen.values()];
   });
+
+
 
   protected readonly title = signal('');
   protected readonly confirmDelete = signal(false);
@@ -83,6 +90,7 @@ export class BoardPage {
       if (!me) return;
       untracked(() => {
         const user: PresenceUser = { id: me.id, name: me.name, color: colorFor(me.id) };
+        this.#me.set(user);
         const board = new BoardDoc();
         const connection = new BoardConnection(id, board, () => this.#auth.accessToken() ?? '', user);
         this.board.set(board);

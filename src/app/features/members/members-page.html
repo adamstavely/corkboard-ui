@@ -1,0 +1,37 @@
+<div class="page">
+  <div class="heading">
+    <div>
+      <h1>Members</h1>
+      @if (session.org(); as org) {
+        <p class="workspace">{{ org.name }}</p>
+      }
+    </div>
+    <tc-button variant="secondary" label="Leave workspace" [loading]="leaving()" (click)="leave()"></tc-button>
+  </div>
+
+  @if (problem(); as problem) {
+    <p class="problem" role="alert">{{ problem }}</p>
+  }
+
+  @if (list.isLoading() && !list.hasValue()) {
+    <tc-skeleton height="320" radius="12"></tc-skeleton>
+  } @else if (list.error()) {
+    <p role="alert">Members couldn't be loaded. Refresh to try again.</p>
+  } @else if (isAdmin()) {
+    <tc-share-panel
+      [resourceName]="session.org()?.name ?? ''"
+      [labels]="{ headingNamed: 'Members of {name}', search: 'Invite people', searchPlaceholder: 'Email address' }"
+      description="People join when they next sign in with the email you invite."
+      [levels]="levels"
+      default-level="member"
+      [access]="access()"
+      [search]="search"
+      [checkEntitlement]="entitled"
+      [sending]="sending()"
+      (tc-share)="onShare($event)"
+    ></tc-share-panel>
+  } @else {
+    <tc-data-table heading="People in this workspace" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
+    <p class="note">Only admins can invite people or change roles.</p>
+  }
+</div>

@@ -1,12 +1,33 @@
 <div class="page">
+  @for (invite of invites(); track invite.id) {
+    <div class="invite" role="status">
+      <p>
+        <strong>{{ invite.invitedByName ?? 'Someone' }}</strong> invited you to <strong>{{ invite.orgName }}</strong>
+        as {{ invite.role === 'admin' ? 'an admin' : 'a member' }}.
+      </p>
+      <tc-button size="sm" label="Join" [loading]="answering() === invite.id" (click)="answer(invite.id, true)"></tc-button>
+      <tc-button size="sm" variant="ghost" label="Decline" [disabled]="answering() === invite.id" (click)="answer(invite.id, false)"></tc-button>
+    </div>
+  }
+
   <div class="heading">
     <div>
       <h1>Boards</h1>
-      @if (session.org(); as org) {
+      @if (orgOptions().length > 1) {
+        <tc-select
+          label="Workspace"
+          [options]="orgOptions()"
+          [value]="session.org()?.id ?? ''"
+          (tc-value-change)="session.selectOrg($event.detail.value)"
+        ></tc-select>
+      } @else if (session.org(); as org) {
         <p class="workspace">{{ org.name }}</p>
       }
     </div>
-    <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
+    <div class="actions">
+      <tc-button variant="secondary" label="Members" (click)="members()"></tc-button>
+      <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
+    </div>
   </div>
 
   @if (boards.isLoading() && !boards.hasValue()) {

@@ -23,7 +23,8 @@ Sign in as `ada` or `grace` with the password `corkboard`. These are test users 
 - **Pan and zoom:** scroll to pan, or hold Space (or the middle button) and drag. Pinch or ⌘/Ctrl-scroll to zoom.
 - **Undo:** ⌘/Ctrl-Z, and ⇧⌘Z or Ctrl-Y to redo.
 - **Light and dark:** follows the OS until you change it under Dark mode in the account menu.
-- **Together:** everyone on a board sees changes as they happen, along with each other's pointers, which notes they have selected, who is writing where, and their carets inside a note. Their avatars appear in the board's bar.
+- **Together:** everyone on a board sees changes as they happen, along with each other's pointers, which notes they have selected, who is writing where, and their carets inside a note. When more than one person is on a board, their avatars stack in its top-right corner and fan out on hover.
+- **Workspaces:** admins invite people by email from Members, change roles and remove people; anyone can leave. Invites show up on the boards page when the invited person signs in with that email, and you can switch between workspaces you belong to there.
 - **Search:** ⌘K, or the field in the header, finds boards by title or by what their notes say.
 
 Changes go to the server as you make them, and it saves them. Offline edits are kept and sent when you reconnect.

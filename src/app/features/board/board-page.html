@@ -10,16 +10,6 @@
       (blur)="rename()"
       (keydown)="onTitleKey($event)"
     />
-    @if (people().length) {
-      <ul class="people" aria-label="Also on this board">
-        @for (person of people(); track person.id) {
-          <li class="person" [style.background]="person.color" [title]="person.name">
-            <span aria-hidden="true">{{ person.initials }}</span>
-            <span class="visually-hidden">{{ person.name }}</span>
-          </li>
-        }
-      </ul>
-    }
     <span class="status" [class.offline]="status() === 'offline'" role="status">{{ statusText() }}</span>
     <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
   </div>
@@ -29,6 +19,17 @@
       <p class="problem" role="alert">This board couldn't be opened. It may have been deleted, or you may not have access.</p>
     } @else if (status() !== 'connecting' && board() && connection()) {
       <app-canvas [board]="board()!" [presence]="connection()!.presence" [provider]="connection()!.provider" />
+      <!-- Who's here, once there's more than one of you: Trench Coat's stack in the board's top-right corner. Right to
+           left, so you sit at the corner and it fans out leftward, staying on screen. -->
+      @if (people().length > 1) {
+        <tc-stack-spread class="people" dir="rtl" max="5" [label]="people().length + ' people on this board'">
+          @for (person of people(); track person.id) {
+            <span class="person" role="img" [class.me]="person.me" [style.background]="person.color" [title]="person.name" [attr.aria-label]="person.name">
+              {{ person.initials }}
+            </span>
+          }
+        </tc-stack-spread>
+      }
     } @else {
       <tc-skeleton aria-label="Loading board"></tc-skeleton>
     }

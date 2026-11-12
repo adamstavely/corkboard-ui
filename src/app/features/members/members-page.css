@@ -1,0 +1,31 @@
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--tc-space-8) var(--tc-space-4);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tc-space-4);
+  margin-bottom: var(--tc-space-6);
+}
+
+h1 {
+  margin: 0;
+  font-size: var(--tc-font-size-2xl);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+
+.workspace,
+.note {
+  margin: var(--tc-space-1) 0 0;
+  color: var(--tc-text-muted);
+}
+
+.problem {
+  margin: 0 0 var(--tc-space-4);
+  color: var(--tc-status-danger-fg);
+}
