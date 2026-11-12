@@ -1,4 +1,4 @@
-import { Component, computed, effect, HostListener, inject, input, resource, signal, untracked } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, input, resource, signal, untracked, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { html } from 'lit';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -77,6 +77,8 @@ export class BoardPage {
 
   protected readonly assistantOpen = signal(false);
   protected readonly selection = signal<readonly string[]>([]);
+  protected readonly selectedFrames = signal<readonly string[]>([]);
+  protected readonly canvas = viewChild(Canvas);
 
   protected readonly title = signal('');
   protected readonly confirmDelete = signal(false);

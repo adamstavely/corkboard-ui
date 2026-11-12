@@ -9,10 +9,10 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { NOTE_COLORS, type BoardDoc, type NoteColor } from './board-doc';
+import { NOTE_COLORS, NOTE_SIZE, type BoardDoc, type NoteColor } from './board-doc';
 import { NoteView } from './note';
 import type { Presence } from './presence';
-import { contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
+import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
 type Gesture =
   | { kind: 'pan'; last: Point }
@@ -68,6 +68,8 @@ export class Canvas {
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
   /** The selected notes, and those in selected frames, whenever they change (the assistant works on them). */
   readonly selectionChange = output<readonly string[]>();
+  /** Titles of the selected frames, so the assistant can say which region it's about. */
+  readonly framesChange = output<readonly string[]>();
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
@@ -135,8 +137,9 @@ export class Canvas {
       const selection = this.selection();
       const board = this.board();
       const notes = board.notes().filter((n) => selection.has(n.id)).map((n) => n.id);
-      const frames = board.frames().filter((f) => selection.has(f.id)).map((f) => f.id);
-      this.selectionChange.emit([...new Set([...notes, ...untracked(() => board.notesIn(frames))])]);
+      const frames = board.frames().filter((f) => selection.has(f.id));
+      this.selectionChange.emit([...new Set([...notes, ...untracked(() => board.notesIn(frames.map((f) => f.id)))])]);
+      this.framesChange.emit(frames.map((f) => f.title || 'Untitled frame'));
     });
     effect(() => {
       const input = this.renameInput()?.nativeElement;
@@ -366,6 +369,45 @@ export class Canvas {
     const jitter = () => (Math.random() - 0.5) * 60;
     const at = toWorld(this.viewport(), { x: width / 2 + jitter(), y: height / 2 + jitter() });
     this.#edit(this.board().addNote(at.x, at.y));
+  }
+
+  /** Selects these notes and brings them into view, zoomed to fit (never past 100%). */
+  show(ids: readonly string[]): void {
+    const notes = this.board().notes().filter((n) => ids.includes(n.id));
+    if (notes.length === 0) return;
+    this.editing.set(null);
+    this.selection.set(new Set(notes.map((n) => n.id)));
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const box = {
+      x: Math.min(...notes.map((n) => n.x)),
+      y: Math.min(...notes.map((n) => n.y)),
+      r: Math.max(...notes.map((n) => n.x + n.w)),
+      b: Math.max(...notes.map((n) => n.y + n.h)),
+    };
+    // Room around them, and below for the toolbar.
+    const zoom = clampZoom(Math.min(1, (width - 160) / (box.r - box.x), (height - 220) / (box.b - box.y)));
+    this.viewport.set({ zoom, x: width / 2 - ((box.x + box.r) / 2) * zoom, y: (height - 80) / 2 - ((box.y + box.b) / 2) * zoom });
+  }
+
+  /**
+   * Writes a note beside these notes (or in the middle of the view), in the first free space to their right, selects it
+   * and returns its id.
+   */
+  addNoteBeside(ids: readonly string[], text: string): string {
+    const notes = this.board().notes();
+    const near = notes.filter((n) => ids.includes(n.id));
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const start = near.length
+      ? { x: Math.max(...near.map((n) => n.x + n.w)) + 40, y: Math.min(...near.map((n) => n.y)) }
+      : (({ x, y }) => ({ x: x - NOTE_SIZE.w / 2, y: y - NOTE_SIZE.h / 2 }))(toWorld(this.viewport(), { x: width / 2, y: height / 2 }));
+    let spot = start;
+    for (let i = 0; i < 50 && notes.some((n) => intersects(n, { ...spot, ...NOTE_SIZE })); i++) {
+      spot = { x: start.x + (i + 1) * (NOTE_SIZE.w + 24), y: start.y };
+    }
+    const id = this.board().addNote(spot.x + NOTE_SIZE.w / 2, spot.y + NOTE_SIZE.h / 2, 'blue', text);
+    this.show([id, ...near.map((n) => n.id)]);
+    this.selection.set(new Set([id]));
+    return id;
   }
 
   /** Adds a frame around the selected notes, or an empty one in the middle of the view, and names it. */

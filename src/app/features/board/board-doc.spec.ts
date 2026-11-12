@@ -110,4 +110,11 @@ describe('BoardDoc', () => {
     expect(board.withInnerFrames([inner])).toEqual([inner]);
     expect(board.withInnerFrames([outside])).toEqual([outside]);
   });
+
+  it('writes text into a new note, a paragraph a line', () => {
+    const id = board.addNote(0, 0, 'blue', 'Two risks\nVendor and budget');
+    const note = board.notes().find((n) => n.id === id)!;
+    expect(note.color).toBe('blue');
+    expect(note.text.toArray().map((p) => (p as Y.XmlElement).toArray().map((t) => t.toString()).join(''))).toEqual(['Two risks', 'Vendor and budget']);
+  });
 });
