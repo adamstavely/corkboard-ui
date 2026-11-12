@@ -12,6 +12,19 @@
   } @else if (options().length === 0) {
     <p class="empty">No AI models are set up for this workspace yet. An admin can add one under AI models.</p>
   } @else {
+    @if (last(); as answer) {
+      <div class="answer-actions" role="group" aria-label="Last answer">
+        @if (answer.cited.length) {
+          <tc-button
+            size="sm"
+            variant="secondary"
+            [label]="'Show ' + answer.cited.length + ' note' + (answer.cited.length === 1 ? '' : 's')"
+            (click)="show.emit(answer.cited)"
+          ></tc-button>
+        }
+        <tc-button size="sm" variant="ghost" label="Add answer as a note" (click)="pin.emit({ text: answer.reply, near: answer.cited.length ? answer.cited : answer.asked })"></tc-button>
+      </div>
+    }
     <tc-writing-assistant
       [name]="modelName()"
       [tagline]="scope()"
@@ -19,6 +32,7 @@
       placeholder="Ask, or tell it what to change…"
       [suggestions]="suggestions"
       [respond]="respond"
+      (tc-messages-change)="onMessages($event)"
     ></tc-writing-assistant>
   }
 </aside>

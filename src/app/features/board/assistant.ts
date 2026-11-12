@@ -3,7 +3,7 @@ import { Component, computed, effect, inject, input, output, resource, signal } 
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { WritingAssistant } from '@adamstavely/trenchcoat/angular/writing-assistant';
-import type { WritingAssistantRespond } from '@adamstavely/trenchcoat/writing-assistant';
+import type { ChatMessagesChange, WritingAssistantRespond } from '@adamstavely/trenchcoat/writing-assistant';
 import { Api } from '../../api/generated/api';
 import { assistControllerAssist } from '../../api/generated/fn/assist/assist-controller-assist';
 import { providersControllerList } from '../../api/generated/fn/models/providers-controller-list';
@@ -25,6 +25,14 @@ export function changesLine(result: { notesAdded: number; notesChanged: number; 
   if (!parts.length) return '';
   const line = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
   return `${line[0].toUpperCase()}${line.slice(1)}.`;
+}
+
+/** "About “Risks” (4 notes)" – what the assistant will be asked about. */
+export function scopeLine(notes: number, frames: readonly string[]): string {
+  const count = `${notes} note${notes === 1 ? '' : 's'}`;
+  if (frames.length === 1) return `About “${frames[0]}” (${count})`;
+  if (frames.length > 1) return `About ${frames.length} frames (${count})`;
+  return notes ? `About the ${count} selected` : 'About the whole board';
 }
 
 function storedModel(): string | null {
@@ -50,9 +58,18 @@ export class Assistant {
 
   readonly boardId = input.required<string>();
   readonly orgId = input.required<string>();
-  /** The notes selected on the canvas; empty for the whole board. */
+  /** The notes selected on the canvas, with those in selected frames; empty for the whole board. */
   readonly selection = input<readonly string[]>([]);
+  /** Titles of the selected frames, to name the region being asked about. */
+  readonly frames = input<readonly string[]>([]);
   readonly closed = output<void>();
+  /** Show these notes on the board: the ones the last answer is about. */
+  readonly show = output<readonly string[]>();
+  /** Write the last answer as a note beside the notes it was about. */
+  readonly pin = output<{ text: string; near: readonly string[] }>();
+
+  /** The last answer, what it pointed to, and what it was asked about; for the actions under the chat. */
+  protected readonly last = signal<{ reply: string; cited: string[]; asked: readonly string[] } | null>(null);
 
   protected readonly models = resource({
     params: () => this.orgId(),
@@ -69,10 +86,7 @@ export class Assistant {
   protected readonly modelName = computed(() => this.options().find((o) => o.value === this.modelId())?.label ?? 'Assistant');
 
   protected readonly suggestions = SUGGESTIONS;
-  protected readonly scope = computed(() => {
-    const n = this.selection().length;
-    return n ? `About the ${n} selected note${n === 1 ? '' : 's'}` : 'About the whole board';
-  });
+  protected readonly scope = computed(() => scopeLine(this.selection().length, this.frames()));
 
   /** The selection when a message is sent, so a reply is about what was selected then. */
   #selectionAtSend: readonly string[] = [];
@@ -87,15 +101,23 @@ export class Assistant {
     }
   }
 
-  protected readonly respond: WritingAssistantRespond = async (message) => {
+  protected onMessages(e: CustomEvent<ChatMessagesChange>): void {
+    // A new chat starts over.
+    if (e.detail.messages.length === 0) this.last.set(null);
+  }
+
+  protected readonly respond: WritingAssistantRespond = async (message, { history }) => {
     const modelId = this.modelId();
     if (!modelId) throw new Error('No model is set up for this workspace yet.');
     const noteIds = [...this.#selectionAtSend];
+    // The turns before this one, so follow-up questions make sense.
+    const earlier = history.slice(0, -1).map((m) => ({ role: m.role, text: m.text }));
     try {
       const result = await this.#api.invoke(assistControllerAssist, {
         id: this.boardId(),
-        body: { modelId, instruction: message, ...(noteIds.length ? { noteIds } : {}) },
+        body: { modelId, instruction: message, ...(noteIds.length ? { noteIds } : {}), ...(earlier.length ? { history: earlier } : {}) },
       });
+      this.last.set({ reply: result.reply, cited: result.citedNoteIds, asked: noteIds });
       const changes = changesLine(result);
       return changes ? `${result.reply}\n\n${changes}` : result.reply;
     } catch (err) {

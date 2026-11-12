@@ -70,8 +70,8 @@ export class BoardDoc {
     this.#refresh();
   }
 
-  /** Adds a note centred on a point and returns its id. */
-  addNote(cx: number, cy: number, color: NoteColor = 'yellow'): string {
+  /** Adds a note centred on a point, with text if given (a paragraph a line), and returns its id. */
+  addNote(cx: number, cy: number, color: NoteColor = 'yellow', text = ''): string {
     const id = crypto.randomUUID();
     this.undo.stopCapturing();
     this.doc.transact(() => {
@@ -83,8 +83,19 @@ export class BoardDoc {
       node.set('h', NOTE_SIZE.h);
       node.set('z', this.#topZ() + 1);
       node.set('color', color);
-      node.set('text', new Y.XmlFragment());
+      const fragment = new Y.XmlFragment();
+      node.set('text', fragment);
       this.#nodes.set(id, node);
+      if (text) {
+        fragment.insert(
+          0,
+          text.split(/\r?\n/).map((line) => {
+            const p = new Y.XmlElement('paragraph');
+            if (line) p.insert(0, [new Y.XmlText(line)]);
+            return p;
+          }),
+        );
+      }
     }, this);
     return id;
   }

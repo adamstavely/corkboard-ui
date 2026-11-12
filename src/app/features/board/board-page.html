@@ -24,9 +24,18 @@
         [presence]="connection()!.presence"
         [provider]="connection()!.provider"
         (selectionChange)="selection.set($event)"
+        (framesChange)="selectedFrames.set($event)"
       />
       @if (assistantOpen() && meta.hasValue()) {
-        <app-assistant [boardId]="id()" [orgId]="meta.value().orgId" [selection]="selection()" (closed)="assistantOpen.set(false)" />
+        <app-assistant
+          [boardId]="id()"
+          [orgId]="meta.value().orgId"
+          [selection]="selection()"
+          [frames]="selectedFrames()"
+          (closed)="assistantOpen.set(false)"
+          (show)="canvas()?.show($event)"
+          (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
+        />
       }
       <!-- Who's here, once there's more than one of you: Trench Coat's stack in the board's top-right corner. Right to
            left, so you sit at the corner and it fans out leftward, staying on screen. -->
