@@ -1,0 +1,64 @@
+<div
+  #surface
+  class="surface"
+  [class.can-pan]="spaceHeld()"
+  [class.panning]="panning()"
+  [style.background-size.px]="gridSize()"
+  [style.background-position]="viewport().x + 'px ' + viewport().y + 'px'"
+  (pointerdown)="onPointerDown($event)"
+  (dblclick)="onDoubleClick($event)"
+  (wheel)="onWheel($event)"
+>
+  <div class="world" [style.transform]="worldTransform()">
+    @for (note of board().notes(); track note.id) {
+      <app-note
+        [note]="note"
+        [selected]="selection().has(note.id)"
+        [editing]="editing() === note.id"
+        (editorChange)="editor.set($event)"
+      />
+    }
+  </div>
+
+  @if (marqueeScreen(); as m) {
+    <div class="marquee" [style.left.px]="m.x" [style.top.px]="m.y" [style.width.px]="m.w" [style.height.px]="m.h"></div>
+  }
+
+  @if (board().notes().length === 0) {
+    <p class="hint">Double-click anywhere to add a note</p>
+  }
+
+  <div class="toolbar" role="toolbar" aria-label="Board">
+    <tc-button size="sm" variant="secondary" label="Add note" (click)="addNote()"></tc-button>
+    <span class="divider" aria-hidden="true"></span>
+    <div class="swatches" role="group" aria-label="Colour of selected notes">
+      @for (color of colors; track color.id) {
+        <button
+          type="button"
+          class="swatch"
+          [style.background]="'var(--note-' + color.id + ')'"
+          [attr.aria-label]="color.label"
+          [title]="color.label"
+          [disabled]="selection().size === 0"
+          (click)="setColor(color.id)"
+        ></button>
+      }
+    </div>
+    <span class="divider" aria-hidden="true"></span>
+    <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>
+    <tc-button size="sm" variant="ghost" [label]="zoomPercent()" aria-label="Reset zoom to 100%" (click)="resetZoom()"></tc-button>
+    <tc-button size="sm" variant="ghost" label="+" aria-label="Zoom in" (click)="zoomBy(1.25)"></tc-button>
+  </div>
+</div>
+
+@if (formatAnchor(); as anchor) {
+  <tc-selection-toolbar
+    [items]="formatItems"
+    [pressed]="pressed()"
+    [values]="values()"
+    [anchor]="anchor"
+    [open]="true"
+    [editor]="editorElement()"
+    (tc-command)="onFormat($event)"
+  ></tc-selection-toolbar>
+}

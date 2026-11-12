@@ -1,0 +1,14 @@
+<!-- Every Trench Coat element inside takes the Clean look; data-tc-look on <html> only sets the tokens. -->
+<tc-look-provider look="clean">
+  <div class="shell">
+    @if (showHeader()) {
+      <header class="topbar">
+        <tc-header-brand name="Corkboard" href="/" (tc-navigate)="onBrandNavigate($event)"></tc-header-brand>
+        <tc-header-nav [user]="auth.profile()" [accountItems]="accountItems()" (tc-account-select)="onAccountSelect($event)"></tc-header-nav>
+      </header>
+    }
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</tc-look-provider>

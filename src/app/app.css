@@ -1,0 +1,25 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tc-space-4);
+  height: 56px;
+  padding: 0 var(--tc-space-4);
+  border-bottom: 1px solid var(--tc-border-subtle);
+  background: var(--tc-surface-raised);
+  flex: none;
+}
+
+/* Pages fill what's left; the board page lays its canvas over all of it. */
+.content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: auto;
+}
