@@ -112,3 +112,59 @@
   line-height: 16px;
   white-space: nowrap;
 }
+
+/* A frame: a titled area under the notes. Its title is the handle that moves it; its body is open board. */
+.frame {
+  position: absolute;
+  border: 1.5px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: color-mix(in srgb, var(--tc-surface-raised) 60%, transparent);
+}
+.frame.selected {
+  border-color: var(--tc-accent-text);
+  box-shadow: 0 0 0 1px var(--tc-accent-text);
+}
+.frame.peer:not(.selected) {
+  border-color: var(--peer-color);
+}
+.frame-title,
+.frame-rename {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  padding: 4px 10px;
+  border-radius: var(--tc-radius-sm);
+  font: inherit;
+  font-size: 18px;
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 24px;
+  color: var(--tc-text-strong);
+}
+.frame-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+  user-select: none;
+}
+.frame-title:hover {
+  background: color-mix(in srgb, var(--tc-text-strong) 6%, transparent);
+}
+.frame-rename {
+  width: min(360px, calc(100% - 24px));
+  border: 1px solid var(--tc-accent-text);
+  background: var(--tc-surface-base);
+  outline: none;
+}
+.frame-resize {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--tc-accent-text);
+  border-radius: 3px;
+  background: var(--tc-surface-raised);
+  cursor: nwse-resize;
+}

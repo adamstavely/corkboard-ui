@@ -12,11 +12,12 @@ import type { Editor } from '@tiptap/core';
 import { NOTE_COLORS, type BoardDoc, type NoteColor } from './board-doc';
 import { NoteView } from './note';
 import type { Presence } from './presence';
-import { intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
+import { contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
 type Gesture =
   | { kind: 'pan'; last: Point }
-  | { kind: 'drag'; last: Point; moved: boolean }
+  | { kind: 'drag'; last: Point; moved: boolean; ids: Set<string> }
+  | { kind: 'resize'; id: string; start: Point; size: { w: number; h: number } }
   | { kind: 'marquee'; start: Point; base: Set<string> };
 
 /** The formats a note supports, from Trench Coat's bar; checklists wait for a task-list extension. */
@@ -48,9 +49,10 @@ const isEditable = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 
 /**
- * The board: an endless surface to pan and zoom, with notes to add, select, drag and edit. Drag the background to
- * select with a box; hold Space (or use the middle button) and drag to pan; scroll to pan, and pinch or Ctrl/⌘-scroll
- * to zoom. Double-click empty space to add a note, or a note to write in it.
+ * The board: an endless surface to pan and zoom, with notes to add, select, drag and edit, and frames that group them.
+ * Drag the background to select with a box; hold Space (or use the middle button) and drag to pan; scroll to pan, and
+ * pinch or Ctrl/⌘-scroll to zoom. Double-click empty space to add a note, a note to write in it, or a frame's title to
+ * rename it. A frame is picked up by its title, carries its notes with it, and resizes from its corner.
  */
 @Component({
   selector: 'app-canvas',
@@ -64,12 +66,14 @@ export class Canvas {
   readonly presence = input<Presence | undefined>(undefined);
   /** The live connection, for others' carets inside notes. */
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
-  /** The selected notes, whenever they change (the assistant works on them). */
+  /** The selected notes, and those in selected frames, whenever they change (the assistant works on them). */
   readonly selectionChange = output<readonly string[]>();
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
   protected readonly editing = signal<string | null>(null);
+  /** The frame whose title is being edited. */
+  protected readonly renaming = signal<string | null>(null);
   protected readonly marquee = signal<Rect | null>(null);
   protected readonly spaceHeld = signal(false);
   protected readonly panning = signal(false);
@@ -78,6 +82,7 @@ export class Canvas {
   protected readonly formatItems = FORMAT_ITEMS;
 
   private readonly surface = viewChild.required<ElementRef<HTMLElement>>('surface');
+  private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>('renameInput');
   #gesture: Gesture | undefined;
 
   protected readonly worldTransform = computed(() => {
@@ -85,6 +90,7 @@ export class Canvas {
     return `translate(${x}px, ${y}px) scale(${zoom})`;
   });
   protected readonly gridSize = computed(() => GRID * this.viewport().zoom);
+  protected readonly hasNotesSelected = computed(() => this.board().notes().some((n) => this.selection().has(n.id)));
   protected readonly zoomPercent = computed(() => `${Math.round(this.viewport().zoom * 100)}%`);
 
   /** The marquee is drawn in screen space, so it stays crisp at any zoom. */
@@ -125,14 +131,29 @@ export class Canvas {
   constructor() {
     // Others see what this person has selected and which note they're writing in.
     effect(() => this.presence()?.setSelection(this.selection()));
-    effect(() => this.selectionChange.emit([...this.selection()]));
+    effect(() => {
+      const selection = this.selection();
+      const board = this.board();
+      const notes = board.notes().filter((n) => selection.has(n.id)).map((n) => n.id);
+      const frames = board.frames().filter((f) => selection.has(f.id)).map((f) => f.id);
+      this.selectionChange.emit([...new Set([...notes, ...untracked(() => board.notesIn(frames))])]);
+    });
+    effect(() => {
+      const input = this.renameInput()?.nativeElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    });
     effect(() => this.presence()?.setEditing(this.editing()));
 
-    // A note that's gone – deleted by someone else, or by undo – can't stay selected or open here.
+    // A note or frame that's gone – deleted by someone else, or by undo – can't stay selected or open here.
     effect(() => {
-      const ids = new Set(this.board().notes().map((n) => n.id));
+      const ids = new Set([...this.board().notes(), ...this.board().frames()].map((n) => n.id));
       const editing = this.editing();
       if (editing && !ids.has(editing)) this.editing.set(null);
+      const renaming = this.renaming();
+      if (renaming && !ids.has(renaming)) this.renaming.set(null);
       const selection = untracked(this.selection);
       if ([...selection].some((id) => !ids.has(id))) this.selection.set(new Set([...selection].filter((id) => ids.has(id))));
     });
@@ -164,10 +185,12 @@ export class Canvas {
   protected onPointerDown(e: PointerEvent): void {
     const target = e.target as HTMLElement;
     const noteEl = target.closest<HTMLElement>('app-note');
-    const id = noteEl?.dataset['noteId'];
-    // Inside the note being edited, the pointer is the editor's.
+    // A frame is grabbed by its title; its body is open board, for selecting and adding the notes inside it.
+    const frameId = noteEl ? undefined : target.closest<HTMLElement>('.frame-title, .frame-resize')?.closest<HTMLElement>('.frame')?.dataset['frameId'];
+    const id = noteEl?.dataset['noteId'] ?? frameId;
+    // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
-    if (target.closest('.toolbar')) return;
+    if (target.closest('.toolbar') || target.closest('.frame-rename')) return;
 
     // Moves and releases are followed on the window (see below) rather than by capturing the pointer, which would
     // retarget the double-click that opens a note.
@@ -182,6 +205,13 @@ export class Canvas {
     if (e.button !== 0) return;
     this.editing.set(null);
 
+    if (frameId && target.closest('.frame-resize')) {
+      const frame = this.board().frames().find((f) => f.id === frameId)!;
+      this.board().undo.stopCapturing();
+      this.#gesture = { kind: 'resize', id: frameId, start: screen, size: { w: frame.w, h: frame.h } };
+      return;
+    }
+
     if (id) {
       const selected = this.selection();
       if (e.shiftKey) {
@@ -193,9 +223,12 @@ export class Canvas {
       } else if (!selected.has(id)) {
         this.selection.set(new Set([id]));
       }
-      this.board().bringToFront(this.selection());
+      // Frames carry the notes inside them.
+      const frames = this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id);
+      const ids = new Set([...this.selection(), ...this.board().notesIn(frames)]);
+      this.board().bringToFront(ids);
       this.board().undo.stopCapturing();
-      this.#gesture = { kind: 'drag', last: screen, moved: false };
+      this.#gesture = { kind: 'drag', last: screen, moved: false, ids };
       return;
     }
 
@@ -216,16 +249,26 @@ export class Canvas {
       g.last = screen;
     } else if (g.kind === 'drag') {
       const zoom = this.viewport().zoom;
-      this.board().move(this.selection(), (screen.x - g.last.x) / zoom, (screen.y - g.last.y) / zoom);
+      this.board().move(g.ids, (screen.x - g.last.x) / zoom, (screen.y - g.last.y) / zoom);
       g.last = screen;
       g.moved = true;
+    } else if (g.kind === 'resize') {
+      const zoom = this.viewport().zoom;
+      this.board().resizeFrame(g.id, g.size.w + (screen.x - g.start.x) / zoom, g.size.h + (screen.y - g.start.y) / zoom);
     } else {
       const rect = rectFrom(g.start, toWorld(this.viewport(), screen));
       this.marquee.set(rect);
-      const hit = this.board()
-        .notes()
-        .filter((n) => intersects(rect, n))
-        .map((n) => n.id);
+      // Notes the box touches, and frames it takes in whole.
+      const hit = [
+        ...this.board()
+          .notes()
+          .filter((n) => intersects(rect, n))
+          .map((n) => n.id),
+        ...this.board()
+          .frames()
+          .filter((f) => contains(rect, f))
+          .map((f) => f.id),
+      ];
       this.selection.set(new Set([...g.base, ...hit]));
     }
   }
@@ -233,13 +276,19 @@ export class Canvas {
   @HostListener('window:pointerup')
   @HostListener('window:pointercancel')
   protected onPointerUp(): void {
-    if (this.#gesture?.kind === 'drag' && this.#gesture.moved) this.board().undo.stopCapturing();
+    if ((this.#gesture?.kind === 'drag' && this.#gesture.moved) || this.#gesture?.kind === 'resize') this.board().undo.stopCapturing();
     this.#gesture = undefined;
     this.marquee.set(null);
     this.panning.set(false);
   }
 
   protected onDoubleClick(e: MouseEvent): void {
+    const frameId = (e.target as HTMLElement).closest('.frame-title')?.closest<HTMLElement>('.frame')?.dataset['frameId'];
+    if (frameId) {
+      this.#rename(frameId);
+      return;
+    }
+    if ((e.target as HTMLElement).closest('.frame-rename')) return;
     const id = (e.target as HTMLElement).closest<HTMLElement>('app-note')?.dataset['noteId'];
     if (id) {
       if (id !== this.editing()) this.#edit(id);
@@ -283,7 +332,9 @@ export class Canvas {
       this.selection.set(new Set());
     } else if (e.key === 'Enter' && this.selection().size === 1) {
       e.preventDefault();
-      this.#edit([...this.selection()][0]);
+      const [id] = this.selection();
+      if (this.board().frames().some((f) => f.id === id)) this.#rename(id);
+      else this.#edit(id);
     } else if (mod && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       if (e.shiftKey) this.board().undo.redo();
@@ -293,7 +344,7 @@ export class Canvas {
       this.board().undo.redo();
     } else if (mod && e.key.toLowerCase() === 'a') {
       e.preventDefault();
-      this.selection.set(new Set(this.board().notes().map((n) => n.id)));
+      this.selection.set(new Set([...this.board().frames(), ...this.board().notes()].map((n) => n.id)));
     }
   }
 
@@ -315,6 +366,25 @@ export class Canvas {
     const jitter = () => (Math.random() - 0.5) * 60;
     const at = toWorld(this.viewport(), { x: width / 2 + jitter(), y: height / 2 + jitter() });
     this.#edit(this.board().addNote(at.x, at.y));
+  }
+
+  /** Adds a frame around the selected notes, or an empty one in the middle of the view, and names it. */
+  protected addFrame(): void {
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const at = toWorld(this.viewport(), { x: width / 2, y: height / 2 });
+    const around = this.board().notes().filter((n) => this.selection().has(n.id));
+    this.#rename(this.board().addFrame(at.x, at.y, around));
+  }
+
+  protected finishRename(id: string, input: HTMLInputElement, keep: boolean): void {
+    if (this.renaming() !== id) return;
+    this.renaming.set(null);
+    if (keep) this.board().renameFrame(id, input.value.trim());
+  }
+
+  protected onRenameKey(id: string, e: KeyboardEvent): void {
+    if (e.key === 'Enter') this.finishRename(id, e.target as HTMLInputElement, true);
+    else if (e.key === 'Escape') this.finishRename(id, e.target as HTMLInputElement, false);
   }
 
   protected setColor(color: NoteColor): void {
@@ -356,6 +426,12 @@ export class Canvas {
     const { width, height } = this.surface().nativeElement.getBoundingClientRect();
     const over = screen.x >= 0 && screen.y >= 0 && screen.x <= width && screen.y <= height && e.pointerType !== 'touch';
     presence.setPointer(over ? toWorld(this.viewport(), screen) : null);
+  }
+
+  #rename(id: string): void {
+    this.editing.set(null);
+    this.selection.set(new Set([id]));
+    this.renaming.set(id);
   }
 
   #edit(id: string): void {

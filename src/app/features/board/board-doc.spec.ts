@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { BoardDoc, NOTE_SIZE } from './board-doc';
+import { BoardDoc, FRAME_MIN, FRAME_PADDING, FRAME_SIZE, FRAME_TITLE, NOTE_SIZE } from './board-doc';
 
 describe('BoardDoc', () => {
   let board: BoardDoc;
@@ -70,5 +70,35 @@ describe('BoardDoc', () => {
     expect(copy.notes()[0].text.toString()).toBe('<paragraph>Hello</paragraph>');
     expect(copy.undo.canUndo()).toBe(false);
     copy.destroy();
+  });
+
+  it('adds frames around notes or on their own, and knows which notes are in them', () => {
+    const a = board.addNote(100, 100);
+    const b = board.addNote(400, 300);
+    const far = board.addNote(2000, 2000);
+    const around = board.addFrame(0, 0, board.notes().filter((n) => n.id !== far), 'Delivery');
+    const [frame] = board.frames();
+    expect(frame).toMatchObject({ id: around, title: 'Delivery', x: 100 - NOTE_SIZE.w / 2 - FRAME_PADDING, y: 100 - NOTE_SIZE.h / 2 - FRAME_TITLE });
+    expect(board.notesIn([around]).sort()).toEqual([a, b].sort());
+
+    const blank = board.addFrame(1000, 1000);
+    expect(board.frames().find((f) => f.id === blank)).toMatchObject({ ...FRAME_SIZE, title: 'Frame' });
+    expect(board.notes()).toHaveLength(3);
+  });
+
+  it('renames and resizes frames, never below the minimum, and leaves notes alone when recolouring', () => {
+    const id = board.addFrame(0, 0);
+    board.renameFrame(id, 'Risks');
+    // The canvas makes each resize gesture its own undo step.
+    board.undo.stopCapturing();
+    board.resizeFrame(id, 10, 900);
+    board.undo.stopCapturing();
+    expect(board.frames()[0]).toMatchObject({ title: 'Risks', w: FRAME_MIN.w, h: 900 });
+    board.setColor([id], 'pink');
+    expect(board.doc.getMap<Y.Map<unknown>>('nodes').get(id)!.has('color')).toBe(false);
+    board.undo.undo();
+    expect(board.frames()[0]).toMatchObject({ title: 'Risks', ...FRAME_SIZE });
+    board.undo.undo();
+    expect(board.frames()[0].title).toBe('Frame');
   });
 });
