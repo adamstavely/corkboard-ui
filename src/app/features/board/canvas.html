@@ -84,6 +84,15 @@
         ></button>
       }
     </div>
+    <tc-button
+      size="sm"
+      variant="ghost"
+      label="Delete"
+      [attr.aria-label]="deleteLabel()"
+      [title]="deleteLabel() + ' (Delete key)'"
+      [disabled]="selection().size === 0"
+      (click)="deleteSelection()"
+    ></tc-button>
     <span class="divider" aria-hidden="true"></span>
     <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>
     <tc-button size="sm" variant="ghost" [label]="zoomPercent()" aria-label="Reset zoom to 100%" (click)="resetZoom()"></tc-button>
