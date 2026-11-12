@@ -1,10 +1,17 @@
 import { changesLine } from './assistant';
 
 describe('changesLine', () => {
+  const none = { notesAdded: 0, notesChanged: 0, framesAdded: 0, notesMoved: 0 };
+
   it('says what the model did on the board', () => {
-    expect(changesLine(0, 0)).toBe('');
-    expect(changesLine(1, 0)).toBe('Added 1 note.');
-    expect(changesLine(3, 2)).toBe('Added 3 notes and recoloured 2.');
-    expect(changesLine(0, 4)).toBe('Recoloured 4.');
+    expect(changesLine(none)).toBe('');
+    expect(changesLine({ ...none, notesAdded: 1 })).toBe('Added 1 note.');
+    expect(changesLine({ ...none, notesAdded: 3, notesChanged: 2 })).toBe('Added 3 notes and recoloured 2.');
+    expect(changesLine({ ...none, notesChanged: 4 })).toBe('Recoloured 4.');
+  });
+
+  it('counts frames and the notes moved into them', () => {
+    expect(changesLine({ ...none, framesAdded: 4, notesMoved: 12, notesAdded: 3 })).toBe('Made 4 frames, moved 12 notes into them and added 3 notes.');
+    expect(changesLine({ ...none, framesAdded: 1, notesMoved: 1 })).toBe('Made 1 frame and moved 1 note into it.');
   });
 });

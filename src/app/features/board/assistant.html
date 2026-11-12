@@ -4,7 +4,7 @@
       <tc-select label="Model" [options]="options()" [value]="modelId() ?? ''" (tc-value-change)="choose($event.detail.value)"></tc-select>
     }
     <span class="spacer"></span>
-    <tc-button size="sm" variant="ghost" label="Close" (click)="closed.emit()"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
   </div>
 
   @if (models.isLoading() && !models.hasValue()) {

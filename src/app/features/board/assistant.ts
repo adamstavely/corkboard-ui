@@ -10,15 +10,21 @@ import { providersControllerList } from '../../api/generated/fn/models/providers
 
 const MODEL_KEY = 'corkboard.model';
 
-const SUGGESTIONS = ['Summarise this', 'Group these by theme and colour each group', 'Draft action items as notes'];
+const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Summarise this'];
 
-/** "Added 3 notes and recoloured 2." – what the model did on the board, after what it said. */
-export function changesLine(added: number, changed: number): string {
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** "Made 3 frames, moved 9 notes into them and added 2 notes." – what the model did on the board, after what it said. */
+export function changesLine(result: { notesAdded: number; notesChanged: number; framesAdded: number; notesMoved: number }): string {
   const parts = [
-    added ? `added ${added} note${added === 1 ? '' : 's'}` : '',
-    changed ? `recoloured ${changed}` : '',
+    result.framesAdded ? `made ${plural(result.framesAdded, 'frame')}` : '',
+    result.notesMoved ? `moved ${plural(result.notesMoved, 'note')} into ${result.framesAdded === 1 ? 'it' : 'them'}` : '',
+    result.notesAdded ? `added ${plural(result.notesAdded, 'note')}` : '',
+    result.notesChanged ? `recoloured ${result.notesChanged}` : '',
   ].filter(Boolean);
-  return parts.length ? `${parts.join(' and ')[0].toUpperCase()}${parts.join(' and ').slice(1)}.` : '';
+  if (!parts.length) return '';
+  const line = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
+  return `${line[0].toUpperCase()}${line.slice(1)}.`;
 }
 
 function storedModel(): string | null {
@@ -90,7 +96,7 @@ export class Assistant {
         id: this.boardId(),
         body: { modelId, instruction: message, ...(noteIds.length ? { noteIds } : {}) },
       });
-      const changes = changesLine(result.notesAdded, result.notesChanged);
+      const changes = changesLine(result);
       return changes ? `${result.reply}\n\n${changes}` : result.reply;
     } catch (err) {
       const text = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;

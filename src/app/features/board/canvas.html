@@ -10,6 +10,36 @@
   (wheel)="onWheel($event)"
 >
   <div class="world" [style.transform]="worldTransform()">
+    @for (frame of board().frames(); track frame.id) {
+      <div
+        class="frame"
+        [attr.data-frame-id]="frame.id"
+        [class.selected]="selection().has(frame.id)"
+        [style.left.px]="frame.x"
+        [style.top.px]="frame.y"
+        [style.width.px]="frame.w"
+        [style.height.px]="frame.h"
+        [style.--peer-color]="peerMarks().get(frame.id)?.color ?? null"
+        [class.peer]="peerMarks().has(frame.id)"
+      >
+        @if (renaming() === frame.id) {
+          <input
+            #renameInput
+            class="frame-rename"
+            aria-label="Frame title"
+            maxlength="200"
+            [value]="frame.title"
+            (keydown)="onRenameKey(frame.id, $event)"
+            (blur)="finishRename(frame.id, renameInput, true)"
+          />
+        } @else {
+          <div class="frame-title" [title]="frame.title || 'Untitled frame'">{{ frame.title || 'Untitled frame' }}</div>
+        }
+        @if (selection().has(frame.id) && selection().size === 1) {
+          <div class="frame-resize" aria-hidden="true"></div>
+        }
+      </div>
+    }
     @for (note of board().notes(); track note.id) {
       <app-note
         [note]="note"
@@ -33,12 +63,13 @@
     <div class="marquee" [style.left.px]="m.x" [style.top.px]="m.y" [style.width.px]="m.w" [style.height.px]="m.h"></div>
   }
 
-  @if (board().notes().length === 0) {
+  @if (board().notes().length === 0 && board().frames().length === 0) {
     <p class="hint">Double-click anywhere to add a note</p>
   }
 
   <div class="toolbar" role="toolbar" aria-label="Board">
     <tc-button size="sm" variant="secondary" label="Add note" (click)="addNote()"></tc-button>
+    <tc-button size="sm" variant="ghost" [label]="hasNotesSelected() ? 'Frame selection' : 'Add frame'" (click)="addFrame()"></tc-button>
     <span class="divider" aria-hidden="true"></span>
     <div class="swatches" role="group" aria-label="Colour of selected notes">
       @for (color of colors; track color.id) {
