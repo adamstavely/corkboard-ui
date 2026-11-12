@@ -56,36 +56,35 @@
 }
 
 .people {
-  display: flex;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  position: absolute;
+  top: var(--tc-space-3);
+  right: var(--tc-space-4);
+  z-index: 2;
+  /* Sized for 32px avatars: a deeper overlap, and its "+N" as tall as they are. */
+  --tc-sspr-overlap: 12px;
+  --tc-control-h-sm: 32px;
 }
+
+/* Right to left, the browser would show the count as "2+"; its text keeps its own order (its layout stays RTL). */
+.people ::ng-deep .ui-sspr__more {
+  unicode-bidi: plaintext;
+}
+
+/* Each person's avatar; tc-stack-spread overlaps them, fans them on hover and counts the rest. */
 .person {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  margin-left: -6px;
-  border: 2px solid var(--tc-surface-raised);
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--app-canvas);
   border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--tc-font-weight-semibold);
-}
-.person:first-child {
-  margin-left: 0;
+  cursor: default;
 }
 
 .status.offline {
   color: var(--tc-status-warning-fg);
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }

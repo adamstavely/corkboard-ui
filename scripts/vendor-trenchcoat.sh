@@ -8,7 +8,9 @@ cd "$(dirname "$0")/.."
 
 export NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN:-$(gh auth token)}"
 tgz="vendor/adamstavely-trenchcoat-${version}.tgz"
-npm pack "@adamstavely/trenchcoat@${version}" --pack-destination vendor --registry https://npm.pkg.github.com >/dev/null
+# The token goes on the command line: there's no .npmrc here to map NODE_AUTH_TOKEN to the registry.
+npm pack "@adamstavely/trenchcoat@${version}" --pack-destination vendor --registry https://npm.pkg.github.com \
+  "--//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >/dev/null
 
 # One release in the repo at a time.
 find vendor -name 'adamstavely-trenchcoat-*.tgz' ! -path "$tgz" -delete

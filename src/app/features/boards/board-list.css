@@ -19,6 +19,26 @@ h1 {
   color: var(--tc-text-strong);
 }
 
+.actions {
+  display: flex;
+  gap: var(--tc-space-2);
+}
+
+.invite {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  margin-bottom: var(--tc-space-4);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+}
+.invite p {
+  flex: 1;
+  margin: 0;
+}
+
 .workspace {
   margin: var(--tc-space-1) 0 0;
   color: var(--tc-text-muted);
