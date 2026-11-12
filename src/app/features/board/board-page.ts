@@ -8,13 +8,30 @@ import { Api } from '../../api/generated/api';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
 import { boardsControllerRename } from '../../api/generated/fn/boards/boards-controller-rename';
+import { Auth } from '../../core/auth';
+import { Session } from '../../core/session';
+import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
-import { BoardSync } from './board-sync';
 import { Canvas } from './canvas';
+import { colorFor, type PresenceUser } from './presence';
 
-const STATUS_TEXT = { loading: 'Loading…', saving: 'Saving…', saved: 'Saved', error: "Couldn't save – retrying" } as const;
+const STATUS_TEXT: Record<ConnectionStatus, string> = {
+  connecting: 'Connecting…',
+  saving: 'Saving…',
+  saved: 'Saved',
+  offline: 'Offline – your changes will sync when you reconnect',
+  denied: '',
+};
 
-/** One board: its title, how saving is going, and the canvas. */
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+
+/** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
   imports: [Canvas, Button, Dialog, Skeleton],
@@ -24,6 +41,8 @@ const STATUS_TEXT = { loading: 'Loading…', saving: 'Saving…', saved: 'Saved'
 export class BoardPage {
   readonly #api = inject(Api);
   readonly #router = inject(Router);
+  readonly #auth = inject(Auth);
+  readonly #session = inject(Session);
 
   /** From the route. */
   readonly id = input.required<string>();
@@ -34,10 +53,19 @@ export class BoardPage {
   });
 
   protected readonly board = signal<BoardDoc | undefined>(undefined);
-  protected readonly loadFailed = signal(false);
-  readonly #sync = signal<BoardSync | undefined>(undefined);
+  protected readonly connection = signal<BoardConnection | undefined>(undefined);
 
-  protected readonly status = computed(() => STATUS_TEXT[this.#sync()?.status() ?? 'loading']);
+  protected readonly status = computed<ConnectionStatus>(() => this.connection()?.status() ?? 'connecting');
+  protected readonly statusText = computed(() => STATUS_TEXT[this.status()]);
+
+  /** Everyone else here, once each however many tabs they have open. */
+  protected readonly people = computed(() => {
+    const seen = new Map<string, { id: string; name: string; initials: string; color: string }>();
+    for (const { user } of this.connection()?.presence.peers() ?? []) {
+      if (!seen.has(user.id)) seen.set(user.id, { ...user, initials: initials(user.name) });
+    }
+    return [...seen.values()];
+  });
 
   protected readonly title = signal('');
   protected readonly confirmDelete = signal(false);
@@ -48,39 +76,31 @@ export class BoardPage {
       if (this.meta.hasValue()) this.title.set(this.meta.value().title);
     });
 
-    // A fresh document per board; the old one is saved and let go.
+    // A live document per board, joined once we know who's joining it; leaving the board lets it go.
     effect((onCleanup) => {
       const id = this.id();
+      const me = this.#session.me.hasValue() ? this.#session.me.value() : undefined;
+      if (!me) return;
       untracked(() => {
+        const user: PresenceUser = { id: me.id, name: me.name, color: colorFor(me.id) };
         const board = new BoardDoc();
-        const sync = new BoardSync(this.#api, id, board);
-        let alive = true;
-        sync.load().then(
-          () => {
-            if (!alive) return;
-            this.#sync.set(sync);
-            this.board.set(board);
-          },
-          () => alive && this.loadFailed.set(true),
-        );
+        const connection = new BoardConnection(id, board, () => this.#auth.accessToken() ?? '', user);
+        this.board.set(board);
+        this.connection.set(connection);
         onCleanup(() => {
-          alive = false;
           this.board.set(undefined);
-          this.#sync.set(undefined);
-          void sync.flush().finally(() => {
-            sync.destroy();
-            board.destroy();
-          });
+          this.connection.set(undefined);
+          connection.destroy();
+          board.destroy();
         });
       });
     });
   }
 
-  /** Warn before closing the tab while changes are still on their way. */
+  /** Warn before closing the tab while changes are still on their way to the server. */
   @HostListener('window:beforeunload', ['$event'])
   protected onBeforeUnload(e: BeforeUnloadEvent): void {
-    const status = this.#sync()?.status();
-    if (status === 'saving' || status === 'error') e.preventDefault();
+    if (this.connection()?.pending()) e.preventDefault();
   }
 
   protected async rename(): Promise<void> {
@@ -121,7 +141,6 @@ export class BoardPage {
     this.deleting.set(true);
     try {
       await this.#api.invoke(boardsControllerRemove, { id: this.id() });
-      this.#sync()?.destroy();
       this.confirmDelete.set(false);
       await this.#router.navigateByUrl('/');
     } finally {

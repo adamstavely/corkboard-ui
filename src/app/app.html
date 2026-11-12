@@ -4,6 +4,12 @@
     @if (showHeader()) {
       <header class="topbar">
         <tc-header-brand name="Corkboard" href="/" (tc-navigate)="onBrandNavigate($event)"></tc-header-brand>
+        <!-- Loaded once the page is idle, so the command menu isn't part of the first download. -->
+        @if (session.org()) {
+          @defer (on idle) {
+            <app-board-search />
+          }
+        }
         <tc-header-nav [user]="auth.profile()" [accountItems]="accountItems()" (tc-account-select)="onAccountSelect($event)"></tc-header-nav>
       </header>
     }

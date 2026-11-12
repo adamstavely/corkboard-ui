@@ -13,7 +13,6 @@ app-note {
   color: var(--tc-text-primary);
   font-size: 15px;
   line-height: 1.4;
-  overflow: hidden;
   cursor: grab;
   user-select: none;
 }
@@ -23,14 +22,37 @@ app-note.selected {
   outline-offset: 2px;
 }
 
+app-note.peer-selected:not(.selected) {
+  outline: 2px dashed var(--peer-color);
+  outline-offset: 2px;
+}
+
+/* Who else has this note: a tag above its top edge (so the note can't clip it, it isn't overflow-hidden). */
+app-note .note-peer {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  padding: 1px 6px;
+  border-radius: var(--tc-radius-sm);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 app-note.editing {
   cursor: text;
   user-select: text;
+}
+app-note.editing .text {
   overflow: auto;
 }
 
 app-note .text {
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
   overflow-wrap: anywhere;
 }
 
@@ -57,4 +79,23 @@ app-note .text :is(code, pre) {
 app-note .ProseMirror {
   outline: none;
   min-height: 100%;
+}
+
+/* Others' carets while editing the same note (Tiptap's CollaborationCaret, drawn by note-text.ts). */
+app-note .note-caret {
+  position: relative;
+  margin: 0 -1px;
+  border-left: 2px solid;
+  pointer-events: none;
+}
+app-note .note-caret__label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
 }
