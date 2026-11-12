@@ -101,4 +101,13 @@ describe('BoardDoc', () => {
     board.undo.undo();
     expect(board.frames()[0].title).toBe('Frame');
   });
+
+  it('finds the frames inside a frame, as a timeline holds its columns', () => {
+    const outer = board.addFrame(0, 0, [{ x: 0, y: 0, w: 1000, h: 600 }], 'Plan');
+    const inner = board.addFrame(0, 0, [{ x: 100, y: 100, w: 200, h: 200 }], 'Week 1');
+    const outside = board.addFrame(5000, 5000);
+    expect(board.withInnerFrames([outer]).sort()).toEqual([outer, inner].sort());
+    expect(board.withInnerFrames([inner])).toEqual([inner]);
+    expect(board.withInnerFrames([outside])).toEqual([outside]);
+  });
 });
