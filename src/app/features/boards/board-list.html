@@ -1,0 +1,36 @@
+<div class="page">
+  <div class="heading">
+    <div>
+      <h1>Boards</h1>
+      @if (session.org(); as org) {
+        <p class="workspace">{{ org.name }}</p>
+      }
+    </div>
+    <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
+  </div>
+
+  @if (boards.isLoading() && !boards.hasValue()) {
+    <tc-skeleton aria-label="Loading boards"></tc-skeleton>
+  } @else if (boards.error()) {
+    <p role="alert">Boards couldn't be loaded. Refresh to try again.</p>
+  } @else if (cards().length === 0) {
+    <div class="empty">
+      <tc-first-use caption="No boards yet" label="Start a board for your next retro or plan"></tc-first-use>
+      <tc-button label="Create your first board" variant="secondary" [loading]="creating()" (click)="create()"></tc-button>
+    </div>
+  } @else {
+    <ul class="grid">
+      @for (board of cards(); track board.id) {
+        <li>
+          <tc-collection-card
+            [heading]="board.title"
+            [meta]="board.meta"
+            [href]="board.href"
+            action-label="Open board"
+            (tc-open)="open($event, board.href)"
+          ></tc-collection-card>
+        </li>
+      }
+    </ul>
+  }
+</div>

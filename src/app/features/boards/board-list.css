@@ -1,0 +1,41 @@
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--tc-space-8) var(--tc-space-4);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tc-space-4);
+  margin-bottom: var(--tc-space-6);
+}
+
+h1 {
+  margin: 0;
+  font-size: var(--tc-font-size-2xl);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+
+.workspace {
+  margin: var(--tc-space-1) 0 0;
+  color: var(--tc-text-muted);
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--tc-space-4);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tc-space-4);
+}

@@ -1,0 +1,60 @@
+/* Unencapsulated: the note's text is DOM that Tiptap and the static renderer make, which Angular's scoping can't reach. */
+app-note {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  padding: var(--tc-space-3);
+  background: var(--note-fill);
+  border-radius: var(--tc-radius-sm);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.12),
+    0 4px 12px rgb(0 0 0 / 0.08);
+  color: var(--tc-text-primary);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+app-note.selected {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}
+
+app-note.editing {
+  cursor: text;
+  user-select: text;
+  overflow: auto;
+}
+
+app-note .text {
+  min-height: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Tiptap's editable root, and the static copy drawn from the same schema. */
+app-note .text :is(p, ul, ol, h1, h2, h3, pre, blockquote) {
+  margin: 0 0 0.4em;
+}
+app-note .text :is(ul, ol) {
+  padding-left: 1.2em;
+}
+app-note .text h1 {
+  font-size: 1.4em;
+}
+app-note .text h2 {
+  font-size: 1.2em;
+}
+app-note .text h3 {
+  font-size: 1.05em;
+}
+app-note .text :is(code, pre) {
+  font-family: var(--tc-font-mono);
+  font-size: 0.9em;
+}
+app-note .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}

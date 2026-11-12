@@ -1,0 +1,87 @@
+:host {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+.surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  background-color: var(--app-canvas);
+  background-image: radial-gradient(circle, var(--tc-border-default) 1px, transparent 1.2px);
+}
+.surface.can-pan {
+  cursor: grab;
+}
+.surface.panning {
+  cursor: grabbing;
+}
+
+.world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.marquee {
+  position: absolute;
+  border: 1px solid var(--tc-accent-text);
+  background: color-mix(in srgb, var(--tc-accent-text) 10%, transparent);
+  pointer-events: none;
+}
+
+.hint {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  text-align: center;
+  color: var(--tc-text-muted);
+  pointer-events: none;
+}
+
+.toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--tc-space-4);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-2);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
+}
+
+.divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--tc-border-subtle);
+}
+
+.swatches {
+  display: flex;
+  gap: var(--tc-space-1);
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--tc-border-default);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.swatch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.swatch:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}

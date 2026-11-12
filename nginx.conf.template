@@ -1,0 +1,35 @@
+# Rendered by the nginx image's envsubst step (API_UPSTREAM comes from the environment).
+server {
+  listen 8080;
+  root /usr/share/nginx/html;
+
+  # The API, WebSocket upgrades included (real-time sync arrives on the same path).
+  location /api/ {
+    proxy_pass ${API_UPSTREAM}/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $http_connection;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # Board documents are saved whole until real-time sync lands.
+    client_max_body_size 16m;
+  }
+
+  # Per-deployment settings: never cached, so a changed provider takes effect at once.
+  location = /config.json {
+    add_header Cache-Control "no-store";
+  }
+
+  # Hashed build output can be cached for good.
+  location ~* \.(?:js|css|woff2?)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+  }
+
+  # Everything else is the single-page app; index.html is never cached so deploys show up at once.
+  location / {
+    add_header Cache-Control "no-cache";
+    try_files $uri /index.html;
+  }
+}

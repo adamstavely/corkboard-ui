@@ -1,0 +1,36 @@
+<div class="page">
+  <div class="bar">
+    <tc-button size="sm" variant="ghost" label="All boards" (click)="back()"></tc-button>
+    <input
+      class="title"
+      aria-label="Board title"
+      maxlength="200"
+      [value]="title()"
+      (input)="title.set($any($event.target).value)"
+      (blur)="rename()"
+      (keydown)="onTitleKey($event)"
+    />
+    <span class="status" role="status">{{ status() }}</span>
+    <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
+  </div>
+
+  <div class="stage">
+    @if (board(); as board) {
+      <app-canvas [board]="board" />
+    } @else if (loadFailed() || meta.error()) {
+      <p class="problem" role="alert">This board couldn't be opened. It may have been deleted, or you may not have access.</p>
+    } @else {
+      <tc-skeleton aria-label="Loading board"></tc-skeleton>
+    }
+  </div>
+</div>
+
+<tc-dialog
+  size="sm"
+  label="Delete this board?"
+  text="Everyone in the workspace loses it, with all its notes. This can't be undone."
+  close-label="Cancel"
+  [open]="confirmDelete()"
+  [actions]="deleteActions()"
+  (tc-open-change)="confirmDelete.set($event.detail.open)"
+></tc-dialog>

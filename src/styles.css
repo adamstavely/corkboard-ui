@@ -1,0 +1,23 @@
+@import '@adamstavely/trenchcoat/tokens.css';
+@import '@fontsource-variable/inter';
+
+:root {
+  --app-canvas: light-dark(#f4f4f2, var(--tc-surface-base));
+
+  /* Sticky-note fills. Pastels in light mode; muted, darker versions in dark mode so text keeps its contrast. */
+  --note-yellow: light-dark(#fff3a8, #5c5222);
+  --note-pink: light-dark(#ffd3e2, #5e2f40);
+  --note-blue: light-dark(#cfe6ff, #24405e);
+  --note-green: light-dark(#d4f2cf, #2c4a2a);
+  --note-purple: light-dark(#e6dbff, #3f3360);
+  --note-gray: light-dark(#ececec, #3a3a3a);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--app-canvas);
+  color: var(--tc-text-primary);
+  font-family: var(--tc-font-sans);
+}

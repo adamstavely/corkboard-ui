@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en" data-tc-look="clean">
+<head>
+  <meta charset="utf-8">
+  <title>Corkboard</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Apply a saved light/dark choice before first paint (see core/theme.ts); with none, the OS decides.
+    try {
+      var t = localStorage.getItem('corkboard.theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-tc-theme', t);
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>
