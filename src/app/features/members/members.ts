@@ -1,12 +1,7 @@
 import type { ShareGrant, ShareRecipient, ShareSubmit } from '@adamstavely/trenchcoat/share-panel';
 import type { MembersDto } from '../../api/generated/models/members-dto';
 
-export type Role = 'admin' | 'member';
-
-export const ROLE_LEVELS = [
-  { id: 'member', label: 'Member' },
-  { id: 'admin', label: 'Admin' },
-];
+import type { Role } from '../../core/roles';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,8 +23,9 @@ export function accessOf(list: MembersDto, meId: string | undefined): ShareGrant
       recipient: {
         id: `user:${m.userId}`,
         kind: 'person' as const,
-        name: m.userId === meId ? `${m.name} (you)` : m.name,
-        detail: m.email ?? undefined,
+        // "You" goes in the detail: in the name it would become part of the initials.
+        name: m.name,
+        detail: m.userId === meId ? ['You', m.email].filter(Boolean).join(' · ') : (m.email ?? undefined),
       },
       level: m.role,
     })),

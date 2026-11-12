@@ -15,6 +15,8 @@ import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
 import { Assistant } from './assistant';
 import { Canvas } from './canvas';
+import { BoardShare } from './board-share';
+import { atLeast, type Role } from '../../core/roles';
 import { colorFor, type PresenceUser } from './presence';
 
 const STATUS_TEXT: Record<ConnectionStatus, string> = {
@@ -36,7 +38,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, Assistant, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, Assistant, BoardShare, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -75,7 +77,15 @@ export class BoardPage {
 
 
 
+  /** Your role on this board, once it's known. */
+  protected readonly role = computed<Role | undefined>(() => (this.meta.hasValue() ? this.meta.value().role : undefined));
+  protected readonly canEdit = computed(() => atLeast(this.role(), 'updater'));
+  protected readonly isOwner = computed(() => this.role() === 'owner');
+  protected readonly readOnlyLabel = computed(() => (this.role() === 'commenter' ? 'You can comment' : 'View only'));
+  protected readonly meId = computed(() => this.#me()?.id);
+
   protected readonly assistantOpen = signal(false);
+  protected readonly shareOpen = signal(false);
   protected readonly selection = signal<readonly string[]>([]);
   protected readonly selectedFrames = signal<readonly string[]>([]);
   protected readonly canvas = viewChild(Canvas);
@@ -87,6 +97,11 @@ export class BoardPage {
   constructor() {
     effect(() => {
       if (this.meta.hasValue()) this.title.set(this.meta.value().title);
+    });
+
+    // The server reconnects someone whose role changed; ask again what they may do here once they're back in.
+    effect(() => {
+      if ((this.connection()?.signIns() ?? 0) > 1) untracked(() => this.meta.reload());
     });
 
     // A live document per board, joined once we know who's joining it; leaving the board lets it go.

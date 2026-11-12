@@ -15,7 +15,8 @@ import { membersControllerList } from '../../api/generated/fn/members/members-co
 import { membersControllerRemove } from '../../api/generated/fn/members/members-controller-remove';
 import { membersControllerRevokeInvite } from '../../api/generated/fn/members/members-controller-revoke-invite';
 import { Session } from '../../core/session';
-import { accessOf, changesOf, ROLE_LEVELS, searchFor, type Change } from './members';
+import { ROLE_LABELS, ROLE_LEVELS } from '../../core/roles';
+import { accessOf, changesOf, searchFor, type Change } from './members';
 
 const COLUMNS: DataColumn[] = [
   { key: 'name', label: 'Name', type: 'title' },
@@ -23,7 +24,7 @@ const COLUMNS: DataColumn[] = [
   { key: 'role', label: 'Role', type: 'tag' },
 ];
 
-/** Who's in the workspace. Admins invite people by email, change roles and remove people; anyone can leave. */
+/** Who's in the workspace. Owners invite people by email, change roles and remove people; anyone can leave. */
 @Component({
   selector: 'app-members-page',
   imports: [SharePanel, DataTable, Button, Skeleton],
@@ -40,7 +41,7 @@ export class MembersPage {
     loader: ({ params: orgId }) => this.#api.invoke(membersControllerList, { orgId }),
   });
 
-  protected readonly isAdmin = computed(() => this.session.org()?.role === 'admin');
+  protected readonly isOwner = computed(() => this.session.org()?.role === 'owner');
   protected readonly meId = computed(() => (this.session.me.hasValue() ? this.session.me.value().id : undefined));
 
   protected readonly levels = ROLE_LEVELS;
@@ -54,8 +55,8 @@ export class MembersPage {
     if (!this.list.hasValue()) return [];
     const { members, invites } = this.list.value();
     return [
-      ...members.map((m) => ({ id: m.userId, name: m.name, email: m.email ?? '', role: m.role === 'admin' ? 'Admin' : 'Member' })),
-      ...invites.map((i) => ({ id: i.id, name: i.email, email: 'Invited', role: i.role === 'admin' ? 'Admin' : 'Member' })),
+      ...members.map((m) => ({ id: m.userId, name: m.name, email: m.email ?? '', role: ROLE_LABELS[m.role] })),
+      ...invites.map((i) => ({ id: i.id, name: i.email, email: 'Invited', role: ROLE_LABELS[i.role] })),
     ];
   });
 
@@ -118,7 +119,7 @@ export class MembersPage {
   }
 }
 
-/** The API's own words for a refusal (it says why: last admin, already a member), or a general line. */
+/** The API's own words for a refusal (it says why: last owner, already a member), or a general line. */
 function messageOf(err: unknown): string {
   const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
   return typeof message === 'string' ? message : "Something didn't save. Try again.";

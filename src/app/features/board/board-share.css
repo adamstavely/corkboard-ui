@@ -1,0 +1,36 @@
+/* Docked at the board's upper right, under the people on it. */
+.share {
+  position: absolute;
+  top: calc(var(--tc-space-4) + 40px);
+  right: var(--tc-space-4);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  width: min(440px, calc(100% - 2 * var(--tc-space-4)));
+  max-height: calc(100% - 2 * var(--tc-space-4) - 96px);
+  overflow: auto;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+}
+.spacer {
+  flex: 1;
+}
+
+.problem,
+.note {
+  margin: 0;
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+.problem {
+  color: var(--tc-status-danger-fg);
+}
+.note {
+  color: var(--tc-text-muted);
+}

@@ -10,6 +10,8 @@ import { providersControllerList } from '../../api/generated/fn/models/providers
 
 const MODEL_KEY = 'corkboard.model';
 
+/** For people who can't change the board: questions only. */
+const QUESTIONS = ['Summarise this', 'What are the open questions?', 'Who owns what?'];
 const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn this plan into a timeline', 'Summarise this'];
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -62,6 +64,8 @@ export class Assistant {
   readonly selection = input<readonly string[]>([]);
   /** Titles of the selected frames, to name the region being asked about. */
   readonly frames = input<readonly string[]>([]);
+  /** Whether they may change the board; without, the assistant only answers. */
+  readonly canEdit = input(true);
   readonly closed = output<void>();
   /** Show these notes on the board: the ones the last answer is about. */
   readonly show = output<readonly string[]>();
@@ -85,7 +89,7 @@ export class Assistant {
   });
   protected readonly modelName = computed(() => this.options().find((o) => o.value === this.modelId())?.label ?? 'Assistant');
 
-  protected readonly suggestions = SUGGESTIONS;
+  protected readonly suggestions = computed(() => (this.canEdit() ? SUGGESTIONS : QUESTIONS));
   protected readonly scope = computed(() => scopeLine(this.selection().length, this.frames()));
 
   /** The selection when a message is sent, so a reply is about what was selected then. */

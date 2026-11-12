@@ -3,18 +3,18 @@ import { accessOf, changesOf, searchFor } from './members';
 
 const list: MembersDto = {
   members: [
-    { userId: 'u1', name: 'Ada', email: 'ada@x.test', role: 'admin' },
-    { userId: 'u2', name: 'Grace', email: 'grace@x.test', role: 'member' },
+    { userId: 'u1', name: 'Ada', email: 'ada@x.test', role: 'owner' },
+    { userId: 'u2', name: 'Grace', email: 'grace@x.test', role: 'updater' },
   ],
-  invites: [{ id: 'i1', email: 'alan@x.test', role: 'member', invitedByName: 'Ada', createdAt: '' }],
+  invites: [{ id: 'i1', email: 'alan@x.test', role: 'updater', invitedByName: 'Ada', createdAt: '' }],
 };
 
 describe('members', () => {
   it('lists members (marking you) and open invites with their roles', () => {
     expect(accessOf(list, 'u1').map((g) => [g.recipient.id, g.recipient.name, g.level])).toEqual([
-      ['user:u1', 'Ada (you)', 'admin'],
-      ['user:u2', 'Grace', 'member'],
-      ['invite:i1', 'alan@x.test', 'member'],
+      ['user:u1', 'Ada', 'owner'],
+      ['user:u2', 'Grace', 'updater'],
+      ['invite:i1', 'alan@x.test', 'updater'],
     ]);
   });
 
@@ -31,17 +31,17 @@ describe('members', () => {
     const person = (id: string) => ({ id, kind: 'person' as const, name: id });
     expect(
       changesOf({
-        add: [{ recipient: person('email:new@x.test'), level: 'admin' }],
+        add: [{ recipient: person('email:new@x.test'), level: 'owner' }],
         change: [
-          { recipient: person('user:u2'), level: 'admin' },
-          { recipient: person('invite:i1'), level: 'admin' },
+          { recipient: person('user:u2'), level: 'owner' },
+          { recipient: person('invite:i1'), level: 'owner' },
         ],
         remove: [person('user:u3'), person('invite:i2')],
       }),
     ).toEqual([
-      { op: 'invite', email: 'new@x.test', role: 'admin' },
-      { op: 'changeRole', userId: 'u2', role: 'admin' },
-      { op: 'changeInvite', inviteId: 'i1', role: 'admin' },
+      { op: 'invite', email: 'new@x.test', role: 'owner' },
+      { op: 'changeRole', userId: 'u2', role: 'owner' },
+      { op: 'changeInvite', inviteId: 'i1', role: 'owner' },
       { op: 'remove', userId: 'u3' },
       { op: 'revokeInvite', inviteId: 'i2' },
     ]);

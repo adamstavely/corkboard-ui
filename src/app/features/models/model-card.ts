@@ -13,7 +13,7 @@ import type { ProviderDto } from '../../api/generated/models/provider-dto';
 import { baseUrlOf, checkOf, DEFAULT_MODEL, ENTERED_KEY, PROVIDERS, SAVED_KEY, valueOf, type Kind } from './connection';
 
 /**
- * One model connection for an admin to set up: its name, Trench Coat's connection panel (API, address, model, whether
+ * One model connection for an owner to set up: its name, Trench Coat's connection panel (API, address, model, whether
  * a key is saved, and a test), and a field to enter or replace the key. With no `provider`, it adds a new one.
  */
 @Component({

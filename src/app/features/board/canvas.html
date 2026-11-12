@@ -64,36 +64,41 @@
   }
 
   @if (board().notes().length === 0 && board().frames().length === 0) {
-    <p class="hint">Double-click anywhere to add a note</p>
+    <p class="hint">{{ readOnly() ? 'Nothing on this board yet' : 'Double-click anywhere to add a note' }}</p>
   }
 
   <div class="toolbar" role="toolbar" aria-label="Board">
-    <tc-button size="sm" variant="secondary" label="Add note" (click)="addNote()"></tc-button>
-    <tc-button size="sm" variant="ghost" [label]="hasNotesSelected() ? 'Frame selection' : 'Add frame'" (click)="addFrame()"></tc-button>
-    <span class="divider" aria-hidden="true"></span>
-    <div class="swatches" role="group" aria-label="Colour of selected notes">
-      @for (color of colors; track color.id) {
-        <button
-          type="button"
-          class="swatch"
-          [style.background]="'var(--note-' + color.id + ')'"
-          [attr.aria-label]="color.label"
-          [title]="color.label"
-          [disabled]="selection().size === 0"
-          (click)="setColor(color.id)"
-        ></button>
-      }
-    </div>
-    <tc-button
-      size="sm"
-      variant="ghost"
-      label="Delete"
-      [attr.aria-label]="deleteLabel()"
-      [title]="deleteLabel() + ' (Delete key)'"
-      [disabled]="selection().size === 0"
-      (click)="deleteSelection()"
-    ></tc-button>
-    <span class="divider" aria-hidden="true"></span>
+    @if (readOnly()) {
+      <span class="read-only">{{ readOnlyLabel() }}</span>
+      <span class="divider" aria-hidden="true"></span>
+    } @else {
+      <tc-button size="sm" variant="secondary" label="Add note" (click)="addNote()"></tc-button>
+      <tc-button size="sm" variant="ghost" [label]="hasNotesSelected() ? 'Frame selection' : 'Add frame'" (click)="addFrame()"></tc-button>
+      <span class="divider" aria-hidden="true"></span>
+      <div class="swatches" role="group" aria-label="Colour of selected notes">
+        @for (color of colors; track color.id) {
+          <button
+            type="button"
+            class="swatch"
+            [style.background]="'var(--note-' + color.id + ')'"
+            [attr.aria-label]="color.label"
+            [title]="color.label"
+            [disabled]="selection().size === 0"
+            (click)="setColor(color.id)"
+          ></button>
+        }
+      </div>
+      <tc-button
+        size="sm"
+        variant="ghost"
+        label="Delete"
+        [attr.aria-label]="deleteLabel()"
+        [title]="deleteLabel() + ' (Delete key)'"
+        [disabled]="selection().size === 0"
+        (click)="deleteSelection()"
+      ></tc-button>
+      <span class="divider" aria-hidden="true"></span>
+    }
     <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>
     <tc-button size="sm" variant="ghost" [label]="zoomPercent()" aria-label="Reset zoom to 100%" (click)="resetZoom()"></tc-button>
     <tc-button size="sm" variant="ghost" label="+" aria-label="Zoom in" (click)="zoomBy(1.25)"></tc-button>

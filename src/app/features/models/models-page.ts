@@ -30,7 +30,7 @@ export class ModelsPage {
     loader: ({ params: orgId }) => this.#api.invoke(providersControllerList, { orgId }),
   });
 
-  protected readonly isAdmin = computed(() => this.session.org()?.role === 'admin');
+  protected readonly isOwner = computed(() => this.session.org()?.role === 'owner');
 
   protected readonly columns = COLUMNS;
   protected readonly rows = computed<DataRow[]>(() =>

@@ -1,0 +1,28 @@
+<aside class="share" aria-label="Sharing">
+  <div class="head">
+    <span class="spacer"></span>
+    <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+  </div>
+  @if (problem(); as problem) {
+    <p class="problem" role="alert">{{ problem }}</p>
+  }
+  @if (list.error()) {
+    <p class="problem" role="alert">Who's on this board couldn't be loaded. Try again.</p>
+  } @else if (canManage()) {
+    <tc-share-panel
+      [resourceName]="boardName()"
+      [labels]="{ search: 'Add people from the workspace', searchPlaceholder: 'Name', empty: 'Only workspace owners can open this board.' }"
+      description="People start with their workspace role. A role set here replaces it on this board only, up or down; removing someone keeps them out."
+      [levels]="levels"
+      default-level="reader"
+      [access]="access()"
+      [directory]="directory()"
+      [checkEntitlement]="entitled"
+      [sending]="sending()"
+      (tc-share)="onShare($event)"
+    ></tc-share-panel>
+  } @else {
+    <tc-data-table heading="Who can open this board" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
+    <p class="note">Only owners of the board can change who's on it.</p>
+  }
+</aside>

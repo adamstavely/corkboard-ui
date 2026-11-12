@@ -64,6 +64,10 @@ export class Canvas {
   readonly board = input.required<BoardDoc>();
   /** Who else is here, and where this person's pointer and selection go out to them. */
   readonly presence = input<Presence | undefined>(undefined);
+  /** Readers and commenters look, select and ask; they don't add, move, change or delete anything. */
+  readonly readOnly = input(false);
+  /** What to call that in the toolbar, e.g. "View only". */
+  readonly readOnlyLabel = input('View only');
   /** The live connection, for others' carets inside notes. */
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
   /** The selected notes, and those in selected frames, whenever they change (the assistant works on them). */
@@ -208,7 +212,7 @@ export class Canvas {
     if (e.button !== 0) return;
     this.editing.set(null);
 
-    if (frameId && target.closest('.frame-resize')) {
+    if (frameId && target.closest('.frame-resize') && !this.readOnly()) {
       const frame = this.board().frames().find((f) => f.id === frameId)!;
       this.board().undo.stopCapturing();
       this.#gesture = { kind: 'resize', id: frameId, start: screen, size: { w: frame.w, h: frame.h } };
@@ -229,6 +233,8 @@ export class Canvas {
       // Frames carry the frames and notes inside them.
       const frames = this.board().withInnerFrames(this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id));
       const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
+      // Without edit rights, a click selects but nothing moves.
+      if (this.readOnly()) return;
       this.board().bringToFront(ids);
       this.board().undo.stopCapturing();
       this.#gesture = { kind: 'drag', last: screen, moved: false, ids };
@@ -286,6 +292,7 @@ export class Canvas {
   }
 
   protected onDoubleClick(e: MouseEvent): void {
+    if (this.readOnly()) return;
     const frameId = (e.target as HTMLElement).closest('.frame-title')?.closest<HTMLElement>('.frame')?.dataset['frameId'];
     if (frameId) {
       this.#rename(frameId);
@@ -324,6 +331,9 @@ export class Canvas {
     }
     if (isEditable(e.target)) return;
     const mod = e.metaKey || e.ctrlKey;
+    // Of the shortcuts, only selecting and panning are for people who can't edit.
+    const editing = (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'Enter' || (mod && ['z', 'y'].includes(e.key.toLowerCase())));
+    if (this.readOnly() && editing) return;
     if (e.code === 'Space') {
       e.preventDefault();
       this.spaceHeld.set(true);

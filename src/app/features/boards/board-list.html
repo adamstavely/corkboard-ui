@@ -3,7 +3,7 @@
     <div class="invite" role="status">
       <p>
         <strong>{{ invite.invitedByName ?? 'Someone' }}</strong> invited you to <strong>{{ invite.orgName }}</strong>
-        as {{ invite.role === 'admin' ? 'an admin' : 'a member' }}.
+        as {{ aRole(invite.role) }}.
       </p>
       <tc-button size="sm" label="Join" [loading]="answering() === invite.id" (click)="answer(invite.id, true)"></tc-button>
       <tc-button size="sm" variant="ghost" label="Decline" [disabled]="answering() === invite.id" (click)="answer(invite.id, false)"></tc-button>
@@ -27,7 +27,9 @@
     <div class="actions">
       <tc-button variant="secondary" label="AI models" (click)="go('/models')"></tc-button>
       <tc-button variant="secondary" label="Members" (click)="go('/members')"></tc-button>
-      <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
+      @if (canCreate()) {
+        <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
+      }
     </div>
   </div>
 
@@ -37,8 +39,12 @@
     <p role="alert">Boards couldn't be loaded. Refresh to try again.</p>
   } @else if (cards().length === 0) {
     <div class="empty">
-      <tc-first-use caption="No boards yet" label="Start a board for your next retro or plan"></tc-first-use>
-      <tc-button label="Create your first board" variant="secondary" [loading]="creating()" (click)="create()"></tc-button>
+      @if (canCreate()) {
+        <tc-first-use caption="No boards yet" label="Start a board for your next retro or plan"></tc-first-use>
+        <tc-button label="Create your first board" variant="secondary" [loading]="creating()" (click)="create()"></tc-button>
+      } @else {
+        <tc-first-use caption="No boards yet" label="Boards shared with you show up here"></tc-first-use>
+      }
     </div>
   } @else {
     <ul class="grid">

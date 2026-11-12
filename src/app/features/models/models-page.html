@@ -11,7 +11,7 @@
     <tc-skeleton height="240" radius="12"></tc-skeleton>
   } @else if (list.error()) {
     <p role="alert">Models couldn't be loaded. Refresh to try again.</p>
-  } @else if (isAdmin()) {
+  } @else if (isOwner()) {
     <div class="cards">
       @for (provider of list.value(); track provider.id) {
         <app-model-card [orgId]="session.org()!.id" [provider]="provider" (changed)="list.reload()" />
@@ -20,8 +20,8 @@
     </div>
   } @else if (rows().length) {
     <tc-data-table heading="Models in this workspace" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
-    <p class="note">Only admins can add or change models.</p>
+    <p class="note">Only owners can add or change models.</p>
   } @else {
-    <p class="note">No models yet. An admin of this workspace can add one here.</p>
+    <p class="note">No models yet. An owner of this workspace can add one here.</p>
   }
 </div>
