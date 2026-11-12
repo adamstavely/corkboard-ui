@@ -176,3 +176,9 @@
   color: var(--tc-text-muted);
   white-space: nowrap;
 }
+
+.frame-comments {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+}

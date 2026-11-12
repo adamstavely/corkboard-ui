@@ -12,7 +12,14 @@
       (keydown)="onTitleKey($event)"
     />
     <tc-button size="sm" variant="secondary" label="Assistant" [disabled]="!connection()" (click)="assistantOpen.set(!assistantOpen())"></tc-button>
-    <tc-button size="sm" variant="secondary" label="Share" [disabled]="!meta.hasValue()" (click)="shareOpen.set(!shareOpen())"></tc-button>
+    <tc-button
+      size="sm"
+      variant="secondary"
+      [label]="openThreads() ? 'Comments (' + openThreads() + ')' : 'Comments'"
+      [disabled]="!meta.hasValue()"
+      (click)="togglePanel('comments')"
+    ></tc-button>
+    <tc-button size="sm" variant="secondary" label="Share" [disabled]="!meta.hasValue()" (click)="togglePanel('share')"></tc-button>
     <span class="status" [class.offline]="status() === 'offline'" role="status">{{ statusText() }}</span>
     @if (isOwner()) {
       <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
@@ -29,8 +36,10 @@
         [provider]="connection()!.provider"
         [readOnly]="!canEdit()"
         [readOnlyLabel]="readOnlyLabel()"
+        [commentCounts]="commentCounts()"
         (selectionChange)="selection.set($event)"
         (framesChange)="selectedFrames.set($event)"
+        (selectedIds)="selectionIds.set($event)"
       />
       @if (assistantOpen() && meta.hasValue()) {
         <app-assistant
@@ -44,13 +53,26 @@
           (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
         />
       }
-      @if (shareOpen() && meta.hasValue()) {
+      @if (panel() === 'comments' && meta.hasValue()) {
+        <app-board-comments
+          [boardId]="id()"
+          [board]="board()!"
+          [threads]="threads()"
+          [selection]="selectionIds()"
+          [canComment]="canComment()"
+          [me]="meUser()"
+          (closed)="panel.set(null)"
+          (show)="showNode($event)"
+          (changed)="comments.reload()"
+        />
+      }
+      @if (panel() === 'share' && meta.hasValue()) {
         <app-board-share
           [boardId]="id()"
           [boardName]="meta.value().title"
           [canManage]="isOwner()"
           [meId]="meId()"
-          (closed)="shareOpen.set(false)"
+          (closed)="panel.set(null)"
           (changed)="meta.reload()"
         />
       }

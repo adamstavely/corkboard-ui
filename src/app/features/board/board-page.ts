@@ -16,6 +16,9 @@ import { BoardDoc } from './board-doc';
 import { Assistant } from './assistant';
 import { Canvas } from './canvas';
 import { BoardShare } from './board-share';
+import { BoardComments } from './board-comments';
+import { openCounts } from './comments';
+import { commentsControllerList } from '../../api/generated/fn/comments/comments-controller-list';
 import { atLeast, type Role } from '../../core/roles';
 import { colorFor, type PresenceUser } from './presence';
 
@@ -38,7 +41,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, Assistant, BoardShare, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, Assistant, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -85,9 +88,35 @@ export class BoardPage {
   protected readonly meId = computed(() => this.#me()?.id);
 
   protected readonly assistantOpen = signal(false);
-  protected readonly shareOpen = signal(false);
+  /** The panel docked at the upper right, if any: they take turns. */
+  protected readonly panel = signal<'share' | 'comments' | null>(null);
+  protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
+
+  /** The board's comment threads, fetched again whenever someone changes them. */
+  protected readonly comments = resource({
+    params: () => ({ id: this.id(), changed: this.connection()?.commentsChanged() ?? 0 }),
+    loader: ({ params }) => this.#api.invoke(commentsControllerList, { id: params.id }),
+  });
+  protected readonly threads = computed(() => (this.comments.hasValue() ? this.comments.value() : []));
+  protected readonly commentCounts = computed(() => openCounts(this.threads()));
+  protected readonly openThreads = computed(() => this.threads().filter((t) => !t.resolvedAt).length);
+  protected readonly meUser = computed(() => {
+    const me = this.#me();
+    return me ? { id: me.id, name: me.name } : undefined;
+  });
+
+  protected togglePanel(which: 'share' | 'comments'): void {
+    this.panel.update((open) => (open === which ? null : which));
+  }
+
+  /** From the comments panel: go to a note or frame, or (no id) back to the list. */
+  protected showNode(id: string): void {
+    if (id) this.canvas()?.show([id]);
+    else this.canvas()?.select([]);
+  }
   protected readonly selection = signal<readonly string[]>([]);
   protected readonly selectedFrames = signal<readonly string[]>([]);
+  protected readonly selectionIds = signal<readonly string[]>([]);
   protected readonly canvas = viewChild(Canvas);
 
   protected readonly title = signal('');

@@ -30,6 +30,10 @@ export class BoardConnection {
     return this.#unsynced() > 0 ? 'saving' : 'saved';
   });
 
+  readonly #commentsChanged = signal(0);
+  /** Goes up whenever someone changes the board's comments, so they can be fetched again. */
+  readonly commentsChanged = this.#commentsChanged.asReadonly();
+
   readonly #signIns = signal(0);
   /** Goes up each time the server lets this person in. It reconnects them when their role changes, so a new value means
    *  their role may have. */
@@ -51,6 +55,13 @@ export class BoardConnection {
       },
       onUnsyncedChanges: ({ number }) => this.#unsynced.set(number),
       onAuthenticated: () => this.#signIns.update((n) => n + 1),
+      onStateless: ({ payload }) => {
+        try {
+          if ((JSON.parse(payload) as { type?: unknown }).type === 'comments') this.#commentsChanged.update((n) => n + 1);
+        } catch {
+          // Not a message this app sends.
+        }
+      },
       onAuthenticationFailed: () => {
         this.#denied.set(true);
         // It would only be refused again: the board is gone, or this person no longer has access.

@@ -68,12 +68,16 @@ export class Canvas {
   readonly readOnly = input(false);
   /** What to call that in the toolbar, e.g. "View only". */
   readonly readOnlyLabel = input('View only');
+  /** How many comments each note or frame's open thread has, for badges. */
+  readonly commentCounts = input<ReadonlyMap<string, number>>(new Map());
   /** The live connection, for others' carets inside notes. */
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
   /** The selected notes, and those in selected frames, whenever they change (the assistant works on them). */
   readonly selectionChange = output<readonly string[]>();
   /** Titles of the selected frames, so the assistant can say which region it's about. */
   readonly framesChange = output<readonly string[]>();
+  /** Exactly what's selected – notes and frames – for comments on them. */
+  readonly selectedIds = output<readonly string[]>();
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
@@ -144,6 +148,7 @@ export class Canvas {
       const frames = board.frames().filter((f) => selection.has(f.id));
       this.selectionChange.emit([...new Set([...notes, ...untracked(() => board.notesIn(frames.map((f) => f.id)))])]);
       this.framesChange.emit(frames.map((f) => f.title || 'Untitled frame'));
+      this.selectedIds.emit([...selection]);
     });
     effect(() => {
       const input = this.renameInput()?.nativeElement;
@@ -380,9 +385,15 @@ export class Canvas {
     this.#edit(this.board().addNote(at.x, at.y));
   }
 
-  /** Selects these notes and brings them into view, zoomed to fit (never past 100%). */
+  /** Selects exactly these (an empty list clears the selection). */
+  select(ids: readonly string[]): void {
+    this.editing.set(null);
+    this.selection.set(new Set(ids));
+  }
+
+  /** Selects these notes and frames and brings them into view, zoomed to fit (never past 100%). */
   show(ids: readonly string[]): void {
-    const notes = this.board().notes().filter((n) => ids.includes(n.id));
+    const notes = [...this.board().notes(), ...this.board().frames()].filter((n) => ids.includes(n.id));
     if (notes.length === 0) return;
     this.editing.set(null);
     this.selection.set(new Set(notes.map((n) => n.id)));
