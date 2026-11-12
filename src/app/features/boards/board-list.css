@@ -58,4 +58,9 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: var(--tc-space-4);
+  margin-top: var(--tc-space-12, 48px);
+}
+/* Trench Coat's illustration fills its container's width; a small hint, not the page. */
+.empty tc-first-use {
+  width: min(320px, 100%);
 }
