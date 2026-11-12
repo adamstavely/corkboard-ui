@@ -17,13 +17,13 @@
     <tc-skeleton height="320" radius="12"></tc-skeleton>
   } @else if (list.error()) {
     <p role="alert">Members couldn't be loaded. Refresh to try again.</p>
-  } @else if (isAdmin()) {
+  } @else if (isOwner()) {
     <tc-share-panel
       [resourceName]="session.org()?.name ?? ''"
       [labels]="{ headingNamed: 'Members of {name}', search: 'Invite people', searchPlaceholder: 'Email address' }"
-      description="People join when they next sign in with the email you invite."
+      description="People join when they next sign in with the email you invite. Readers see boards, commenters also comment, updaters also change them, and owners also manage members, sharing and AI models."
       [levels]="levels"
-      default-level="member"
+      default-level="updater"
       [access]="access()"
       [search]="search"
       [checkEntitlement]="entitled"
@@ -32,6 +32,6 @@
     ></tc-share-panel>
   } @else {
     <tc-data-table heading="People in this workspace" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
-    <p class="note">Only admins can invite people or change roles.</p>
+    <p class="note">Only owners can invite people or change roles.</p>
   }
 </div>

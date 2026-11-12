@@ -8,6 +8,7 @@ import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { Api } from '../../api/generated/api';
 import { boardsControllerCreate } from '../../api/generated/fn/boards/boards-controller-create';
 import { boardsControllerList } from '../../api/generated/fn/boards/boards-controller-list';
+import { aRole, atLeast, ROLE_LABELS } from '../../core/roles';
 import { Session } from '../../core/session';
 import { edited } from './edited';
 
@@ -32,9 +33,14 @@ export class BoardList {
     (this.boards.hasValue() ? this.boards.value() : []).map((b) => ({
       ...b,
       href: `/boards/${b.id}`,
-      meta: edited(new Date(b.updatedAt)),
+      // What you can do there, unless it's the usual: changing it.
+      meta: b.role === 'updater' ? edited(new Date(b.updatedAt)) : `${edited(new Date(b.updatedAt))} · ${ROLE_LABELS[b.role]}`,
     })),
   );
+
+  /** Readers and commenters of the workspace can open boards but not make them. */
+  protected readonly canCreate = computed(() => atLeast(this.session.org()?.role, 'updater'));
+  protected readonly aRole = aRole;
 
   protected readonly orgOptions = computed(() => this.session.orgs().map((o) => ({ value: o.id, label: o.name })));
   protected readonly invites = computed(() => (this.session.invites.hasValue() ? this.session.invites.value() : []));

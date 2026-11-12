@@ -5,14 +5,18 @@
       class="title"
       aria-label="Board title"
       maxlength="200"
+      [readOnly]="!canEdit()"
       [value]="title()"
       (input)="title.set($any($event.target).value)"
       (blur)="rename()"
       (keydown)="onTitleKey($event)"
     />
     <tc-button size="sm" variant="secondary" label="Assistant" [disabled]="!connection()" (click)="assistantOpen.set(!assistantOpen())"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Share" [disabled]="!meta.hasValue()" (click)="shareOpen.set(!shareOpen())"></tc-button>
     <span class="status" [class.offline]="status() === 'offline'" role="status">{{ statusText() }}</span>
-    <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
+    @if (isOwner()) {
+      <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
+    }
   </div>
 
   <div class="stage">
@@ -23,6 +27,8 @@
         [board]="board()!"
         [presence]="connection()!.presence"
         [provider]="connection()!.provider"
+        [readOnly]="!canEdit()"
+        [readOnlyLabel]="readOnlyLabel()"
         (selectionChange)="selection.set($event)"
         (framesChange)="selectedFrames.set($event)"
       />
@@ -32,9 +38,20 @@
           [orgId]="meta.value().orgId"
           [selection]="selection()"
           [frames]="selectedFrames()"
+          [canEdit]="canEdit()"
           (closed)="assistantOpen.set(false)"
           (show)="canvas()?.show($event)"
           (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
+        />
+      }
+      @if (shareOpen() && meta.hasValue()) {
+        <app-board-share
+          [boardId]="id()"
+          [boardName]="meta.value().title"
+          [canManage]="isOwner()"
+          [meId]="meId()"
+          (closed)="shareOpen.set(false)"
+          (changed)="meta.reload()"
         />
       }
       <!-- Who's here, once there's more than one of you: Trench Coat's stack in the board's top-right corner. Right to

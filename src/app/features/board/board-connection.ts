@@ -30,6 +30,11 @@ export class BoardConnection {
     return this.#unsynced() > 0 ? 'saving' : 'saved';
   });
 
+  readonly #signIns = signal(0);
+  /** Goes up each time the server lets this person in. It reconnects them when their role changes, so a new value means
+   *  their role may have. */
+  readonly signIns = this.#signIns.asReadonly();
+
   /** Changes this person has made that the server hasn't confirmed yet. */
   readonly pending = computed(() => this.#unsynced() > 0);
 
@@ -45,6 +50,7 @@ export class BoardConnection {
         if (state) this.#synced.set(true);
       },
       onUnsyncedChanges: ({ number }) => this.#unsynced.set(number),
+      onAuthenticated: () => this.#signIns.update((n) => n + 1),
       onAuthenticationFailed: () => {
         this.#denied.set(true);
         // It would only be refused again: the board is gone, or this person no longer has access.

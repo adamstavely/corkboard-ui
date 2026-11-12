@@ -168,3 +168,11 @@
   background: var(--tc-surface-raised);
   cursor: nwse-resize;
 }
+
+/* In place of the editing tools, for readers and commenters. */
+.read-only {
+  padding: 0 var(--tc-space-2);
+  font-size: var(--tc-font-size-sm);
+  color: var(--tc-text-muted);
+  white-space: nowrap;
+}
