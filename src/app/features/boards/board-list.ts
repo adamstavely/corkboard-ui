@@ -66,8 +66,8 @@ export class BoardList {
     }
   }
 
-  protected members(): void {
-    void this.#router.navigateByUrl('/members');
+  protected go(url: string): void {
+    void this.#router.navigateByUrl(url);
   }
 
   protected open(event: Event, href: string): void {

@@ -1,4 +1,4 @@
-import { Component, computed, effect, ElementRef, HostListener, input, signal, untracked, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, HostListener, input, output, signal, untracked, viewChild } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { SelectionToolbar } from '@adamstavely/trenchcoat/angular/selection-toolbar';
 import {
@@ -64,6 +64,8 @@ export class Canvas {
   readonly presence = input<Presence | undefined>(undefined);
   /** The live connection, for others' carets inside notes. */
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
+  /** The selected notes, whenever they change (the assistant works on them). */
+  readonly selectionChange = output<readonly string[]>();
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
@@ -123,6 +125,7 @@ export class Canvas {
   constructor() {
     // Others see what this person has selected and which note they're writing in.
     effect(() => this.presence()?.setSelection(this.selection()));
+    effect(() => this.selectionChange.emit([...this.selection()]));
     effect(() => this.presence()?.setEditing(this.editing()));
 
     // A note that's gone – deleted by someone else, or by undo – can't stay selected or open here.

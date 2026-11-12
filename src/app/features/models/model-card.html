@@ -1,0 +1,37 @@
+<section class="card" [attr.aria-label]="provider()?.label ?? 'New model'">
+  <label class="name">
+    <span>Name</span>
+    <input maxlength="80" placeholder="What people see, e.g. Claude" [value]="label()" (input)="label.set($any($event.target).value)" />
+  </label>
+
+  <tc-provider-connection
+    [heading]="provider() ? 'Connection' : 'New connection'"
+    [providers]="providers()"
+    [credentials]="credentials()"
+    [value]="value()"
+    [check]="check()"
+    [disabled]="busy()"
+    test-label="Test connection"
+    (tc-value-change)="onValue($event.detail.value)"
+    (tc-test)="test($event)"
+  ></tc-provider-connection>
+
+  <tc-secret-field
+    [label]="provider()?.hasKey ? 'Replace the API key' : 'API key'"
+    description="Encrypted on the server and never shown again. Leave empty for servers that need none."
+    [value]="key()"
+    [disabled]="busy()"
+    (tc-value-change)="$event.preventDefault(); key.set($event.detail.value)"
+  ></tc-secret-field>
+
+  @if (problem(); as problem) {
+    <p class="problem" role="alert">{{ problem }}</p>
+  }
+
+  <div class="actions">
+    @if (provider()) {
+      <tc-button variant="ghost" label="Remove" [disabled]="busy()" (click)="remove()"></tc-button>
+    }
+    <tc-button [label]="provider() ? 'Save' : 'Add model'" [loading]="busy()" (click)="save()"></tc-button>
+  </div>
+</section>

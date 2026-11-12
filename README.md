@@ -25,6 +25,8 @@ Sign in as `ada` or `grace` with the password `corkboard`. These are test users 
 - **Light and dark:** follows the OS until you change it under Dark mode in the account menu.
 - **Together:** everyone on a board sees changes as they happen, along with each other's pointers, which notes they have selected, who is writing where, and their carets inside a note. When more than one person is on a board, their avatars stack in its top-right corner and fan out on hover.
 - **Workspaces:** admins invite people by email from Members, change roles and remove people; anyone can leave. Invites show up on the boards page when the invited person signs in with that email, and you can switch between workspaces you belong to there.
+- **Assistant:** the Assistant button opens a panel beside the board, built on Trench Coat's writing assistant (with dictation). Ask about the board, or about just the notes you've selected, or tell it to add or recolour notes. Its changes appear for everyone. It uses the workspace's models; pick one if there are several.
+- **AI models:** admins connect models from AI models on the boards page: Claude, or any OpenAI-compatible server. The page uses Trench Coat's connection panel, with a test. Keys are entered once, encrypted on the server, and never shown again.
 - **Search:** ⌘K, or the field in the header, finds boards by title or by what their notes say.
 
 Changes go to the server as you make them, and it saves them. Offline edits are kept and sent when you reconnect.

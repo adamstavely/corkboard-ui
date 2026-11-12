@@ -25,7 +25,8 @@
       }
     </div>
     <div class="actions">
-      <tc-button variant="secondary" label="Members" (click)="members()"></tc-button>
+      <tc-button variant="secondary" label="AI models" (click)="go('/models')"></tc-button>
+      <tc-button variant="secondary" label="Members" (click)="go('/members')"></tc-button>
       <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
     </div>
   </div>
