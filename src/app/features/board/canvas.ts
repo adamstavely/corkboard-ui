@@ -329,8 +329,7 @@ export class Canvas {
       this.spaceHeld.set(true);
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && this.selection().size > 0) {
       e.preventDefault();
-      this.board().remove(this.selection());
-      this.selection.set(new Set());
+      this.deleteSelection();
     } else if (e.key === 'Escape') {
       this.selection.set(new Set());
     } else if (e.key === 'Enter' && this.selection().size === 1) {
@@ -408,6 +407,23 @@ export class Canvas {
     this.show([id, ...near.map((n) => n.id)]);
     this.selection.set(new Set([id]));
     return id;
+  }
+
+  /** "Delete 2 notes and a frame" – what the Delete button removes. A frame goes without its notes. */
+  protected readonly deleteLabel = computed(() => {
+    const selection = this.selection();
+    const notes = this.board().notes().filter((n) => selection.has(n.id)).length;
+    const frames = this.board().frames().filter((f) => selection.has(f.id)).length;
+    const parts = [notes ? `${notes} note${notes === 1 ? '' : 's'}` : '', frames ? `${frames} frame${frames === 1 ? '' : 's'}` : ''].filter(Boolean);
+    return parts.length ? `Delete ${parts.join(' and ')}` : 'Delete selected';
+  });
+
+  protected deleteSelection(): void {
+    if (this.selection().size === 0) return;
+    this.editing.set(null);
+    this.renaming.set(null);
+    this.board().remove(this.selection());
+    this.selection.set(new Set());
   }
 
   /** Adds a frame around the selected notes, or an empty one in the middle of the view, and names it. */
