@@ -131,6 +131,14 @@ export class BoardDoc {
     }, this);
   }
 
+  /** These frames and every frame wholly inside one of them, as a timeline holds its columns. */
+  withInnerFrames(frameIds: Iterable<string>): string[] {
+    const outer = this.frames().filter((f) => [...frameIds].includes(f.id));
+    return this.frames()
+      .filter((f) => outer.some((o) => o.id === f.id || (f.x >= o.x && f.y >= o.y && f.x + f.w <= o.x + o.w && f.y + f.h <= o.y + o.h)))
+      .map((f) => f.id);
+  }
+
   /** The notes in any of these frames. */
   notesIn(frameIds: Iterable<string>): string[] {
     const frames = this.frames().filter((f) => [...frameIds].includes(f.id));

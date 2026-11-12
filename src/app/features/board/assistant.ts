@@ -10,7 +10,7 @@ import { providersControllerList } from '../../api/generated/fn/models/providers
 
 const MODEL_KEY = 'corkboard.model';
 
-const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Summarise this'];
+const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn this plan into a timeline', 'Summarise this'];
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 

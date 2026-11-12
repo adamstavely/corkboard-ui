@@ -223,9 +223,9 @@ export class Canvas {
       } else if (!selected.has(id)) {
         this.selection.set(new Set([id]));
       }
-      // Frames carry the notes inside them.
-      const frames = this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id);
-      const ids = new Set([...this.selection(), ...this.board().notesIn(frames)]);
+      // Frames carry the frames and notes inside them.
+      const frames = this.board().withInnerFrames(this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id));
+      const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
       this.board().bringToFront(ids);
       this.board().undo.stopCapturing();
       this.#gesture = { kind: 'drag', last: screen, moved: false, ids };
