@@ -1,0 +1,42 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-4);
+  padding: var(--tc-space-5);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+
+.name {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-1);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+  color: var(--tc-text-strong);
+}
+.name input {
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-weight: var(--tc-font-weight-regular);
+}
+.name input:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 0;
+}
+
+.problem {
+  margin: 0;
+  color: var(--tc-status-danger-fg);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--tc-space-2);
+}

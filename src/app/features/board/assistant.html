@@ -1,0 +1,24 @@
+<aside class="assistant" aria-label="Assistant">
+  <div class="head">
+    @if (options().length > 1) {
+      <tc-select label="Model" [options]="options()" [value]="modelId() ?? ''" (tc-value-change)="choose($event.detail.value)"></tc-select>
+    }
+    <span class="spacer"></span>
+    <tc-button size="sm" variant="ghost" label="Close" (click)="closed.emit()"></tc-button>
+  </div>
+
+  @if (models.isLoading() && !models.hasValue()) {
+    <p class="empty">Loading models…</p>
+  } @else if (options().length === 0) {
+    <p class="empty">No AI models are set up for this workspace yet. An admin can add one under AI models.</p>
+  } @else {
+    <tc-writing-assistant
+      [name]="modelName()"
+      [tagline]="scope()"
+      greeting="What should we do with this board?"
+      placeholder="Ask, or tell it what to change…"
+      [suggestions]="suggestions"
+      [respond]="respond"
+    ></tc-writing-assistant>
+  }
+</aside>

@@ -10,6 +10,7 @@
       (blur)="rename()"
       (keydown)="onTitleKey($event)"
     />
+    <tc-button size="sm" variant="secondary" label="Assistant" [disabled]="!connection()" (click)="assistantOpen.set(!assistantOpen())"></tc-button>
     <span class="status" [class.offline]="status() === 'offline'" role="status">{{ statusText() }}</span>
     <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
   </div>
@@ -18,7 +19,15 @@
     @if (status() === 'denied' || meta.error()) {
       <p class="problem" role="alert">This board couldn't be opened. It may have been deleted, or you may not have access.</p>
     } @else if (status() !== 'connecting' && board() && connection()) {
-      <app-canvas [board]="board()!" [presence]="connection()!.presence" [provider]="connection()!.provider" />
+      <app-canvas
+        [board]="board()!"
+        [presence]="connection()!.presence"
+        [provider]="connection()!.provider"
+        (selectionChange)="selection.set($event)"
+      />
+      @if (assistantOpen() && meta.hasValue()) {
+        <app-assistant [boardId]="id()" [orgId]="meta.value().orgId" [selection]="selection()" (closed)="assistantOpen.set(false)" />
+      }
       <!-- Who's here, once there's more than one of you: Trench Coat's stack in the board's top-right corner. Right to
            left, so you sit at the corner and it fans out leftward, staying on screen. -->
       @if (people().length > 1) {

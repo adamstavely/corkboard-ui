@@ -1,0 +1,24 @@
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--tc-space-8) var(--tc-space-4);
+}
+
+h1 {
+  margin: 0;
+  font-size: var(--tc-font-size-2xl);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+
+.lead,
+.note {
+  margin: var(--tc-space-2) 0 var(--tc-space-6);
+  color: var(--tc-text-muted);
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-5);
+}

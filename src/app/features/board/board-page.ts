@@ -13,6 +13,7 @@ import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
+import { Assistant } from './assistant';
 import { Canvas } from './canvas';
 import { colorFor, type PresenceUser } from './presence';
 
@@ -35,7 +36,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, Assistant, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -73,6 +74,9 @@ export class BoardPage {
   });
 
 
+
+  protected readonly assistantOpen = signal(false);
+  protected readonly selection = signal<readonly string[]>([]);
 
   protected readonly title = signal('');
   protected readonly confirmDelete = signal(false);
