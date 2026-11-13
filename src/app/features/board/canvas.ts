@@ -14,6 +14,8 @@ import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
 import { boardBounds } from './export';
+import type { NoteReaction } from './reactions';
+import { REACTIONS } from './reactions';
 import type { PresentedView } from './presence';
 import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
@@ -87,6 +89,10 @@ export class Canvas {
   readonly voting = input(false);
   readonly votesLeft = input(0);
   readonly vote = output<{ noteId: string; add: boolean }>();
+  /** Reactions per note, whether this person may react, and their reactions going out. */
+  readonly reactions = input<ReadonlyMap<string, NoteReaction[]>>(new Map());
+  readonly canReact = input(false);
+  readonly react = output<{ nodeId: string; emoji: string; on: boolean }>();
   /** What this person is looking at, whenever it changes: for presenting it to others. */
   readonly viewChange = output<PresentedView>();
 
@@ -232,7 +238,16 @@ export class Canvas {
     const id = noteEl?.dataset['noteId'] ?? frameId;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
-    if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.note-votes')) return;
+    if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
+    // An arrow is picked by clicking its line; it never drags.
+    const connectorId = target.closest<SVGElement>('[data-connector-id]')?.dataset['connectorId'];
+    if (connectorId && e.button === 0) {
+      const next = e.shiftKey ? new Set(this.selection()) : new Set<string>();
+      if (next.has(connectorId)) next.delete(connectorId);
+      else next.add(connectorId);
+      this.selection.set(next);
+      return;
+    }
 
     // Moves and releases are followed on the window (see below) rather than by capturing the pointer, which would
     // retarget the double-click that opens a note.
@@ -487,9 +502,60 @@ export class Canvas {
     const selection = this.selection();
     const notes = this.board().notes().filter((n) => selection.has(n.id)).length;
     const frames = this.board().frames().filter((f) => selection.has(f.id)).length;
-    const parts = [notes ? `${notes} note${notes === 1 ? '' : 's'}` : '', frames ? `${frames} frame${frames === 1 ? '' : 's'}` : ''].filter(Boolean);
+    const arrows = this.board().connectors().filter((c) => selection.has(c.id)).length;
+    const parts = [
+      notes ? `${notes} note${notes === 1 ? '' : 's'}` : '',
+      frames ? `${frames} frame${frames === 1 ? '' : 's'}` : '',
+      arrows ? `${arrows} arrow${arrows === 1 ? '' : 's'}` : '',
+    ].filter(Boolean);
     return parts.length ? `Delete ${parts.join(' and ')}` : 'Delete selected';
   });
+
+  // ── Arrows ───────────────────────────────────────────────────────────
+
+  /** The two notes or frames selected, in the order they were picked, when exactly two are. */
+  protected readonly pair = computed(() => {
+    const ids = new Set([...this.board().notes(), ...this.board().frames()].map((n) => n.id));
+    const picked = [...this.selection()].filter((id) => ids.has(id));
+    return picked.length === 2 ? (picked as [string, string]) : null;
+  });
+
+  /** Arrows as lines from the edge of one box to the edge of the other, aimed at their centres. */
+  protected readonly arrows = computed(() => {
+    const boxes = new Map([...this.board().notes(), ...this.board().frames()].map((n) => [n.id, n]));
+    return this.board()
+      .connectors()
+      .flatMap((c) => {
+        const a = boxes.get(c.from);
+        const b = boxes.get(c.to);
+        if (!a || !b) return [];
+        const ca = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+        const cb = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+        const start = edgePoint(a, cb);
+        const end = edgePoint(b, ca);
+        return [{ id: c.id, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}` }];
+      });
+  });
+
+  /** Draws an arrow from the first selected note or frame to the second. */
+  protected connect(): void {
+    const pair = this.pair();
+    if (!pair) return;
+    const id = this.board().connect(pair[0], pair[1]);
+    if (id) this.selection.set(new Set([id]));
+  }
+
+  protected readonly reactionChoices = REACTIONS;
+  /** The one note selected, for reacting to it from the toolbar. */
+  protected readonly oneNote = computed(() => {
+    const [id] = this.selection();
+    return this.selection().size === 1 && this.board().notes().some((n) => n.id === id) ? id : null;
+  });
+
+  protected toggleReaction(nodeId: string, emoji: string): void {
+    const mine = this.reactions().get(nodeId)?.find((r) => r.emoji === emoji)?.mine ?? false;
+    this.react.emit({ nodeId, emoji, on: !mine });
+  }
 
   protected deleteSelection(): void {
     if (this.selection().size === 0) return;
@@ -616,4 +682,15 @@ export class Canvas {
     const r = this.surface().nativeElement.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
+}
+
+/** Where a line from a box's centre toward a point leaves the box. */
+function edgePoint(box: { x: number; y: number; w: number; h: number }, toward: { x: number; y: number }): { x: number; y: number } {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  const scale = 1 / Math.max(Math.abs(dx) / (box.w / 2), Math.abs(dy) / (box.h / 2));
+  return { x: cx + dx * scale, y: cy + dy * scale };
 }

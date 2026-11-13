@@ -45,6 +45,21 @@
         }
       </div>
     }
+    @if (arrows().length) {
+      <svg class="arrows" aria-hidden="true">
+        <defs>
+          <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" />
+          </marker>
+        </defs>
+        @for (arrow of arrows(); track arrow.id) {
+          <g class="arrow" [class.selected]="selection().has(arrow.id)" [attr.data-connector-id]="arrow.id">
+            <path class="arrow-hit" [attr.d]="arrow.d" />
+            <path class="arrow-line" [attr.d]="arrow.d" marker-end="url(#arrowhead)" />
+          </g>
+        }
+      </svg>
+    }
     @for (note of board().notes(); track note.id) {
       <app-note
         [note]="note"
@@ -52,6 +67,9 @@
         [editing]="editing() === note.id"
         [peer]="peerMarks().get(note.id) ?? null"
         [comments]="commentCounts().get(note.id) ?? 0"
+        [reactions]="reactions().get(note.id) ?? []"
+        [canReact]="canReact()"
+        (react)="toggleReaction(note.id, $event)"
         [votes]="votesFor(note.id)"
         [voting]="voting()"
         [canVoteMore]="votesLeft() > 0"
@@ -118,6 +136,7 @@
           ></button>
         }
       </div>
+      <tc-button size="sm" variant="ghost" label="Connect" [disabled]="!pair()" title="Draw an arrow from the first selected note or frame to the second" (click)="connect()"></tc-button>
       <tc-button
         size="sm"
         variant="ghost"
@@ -127,6 +146,14 @@
         [disabled]="selection().size === 0"
         (click)="deleteSelection()"
       ></tc-button>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    @if (canReact() && oneNote(); as id) {
+      <div class="react-picker" role="group" aria-label="React to the selected note">
+        @for (emoji of reactionChoices; track emoji) {
+          <button type="button" class="react" [attr.aria-label]="'React ' + emoji" (click)="toggleReaction(id, emoji)">{{ emoji }}</button>
+        }
+      </div>
       <span class="divider" aria-hidden="true"></span>
     }
     <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>

@@ -207,3 +207,53 @@
   fill: color-mix(in srgb, var(--tc-accent-text) 10%, transparent);
   stroke: var(--tc-accent-text);
 }
+
+/* Arrows between notes and frames, under the notes. The wide clear stroke makes the line easy to click. */
+.arrows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.arrows marker path {
+  fill: var(--tc-text-secondary);
+}
+.arrow-line {
+  fill: none;
+  stroke: var(--tc-text-secondary);
+  stroke-width: 2;
+}
+.arrow-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.arrow.selected .arrow-line {
+  stroke: var(--tc-accent-text);
+  stroke-width: 3;
+}
+
+.react-picker {
+  display: flex;
+  gap: 2px;
+}
+.react {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+.react:hover,
+.react:focus-visible {
+  background: var(--tc-accent-subtle);
+  outline: none;
+}

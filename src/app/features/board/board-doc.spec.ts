@@ -18,6 +18,23 @@ describe('BoardDoc', () => {
     expect(board.notes()[1].z).toBeGreaterThan(board.notes()[0].z);
   });
 
+  it('draws arrows between notes once each, and removes them with what they join', () => {
+    const a = board.addNote(0, 0);
+    const b = board.addNote(300, 0);
+    const c = board.addNote(600, 0);
+    const ab = board.connect(a, b);
+    expect(board.connect(a, b)).toBe(ab);
+    expect(board.connect(a, a)).toBeNull();
+    board.connect(b, c);
+    expect(board.connectors().map((x) => [x.from, x.to])).toEqual([
+      [a, b],
+      [b, c],
+    ]);
+    board.remove([b]);
+    expect(board.connectors()).toEqual([]);
+    expect(board.notes()).toHaveLength(2);
+  });
+
   it('places a note on the value-vs-effort matrix', () => {
     const a = board.addNote(100, 100);
     expect(board.notes()[0]).not.toHaveProperty('value');

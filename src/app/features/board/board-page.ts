@@ -24,6 +24,8 @@ import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
 import { BoardClusters, BoardHistory } from './board-insights';
 import { LedgerFeed } from './ledger';
+import { ReactionsFeed, reactionsFor } from './reactions';
+import { reactionsControllerReact } from '../../api/generated/fn/reactions/reactions-controller-react';
 import { BoardFacilitation } from './board-facilitation';
 import { FacilitationFeed, noteVotes } from './facilitation';
 import { facilitationControllerVote } from '../../api/generated/fn/facilitation/facilitation-controller-vote';
@@ -174,6 +176,20 @@ export class BoardPage {
   /** The panel docked at the upper right, if any: they take turns. */
   protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | null>(null);
   protected readonly ledger = signal<LedgerFeed | undefined>(undefined);
+  protected readonly reactionsFeed = signal<ReactionsFeed | undefined>(undefined);
+  protected readonly reactions = computed(() => {
+    const me = this.#me()?.id;
+    const all = this.reactionsFeed()?.all();
+    return all && me ? reactionsFor(all, me) : new Map();
+  });
+
+  protected async onReact(nodeId: string, emoji: string, on: boolean): Promise<void> {
+    try {
+      await this.#api.invoke(reactionsControllerReact, { id: this.id(), body: { nodeId, emoji: emoji as never, on } });
+    } catch {
+      // The note keeps showing what the board has.
+    }
+  }
   protected readonly tasks = signal<TaskFeed | undefined>(undefined);
   protected readonly summaryFeed = signal<SummaryFeed | undefined>(undefined);
   protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
@@ -323,6 +339,8 @@ export class BoardPage {
         this.summaryFeed.set(summary);
         const ledger = new LedgerFeed(board.doc);
         this.ledger.set(ledger);
+        const reactions = new ReactionsFeed(board.doc);
+        this.reactionsFeed.set(reactions);
         this.board.set(board);
         this.connection.set(connection);
         this.chat.set(chat);
@@ -337,6 +355,8 @@ export class BoardPage {
           summary.destroy();
           this.ledger.set(undefined);
           ledger.destroy();
+          this.reactionsFeed.set(undefined);
+          reactions.destroy();
           this.presenting.set(false);
           this.followingId.set(null);
           chat.destroy();
