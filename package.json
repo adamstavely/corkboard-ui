@@ -18,7 +18,7 @@
   "private": true,
   "packageManager": "npm@11.21.2",
   "dependencies": {
-    "@adamstavely/trenchcoat": "file:vendor/adamstavely-trenchcoat-0.21.0.tgz",
+    "@adamstavely/trenchcoat": "file:vendor/adamstavely-trenchcoat-0.22.1.tgz",
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",

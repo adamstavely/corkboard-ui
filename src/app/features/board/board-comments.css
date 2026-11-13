@@ -12,11 +12,6 @@
   overflow: auto;
 }
 
-/* Trench Coat's thread always has a reply box; people who can't comment don't get one. */
-.read-only ::ng-deep .ui-ct__composer {
-  display: none;
-}
-
 .head,
 .thread-actions {
   display: flex;
