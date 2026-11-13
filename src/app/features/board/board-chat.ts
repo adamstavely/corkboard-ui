@@ -1,23 +1,34 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output, resource, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions';
 import { MultiplayerThread } from '@adamstavely/trenchcoat/angular/multiplayer-thread';
+import { PromptStarters } from '@adamstavely/trenchcoat/angular/prompt-starters';
+import type { PromptStarter, PromptStarterIconName } from '@adamstavely/trenchcoat/prompt-starters';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
 import type { MultiplayerMode, MultiplayerSend } from '@adamstavely/trenchcoat/multiplayer-thread';
 import { Router } from '@angular/router';
 import { Api } from '../../api/generated/api';
 import { Session } from '../../core/session';
 import { chatControllerSend } from '../../api/generated/fn/chat/chat-controller-send';
-import { providersControllerList } from '../../api/generated/fn/models/providers-controller-list';
+import { modelChoice } from './model-choice';
 import { MODEL_AUTHOR, scopeLine, threadItems, threadPeople, type ChatMessage } from './chat';
 
-const MODEL_KEY = 'corkboard.model';
 const MODE_KEY = 'corkboard.chat-mode';
 /** Typing stops showing this long after the last keystroke. */
 const TYPING_MS = 4000;
 
 /** For people who can't change the board: questions only. */
 const QUESTIONS = ['Summarise this', 'What are the open questions?', 'Who owns what?'];
+const STARTER_ICONS: Record<string, PromptStarterIconName> = {
+  'Group this retro by theme': 'list',
+  'Draft action items with owners': 'write',
+  'Turn this plan into a timeline': 'calendar',
+  'Score these by value and effort': 'chart',
+  'Summarise this': 'document',
+  'What are the open questions?': 'question',
+  'Who owns what?': 'search',
+};
 const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn this plan into a timeline', 'Score these by value and effort', 'Summarise this'];
 
 function stored(key: string): string | null {
@@ -43,7 +54,7 @@ function store(key: string, value: string): void {
  */
 @Component({
   selector: 'app-board-chat',
-  imports: [MultiplayerThread, Select, Button],
+  imports: [MultiplayerThread, MessageActions, PromptStarters, Select, Button],
   templateUrl: './board-chat.html',
   styleUrl: './board-chat.css',
 })
@@ -80,19 +91,11 @@ export class BoardChat {
   /** Write the last answer as a note beside the notes it was about. */
   readonly pin = output<{ text: string; near: readonly string[] }>();
 
-  protected readonly models = resource({
-    params: () => this.orgId(),
-    loader: ({ params: orgId }) => this.#api.invoke(providersControllerList, { orgId }),
-  });
-  protected readonly options = computed(() => (this.models.hasValue() ? this.models.value() : []).map((m) => ({ value: m.id, label: m.label })));
-
-  readonly #chosen = signal<string | null>(stored(MODEL_KEY));
-  /** The model picked last in this browser, if it's still there; otherwise the workspace's first. */
-  protected readonly modelId = computed<string | undefined>(() => {
-    const options = this.options();
-    return options.find((o) => o.value === this.#chosen())?.value ?? options[0]?.value;
-  });
-  protected readonly model = computed(() => ({ name: this.options().find((o) => o.value === this.modelId())?.label ?? 'Assistant' }));
+  readonly #choice = modelChoice(this.#api, () => this.orgId());
+  protected readonly models = this.#choice.models;
+  protected readonly options = this.#choice.options;
+  protected readonly modelId = this.#choice.modelId;
+  protected readonly model = computed(() => ({ name: this.#choice.name() }));
 
   protected readonly mode = signal<MultiplayerMode>(stored(MODE_KEY) === 'every' ? 'every' : 'mentions');
 
@@ -101,15 +104,28 @@ export class BoardChat {
   protected readonly present = computed(() => [this.me().id, ...this.here().map((p) => p.id), ...(this.modelId() ? [MODEL_AUTHOR] : [])]);
   protected readonly typing = computed(() => [...this.here().filter((p) => p.typing).map((p) => p.id), ...(this.answering() ? [MODEL_AUTHOR] : [])]);
 
-  protected readonly suggestions = computed(() => (this.canEdit() ? SUGGESTIONS : QUESTIONS));
+  protected readonly starters = computed<PromptStarter[]>(() =>
+    (this.canEdit() ? SUGGESTIONS : QUESTIONS).map((text, i) => ({ id: `s${i}`, text, icon: STARTER_ICONS[text] ?? 'sparkle' })),
+  );
   protected readonly scope = computed(() => scopeLine(this.selection().length, this.frames()));
 
-  /** The model's latest answer to this person, for finding its notes or keeping it on the board. */
+  /** The model's latest answer to this person, and the message of theirs it answered, for acting on it. */
   protected readonly last = computed(() => {
     const me = this.me().id;
-    const answer = [...this.messages()].reverse().find((m) => m.authorId === MODEL_AUTHOR && m.replyTo === me);
-    return answer && !answer.failed ? { reply: answer.text, cited: answer.cited ?? [], asked: answer.asked ?? [] } : null;
+    const messages = this.messages();
+    // Newest first (the app targets ES2022, which has no findLast).
+    const newest = [...messages].reverse();
+    const answer = newest.find((m) => m.authorId === MODEL_AUTHOR && m.replyTo === me);
+    if (!answer || answer.failed) return null;
+    const question = newest.slice(newest.indexOf(answer)).find((m) => m.authorId === me);
+    return { reply: answer.text, cited: answer.cited ?? [], asked: answer.asked ?? [], question: question?.text };
   });
+
+  /** Asks the last question again; the new answer arrives in the chat. */
+  protected readonly regenerate = async (): Promise<void> => {
+    const question = this.last()?.question;
+    if (question) await this.send(question, true);
+  };
 
   protected readonly problem = signal('');
 
@@ -125,8 +141,7 @@ export class BoardChat {
   readonly #stopTyping = effect((onCleanup) => onCleanup(() => clearTimeout(this.#typingTimer)));
 
   protected choose(id: string): void {
-    this.#chosen.set(id);
-    store(MODEL_KEY, id);
+    this.#choice.choose(id);
   }
 
   protected openModels(): void {
@@ -155,6 +170,10 @@ export class BoardChat {
       return;
     }
     void this.send(e.detail.text, e.detail.modelAnswers);
+  }
+
+  protected onStarter(e: Event): void {
+    this.ask((e as CustomEvent<{ text: string }>).detail.text);
   }
 
   /** Asks the model straight away: the quick actions under the chat. */

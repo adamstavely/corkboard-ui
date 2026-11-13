@@ -18,6 +18,13 @@
             (click)="show.emit(answer.cited)"
           ></tc-button>
         }
+        <tc-message-actions
+          label="Last answer"
+          quiet
+          [text]="answer.reply"
+          [actions]="['copy', 'regenerate', 'feedback']"
+          [onRegenerate]="regenerate"
+        ></tc-message-actions>
         @if (canEdit()) {
           <tc-button size="sm" variant="ghost" label="Add answer as a note" (click)="pin.emit({ text: answer.reply, near: answer.cited.length ? answer.cited : answer.asked })"></tc-button>
         }
@@ -58,10 +65,12 @@
   }
 
   @if (canPost() && modelId()) {
-    <div class="quick" role="group" [attr.aria-label]="'Ask ' + model().name">
-      @for (suggestion of suggestions(); track suggestion) {
-        <tc-button size="sm" variant="ghost" [label]="suggestion" (click)="ask(suggestion)"></tc-button>
-      }
-    </div>
+    <tc-prompt-starters
+      class="quick"
+      [heading]="'Ask ' + model().name"
+      [items]="starters()"
+      mode="send"
+      (tc-send)="onStarter($event)"
+    ></tc-prompt-starters>
   }
 </aside>
