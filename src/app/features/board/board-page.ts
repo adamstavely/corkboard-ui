@@ -25,6 +25,10 @@ import { SummaryFeed } from './summary';
 import { BoardClusters, BoardHistory } from './board-insights';
 import { LedgerFeed } from './ledger';
 import { ReactionsFeed, reactionsFor } from './reactions';
+import { FileCache, imageSize } from './file-cache';
+import { BoardFiles, ImageAsk } from './board-files';
+import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
+import { FILE_CARD, type Media } from './board-doc';
 import { reactionsControllerReact } from '../../api/generated/fn/reactions/reactions-controller-react';
 import { BoardFacilitation } from './board-facilitation';
 import { FacilitationFeed, noteVotes } from './facilitation';
@@ -58,7 +62,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -174,7 +178,11 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | null>(null);
+  protected readonly files = signal<FileCache | undefined>(undefined);
+  protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
+  /** The image being asked about. */
+  protected readonly asking = signal<Media | null>(null);
   protected readonly ledger = signal<LedgerFeed | undefined>(undefined);
   protected readonly reactionsFeed = signal<ReactionsFeed | undefined>(undefined);
   protected readonly reactions = computed(() => {
@@ -268,7 +276,52 @@ export class BoardPage {
     img.src = src;
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters'): void {
+  /** Places an uploaded file on the board: images at their own shape, files as cards. */
+  protected async place(file: BoardFileDto, local: File | undefined, at = this.canvas()?.viewCentre()): Promise<void> {
+    const board = this.board();
+    if (!board || !at) return;
+    let size: { w: number; h: number } = FILE_CARD;
+    if (file.mime.startsWith('image/') && local) {
+      const bitmap = await createImageBitmap(local).catch(() => null);
+      if (bitmap) size = imageSize(bitmap.width, bitmap.height);
+      bitmap?.close();
+    }
+    board.addMedia(file, at.x, at.y, size);
+  }
+
+  /** Files dropped straight on the board go up and land where they were dropped, side by side. */
+  protected async onDropped(files: File[], at: { x: number; y: number }): Promise<void> {
+    const cache = this.files();
+    if (!cache || !this.canEdit()) return;
+    for (const [i, local] of files.entries()) {
+      try {
+        const stored = await cache.upload(local, () => undefined, new AbortController().signal);
+        await this.place(stored, local, { x: at.x + i * 40, y: at.y + i * 40 });
+      } catch {
+        // Too big or the wrong kind: the add-files panel says why when used there.
+        this.togglePanel('files');
+      }
+    }
+  }
+
+  protected askAbout(media: Media): void {
+    this.asking.set(media);
+    this.panel.set('ask-image');
+  }
+
+  /** Opens a file in a new tab (images and PDFs show; others download). */
+  protected open(media: Media): void {
+    const url = this.files()?.urls().get(media.fileId);
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    if (!media.mime.startsWith('image/') && media.mime !== 'application/pdf') a.download = media.name;
+    a.click();
+  }
+
+  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -289,6 +342,12 @@ export class BoardPage {
   constructor() {
     effect(() => {
       if (this.meta.hasValue()) this.title.set(this.meta.value().title);
+    });
+
+    // Fetch the board's images and files as they appear on it.
+    effect(() => {
+      const ids = this.board()?.media().map((m) => m.fileId) ?? [];
+      untracked(() => this.files()?.load(ids));
     });
 
     // A board opens showing everything on it, once, when its content first arrives.
@@ -341,6 +400,8 @@ export class BoardPage {
         this.ledger.set(ledger);
         const reactions = new ReactionsFeed(board.doc);
         this.reactionsFeed.set(reactions);
+        const files = new FileCache(id, () => this.#auth.token() ?? '');
+        this.files.set(files);
         this.board.set(board);
         this.connection.set(connection);
         this.chat.set(chat);
@@ -357,6 +418,8 @@ export class BoardPage {
           ledger.destroy();
           this.reactionsFeed.set(undefined);
           reactions.destroy();
+          this.files.set(undefined);
+          files.destroy();
           this.presenting.set(false);
           this.followingId.set(null);
           chat.destroy();

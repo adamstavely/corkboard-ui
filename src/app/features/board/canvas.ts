@@ -15,6 +15,8 @@ import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
 import { boardBounds } from './export';
 import type { NoteReaction } from './reactions';
+import type { Media } from './board-doc';
+import { fileSize } from './file-cache';
 import { REACTIONS } from './reactions';
 import type { PresentedView } from './presence';
 import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
@@ -93,6 +95,14 @@ export class Canvas {
   readonly reactions = input<ReadonlyMap<string, NoteReaction[]>>(new Map());
   readonly canReact = input(false);
   readonly react = output<{ nodeId: string; emoji: string; on: boolean }>();
+  /** Object URLs of the board's files (see FileCache), by file id. */
+  readonly fileUrls = input<ReadonlyMap<string, string>>(new Map());
+  /** Files dropped on the board, and where (board coordinates). */
+  readonly filesDropped = output<{ files: File[]; at: Point }>();
+  /** Open the add-files panel, ask about an image, or open a file. */
+  readonly addFiles = output<void>();
+  readonly askImage = output<Media>();
+  readonly openFile = output<Media>();
   /** What this person is looking at, whenever it changes: for presenting it to others. */
   readonly viewChange = output<PresentedView>();
 
@@ -230,12 +240,12 @@ export class Canvas {
 
   protected onPointerDown(e: PointerEvent): void {
     const target = e.target as HTMLElement;
-    const noteEl = target.closest<HTMLElement>('app-note');
+    const noteEl = target.closest<HTMLElement>('app-note, [data-media-id]');
     // A frame is grabbed anywhere on it (a note can cover its title). Shift-drag inside one boxes notes instead.
     const frameEl = noteEl ? null : target.closest<HTMLElement>('.frame');
     const onFrameBody = !!frameEl && !target.closest('.frame-title, .frame-resize');
     const frameId = frameEl && !(onFrameBody && e.shiftKey) ? frameEl.dataset['frameId'] : undefined;
-    const id = noteEl?.dataset['noteId'] ?? frameId;
+    const id = noteEl?.dataset['noteId'] ?? noteEl?.dataset['mediaId'] ?? frameId;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
     if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
@@ -327,6 +337,10 @@ export class Canvas {
           .frames()
           .filter((f) => contains(rect, f))
           .map((f) => f.id),
+        ...this.board()
+          .media()
+          .filter((m) => intersects(rect, m))
+          .map((m) => m.id),
       ];
       this.selection.set(new Set([...g.base, ...hit]));
     }
@@ -342,7 +356,8 @@ export class Canvas {
   }
 
   protected onDoubleClick(e: MouseEvent): void {
-    if (this.readOnly()) return;
+    // An image or file opens on double-click; see the media element's own handler.
+    if (this.readOnly() || (e.target as HTMLElement).closest('[data-media-id]')) return;
     const frameId = (e.target as HTMLElement).closest('.frame-title')?.closest<HTMLElement>('.frame')?.dataset['frameId'];
     if (frameId) {
       this.#rename(frameId);
@@ -543,6 +558,35 @@ export class Canvas {
     if (!pair) return;
     const id = this.board().connect(pair[0], pair[1]);
     if (id) this.selection.set(new Set([id]));
+  }
+
+  // ── Images and files ─────────────────────────────────────────────────
+
+  protected readonly fileSize = fileSize;
+  /** The one image selected, for asking about it. */
+  protected readonly oneImage = computed(() => {
+    const [id] = this.selection();
+    return this.selection().size === 1 ? (this.board().media().find((m) => m.id === id && m.kind === 'image') ?? null) : null;
+  });
+
+  protected onDragOver(e: DragEvent): void {
+    if (!this.readOnly() && e.dataTransfer?.types.includes('Files')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }
+
+  protected onDrop(e: DragEvent): void {
+    const files = [...(e.dataTransfer?.files ?? [])];
+    if (this.readOnly() || !files.length) return;
+    e.preventDefault();
+    this.filesDropped.emit({ files, at: toWorld(this.viewport(), this.#screenPoint(e)) });
+  }
+
+  /** The middle of what's in view, in board coordinates, for placing things. */
+  viewCentre(): Point {
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    return toWorld(this.viewport(), { x: width / 2, y: height / 2 });
   }
 
   protected readonly reactionChoices = REACTIONS;

@@ -40,6 +40,24 @@ export interface Frame {
   schedule?: { start: string; every: 'week' | '2weeks' | 'month' | 'quarter' };
 }
 
+/** An image or file placed on the board; its bytes come from the API by `fileId`. */
+export interface Media {
+  id: string;
+  kind: 'image' | 'file';
+  fileId: string;
+  name: string;
+  mime: string;
+  size: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+}
+
+/** A file's card on the board. */
+export const FILE_CARD = { w: 240, h: 72 } as const;
+
 /** An arrow from one note or frame to another. */
 export interface Connector {
   id: string;
@@ -86,6 +104,9 @@ export class BoardDoc {
   readonly #frames = signal<Frame[]>([]);
   /** Every frame, bottom to top. They are drawn under all the notes. */
   readonly frames = this.#frames.asReadonly();
+  readonly #media = signal<Media[]>([]);
+  /** Images and files on the board, bottom to top. */
+  readonly media = this.#media.asReadonly();
   readonly #connectors = signal<Connector[]>([]);
   /** Every arrow between notes and frames. */
   readonly connectors = this.#connectors.asReadonly();
@@ -245,6 +266,27 @@ export class BoardDoc {
     }, this);
   }
 
+  /** Places an uploaded image or file centred on a point, at a size, and returns its id. */
+  addMedia(file: { id: string; name: string; mime: string; size: number }, cx: number, cy: number, size: { w: number; h: number }): string {
+    const id = crypto.randomUUID();
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      const node = new Y.Map<unknown>();
+      node.set('kind', file.mime.startsWith('image/') ? 'image' : 'file');
+      node.set('fileId', file.id);
+      node.set('name', file.name);
+      node.set('mime', file.mime);
+      node.set('size', file.size);
+      node.set('x', Math.round(cx - size.w / 2));
+      node.set('y', Math.round(cy - size.h / 2));
+      node.set('w', Math.round(size.w));
+      node.set('h', Math.round(size.h));
+      node.set('z', this.#topZ() + 1);
+      this.#nodes.set(id, node);
+    }, this);
+    return id;
+  }
+
   /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
   connect(from: string, to: string): string | null {
     if (from === to || !this.#nodes.has(from) || !this.#nodes.has(to)) return null;
@@ -287,7 +329,25 @@ export class BoardDoc {
     const notes: Note[] = [];
     const frames: Frame[] = [];
     const connectors: Connector[] = [];
+    const media: Media[] = [];
     this.#nodes.forEach((node, id) => {
+      const kind = node.get('kind');
+      if (kind === 'image' || kind === 'file') {
+        media.push({
+          id,
+          kind,
+          fileId: String(node.get('fileId') ?? ''),
+          name: String(node.get('name') ?? ''),
+          mime: String(node.get('mime') ?? ''),
+          size: Number(node.get('size') ?? 0),
+          x: node.get('x') as number,
+          y: node.get('y') as number,
+          w: (node.get('w') as number) ?? FILE_CARD.w,
+          h: (node.get('h') as number) ?? FILE_CARD.h,
+          z: (node.get('z') as number) ?? 0,
+        });
+        return;
+      }
       if (node.get('kind') === 'connector') {
         const from = node.get('from');
         const to = node.get('to');
@@ -326,5 +386,6 @@ export class BoardDoc {
     this.#notes.set(notes.sort(order));
     this.#frames.set(frames.sort(order));
     this.#connectors.set(connectors);
+    this.#media.set(media.sort(order));
   }
 }

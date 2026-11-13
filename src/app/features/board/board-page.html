@@ -71,6 +71,11 @@
         [reactions]="reactions()"
         [canReact]="canComment()"
         (react)="onReact($event.nodeId, $event.emoji, $event.on)"
+        [fileUrls]="files()?.urls() ?? emptyUrls"
+        (filesDropped)="onDropped($event.files, $event.at)"
+        (addFiles)="togglePanel('files')"
+        (askImage)="askAbout($event)"
+        (openFile)="open($event)"
       />
       @if (fstate(); as f) {
         <app-board-facilitation
@@ -158,6 +163,19 @@
           (closed)="panel.set(null)"
           (show)="canvas()?.show($event)"
           (ask)="askInChat($event)"
+        />
+      }
+      @if (panel() === 'files' && files()) {
+        <app-board-files [cache]="files()!" (closed)="panel.set(null)" (added)="place($event.file, $event.local)" />
+      }
+      @if (panel() === 'ask-image' && asking() && meta.hasValue()) {
+        <app-image-ask
+          [boardId]="id()"
+          [orgId]="meta.value().orgId"
+          [fileId]="asking()!.fileId"
+          [name]="asking()!.name"
+          [src]="files()?.urls()?.get(asking()!.fileId) ?? ''"
+          (closed)="panel.set(null)"
         />
       }
       @if (panel() === 'history' && ledger()) {
