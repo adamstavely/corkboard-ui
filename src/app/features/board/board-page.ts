@@ -5,6 +5,8 @@ import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
+import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
+import { boardCanvas, boardMarkdown, download, fileName } from './export';
 import { Api } from '../../api/generated/api';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
@@ -54,7 +56,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -197,6 +199,59 @@ export class BoardPage {
     this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
   }
 
+  protected readonly viewsOpen = signal(false);
+  protected readonly exportOpen = signal(false);
+  protected readonly views = [
+    { id: 'matrix', label: 'Prioritise', hint: 'Value against effort' },
+    { id: 'tasks', label: 'Tasks', hint: 'Action items on a kanban' },
+    { id: 'gantt', label: 'Timeline', hint: 'A plan as a Gantt chart' },
+    { id: 'summary', label: 'Summary', hint: 'A shared AI summary' },
+    { id: 'clusters', label: 'Clusters', hint: 'Notes linked by shared words' },
+    { id: 'history', label: 'History', hint: 'What the model changed, to undo' },
+  ] as const;
+
+  protected openView(id: (typeof this.views)[number]['id']): void {
+    this.viewsOpen.set(false);
+    this.togglePanel(id);
+  }
+
+  protected exportPng(): void {
+    this.exportOpen.set(false);
+    const board = this.board();
+    if (!board) return;
+    boardCanvas(board).toBlob((blob) => blob && download(`${fileName(this.title())}.png`, blob), 'image/png');
+  }
+
+  protected exportMarkdown(): void {
+    this.exportOpen.set(false);
+    const board = this.board();
+    if (board) download(`${fileName(this.title())}.md`, new Blob([boardMarkdown(board, this.title() || 'Board')], { type: 'text/markdown' }));
+  }
+
+  /** Prints the board's picture from a hidden frame; the print dialog can save it as a PDF. */
+  protected exportPdf(): void {
+    this.exportOpen.set(false);
+    const board = this.board();
+    if (!board) return;
+    const src = boardCanvas(board).toDataURL('image/png');
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+    document.body.append(frame);
+    const doc = frame.contentDocument!;
+    doc.title = this.title() || 'Board';
+    const style = doc.createElement('style');
+    style.textContent = '@page{margin:12mm}body{margin:0}img{width:100%;height:auto}';
+    const img = doc.createElement('img');
+    img.alt = this.title();
+    img.onload = () => {
+      frame.contentWindow!.print();
+      setTimeout(() => frame.remove(), 1000);
+    };
+    doc.head.append(style);
+    doc.body.append(img);
+    img.src = src;
+  }
+
   protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
@@ -218,6 +273,18 @@ export class BoardPage {
   constructor() {
     effect(() => {
       if (this.meta.hasValue()) this.title.set(this.meta.value().title);
+    });
+
+    // A board opens showing everything on it, once, when its content first arrives.
+    let fitted: string | null = null;
+    effect(() => {
+      const id = this.id();
+      const board = this.board();
+      const ready = this.status() !== 'connecting' && !!this.canvas() && !!board && board.notes().length + board.frames().length > 0;
+      if (ready && fitted !== id && this.followingId() === null) {
+        fitted = id;
+        untracked(() => this.canvas()?.fitAll());
+      }
     });
 
     // Following a presenter: look where they look, until they stop or leave.

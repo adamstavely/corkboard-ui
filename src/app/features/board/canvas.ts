@@ -13,6 +13,7 @@ import { NOTE_COLORS, NOTE_SIZE, type BoardDoc, type NoteColor } from './board-d
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
+import { boardBounds } from './export';
 import type { PresentedView } from './presence';
 import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
@@ -151,6 +152,14 @@ export class Canvas {
   protected readonly values = signal<Record<string, string>>({});
 
   constructor() {
+    // Track the surface's size for the minimap.
+    effect((onCleanup) => {
+      const surface = this.surfaceIfReady()?.nativeElement;
+      if (!surface) return;
+      const observer = new ResizeObserver(([entry]) => this.#size.set({ width: entry.contentRect.width, height: entry.contentRect.height }));
+      observer.observe(surface);
+      onCleanup(() => observer.disconnect());
+    });
     // Others see what this person has selected and which note they're writing in.
     effect(() => this.presence()?.setSelection(this.selection()));
     effect(() => {
@@ -424,12 +433,22 @@ export class Canvas {
     return this.noteVotes().get(id) ?? (this.voting() ? { mine: 0, total: null } : null);
   }
 
+  /** Brings everything on the board into view, zoomed to fit (never past 100%), selecting nothing. */
+  fitAll(): void {
+    const items = [...this.board().notes(), ...this.board().frames()];
+    if (items.length) this.#fit(items);
+  }
+
   /** Selects these notes and frames and brings them into view, zoomed to fit (never past 100%). */
   show(ids: readonly string[]): void {
     const notes = [...this.board().notes(), ...this.board().frames()].filter((n) => ids.includes(n.id));
     if (notes.length === 0) return;
     this.editing.set(null);
     this.selection.set(new Set(notes.map((n) => n.id)));
+    this.#fit(notes);
+  }
+
+  #fit(notes: readonly { x: number; y: number; w: number; h: number }[]): void {
     const { width, height } = this.surface().nativeElement.getBoundingClientRect();
     const box = {
       x: Math.min(...notes.map((n) => n.x)),
@@ -507,6 +526,48 @@ export class Canvas {
     const { width, height } = this.surface().nativeElement.getBoundingClientRect();
     const v = this.viewport();
     this.viewport.set(zoomAt(v, v.zoom * factor, { x: width / 2, y: height / 2 }));
+  }
+
+  // ── Minimap ──────────────────────────────────────────────────────────
+
+  /** The surface's size, kept current, for the minimap's view box. */
+  readonly #size = signal({ width: 0, height: 0 });
+  protected readonly minimapOpen = signal(true);
+  /** Everything on the board and what's in view, in a small box: frames as outlines, notes as dots of their colour. */
+  protected readonly minimap = computed(() => {
+    const board = this.board();
+    const content = boardBounds(board, 80);
+    const { x, y, zoom } = this.viewport();
+    const { width, height } = this.#size();
+    const view = { x: -x / zoom, y: -y / zoom, w: width / zoom, h: height / zoom };
+    if (!content || !width) return null;
+    const box = {
+      x: Math.min(content.x, view.x),
+      y: Math.min(content.y, view.y),
+      r: Math.max(content.x + content.w, view.x + view.w),
+      b: Math.max(content.y + content.h, view.y + view.h),
+    };
+    return {
+      viewBox: `${box.x} ${box.y} ${box.r - box.x} ${box.b - box.y}`,
+      stroke: (box.r - box.x) / 200,
+      frames: board.frames(),
+      notes: board.notes(),
+      view,
+    };
+  });
+
+  /** Clicking or dragging on the minimap centres the view there. */
+  protected onMinimap(e: PointerEvent): void {
+    if (e.type === 'pointermove' && !(e.buttons & 1)) return;
+    const svg = e.currentTarget as SVGSVGElement;
+    const point = svg.createSVGPoint();
+    point.x = e.clientX;
+    point.y = e.clientY;
+    const world = point.matrixTransform(svg.getScreenCTM()!.inverse());
+    const { width, height } = this.#size();
+    const zoom = this.viewport().zoom;
+    this.viewport.set({ zoom, x: width / 2 - world.x * zoom, y: height / 2 - world.y * zoom });
+    e.preventDefault();
   }
 
   protected resetZoom(): void {

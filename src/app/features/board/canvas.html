@@ -77,6 +77,26 @@
     <p class="hint">{{ readOnly() ? 'Nothing on this board yet' : 'Double-click anywhere to add a note' }}</p>
   }
 
+  @if (minimapOpen() && minimap(); as m) {
+    <svg
+      class="minimap"
+      role="img"
+      aria-label="Minimap of the board. Click to move there."
+      [attr.viewBox]="m.viewBox"
+      preserveAspectRatio="xMidYMid meet"
+      (pointerdown)="onMinimap($event)"
+      (pointermove)="onMinimap($event)"
+    >
+      @for (f of m.frames; track f.id) {
+        <rect class="mm-frame" [attr.x]="f.x" [attr.y]="f.y" [attr.width]="f.w" [attr.height]="f.h" [attr.stroke-width]="m.stroke" />
+      }
+      @for (n of m.notes; track n.id) {
+        <rect [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" [style.fill]="'var(--note-' + n.color + ')'" />
+      }
+      <rect class="mm-view" [attr.x]="m.view.x" [attr.y]="m.view.y" [attr.width]="m.view.w" [attr.height]="m.view.h" [attr.stroke-width]="m.stroke * 2" />
+    </svg>
+  }
+
   <div class="toolbar" role="toolbar" aria-label="Board">
     @if (readOnly()) {
       <span class="read-only">{{ readOnlyLabel() }}</span>
@@ -112,6 +132,8 @@
     <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>
     <tc-button size="sm" variant="ghost" [label]="zoomPercent()" aria-label="Reset zoom to 100%" (click)="resetZoom()"></tc-button>
     <tc-button size="sm" variant="ghost" label="+" aria-label="Zoom in" (click)="zoomBy(1.25)"></tc-button>
+    <tc-button size="sm" variant="ghost" label="Fit" title="Show everything on the board" (click)="fitAll()"></tc-button>
+    <tc-button size="sm" [variant]="minimapOpen() ? 'secondary' : 'ghost'" label="Map" [attr.aria-pressed]="minimapOpen()" title="Show or hide the minimap" (click)="minimapOpen.set(!minimapOpen())"></tc-button>
   </div>
 </div>
 
