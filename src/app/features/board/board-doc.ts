@@ -40,6 +40,13 @@ export interface Frame {
   schedule?: { start: string; every: 'week' | '2weeks' | 'month' | 'quarter' };
 }
 
+/** An arrow from one note or frame to another. */
+export interface Connector {
+  id: string;
+  from: string;
+  to: string;
+}
+
 type Box = Pick<Frame, 'x' | 'y' | 'w' | 'h'>;
 
 /** Whether a note is in a frame: its centre is inside. The API decides the same way. */
@@ -79,6 +86,9 @@ export class BoardDoc {
   readonly #frames = signal<Frame[]>([]);
   /** Every frame, bottom to top. They are drawn under all the notes. */
   readonly frames = this.#frames.asReadonly();
+  readonly #connectors = signal<Connector[]>([]);
+  /** Every arrow between notes and frames. */
+  readonly connectors = this.#connectors.asReadonly();
 
   constructor() {
     this.#nodes.observeDeep((events) => {
@@ -225,11 +235,31 @@ export class BoardDoc {
     this.doc.transact(() => chosen.forEach((n, i) => this.#nodes.get(n.id)?.set('z', top + 1 + i)), this);
   }
 
+  /** Removes notes, frames and arrows; arrows to or from what's removed go too. */
   remove(ids: Iterable<string>): void {
+    const gone = new Set(ids);
     this.undo.stopCapturing();
     this.doc.transact(() => {
-      for (const id of ids) this.#nodes.delete(id);
+      for (const c of this.connectors()) if (gone.has(c.from) || gone.has(c.to)) gone.add(c.id);
+      for (const id of gone) this.#nodes.delete(id);
     }, this);
+  }
+
+  /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
+  connect(from: string, to: string): string | null {
+    if (from === to || !this.#nodes.has(from) || !this.#nodes.has(to)) return null;
+    const existing = this.connectors().find((c) => c.from === from && c.to === to);
+    if (existing) return existing.id;
+    const id = crypto.randomUUID();
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      const node = new Y.Map<unknown>();
+      node.set('kind', 'connector');
+      node.set('from', from);
+      node.set('to', to);
+      this.#nodes.set(id, node);
+    }, this);
+    return id;
   }
 
   /** The whole document as one update, for saving. */
@@ -256,7 +286,14 @@ export class BoardDoc {
   #refresh(): void {
     const notes: Note[] = [];
     const frames: Frame[] = [];
+    const connectors: Connector[] = [];
     this.#nodes.forEach((node, id) => {
+      if (node.get('kind') === 'connector') {
+        const from = node.get('from');
+        const to = node.get('to');
+        if (typeof from === 'string' && typeof to === 'string') connectors.push({ id, from, to });
+        return;
+      }
       if (node.get('kind') === 'frame') {
         const title = node.get('title');
         frames.push({
@@ -288,5 +325,6 @@ export class BoardDoc {
     const order = (a: { z: number; id: string }, b: { z: number; id: string }) => a.z - b.z || a.id.localeCompare(b.id);
     this.#notes.set(notes.sort(order));
     this.#frames.set(frames.sort(order));
+    this.#connectors.set(connectors);
   }
 }

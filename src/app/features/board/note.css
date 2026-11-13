@@ -174,3 +174,37 @@ app-note .vote-count {
   min-width: 14px;
   text-align: center;
 }
+
+/* Emoji reactions along the note's bottom-left; each toggles yours. */
+app-note .note-reactions {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 70px);
+  cursor: default;
+}
+app-note .reaction {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+app-note .reaction.mine {
+  border-color: var(--tc-accent-text);
+  background: var(--tc-accent-subtle);
+}
+app-note .reaction:disabled {
+  cursor: default;
+}
+app-note .reaction:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+}

@@ -3,6 +3,7 @@ import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { Editor } from '@tiptap/core';
 import type { Note } from './board-doc';
 import type { NoteVotes } from './facilitation';
+import type { NoteReaction } from './reactions';
 import { noteExtensions, renderNoteText } from './note-text';
 
 /**
@@ -16,6 +17,21 @@ import { noteExtensions, renderNoteText } from './note-text';
     <div class="text" #text></div>
     @if (peer(); as peer) {
       <span class="note-peer" [style.background]="peer.color">{{ peer.name }}{{ peer.editing ? ' is writing' : '' }}</span>
+    }
+    @if (reactions().length) {
+      <span class="note-reactions">
+        @for (r of reactions(); track r.emoji) {
+          <button
+            type="button"
+            class="reaction"
+            [class.mine]="r.mine"
+            [disabled]="!canReact()"
+            [attr.aria-pressed]="r.mine"
+            [attr.aria-label]="r.emoji + ' ' + r.count + (r.mine ? ', including you' : '')"
+            (click)="react.emit(r.emoji)"
+          >{{ r.emoji }} {{ r.count }}</button>
+        }
+      </span>
     }
     @if (votes(); as v) {
       <span class="note-votes" [class.results]="v.total !== null">
@@ -57,6 +73,10 @@ export class NoteView {
   readonly peer = input<{ name: string; color: string; editing: boolean } | null>(null);
   /** Comments in its open thread, shown as a badge; 0 for none. */
   readonly comments = input(0);
+  /** Its emoji reactions, and whether this person may react; a reaction picked goes out to toggle. */
+  readonly reactions = input<NoteReaction[]>([]);
+  readonly canReact = input(false);
+  readonly react = output<string>();
   /** Its dot votes: this person's while a vote runs, everyone's after; null when there's nothing to show. */
   readonly votes = input<NoteVotes | null>(null);
   /** Whether this person is voting now, and has votes left. */
