@@ -39,6 +39,7 @@ describe('Presence', () => {
         selection: ['n1', 'n2'],
         editing: 'n1',
         typing: false,
+        presenting: null,
       },
     ]);
 

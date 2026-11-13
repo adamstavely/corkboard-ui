@@ -1,0 +1,79 @@
+/* Along the top middle of the board, over the canvas. */
+.strip {
+  position: absolute;
+  top: var(--tc-space-3);
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tc-space-1);
+  max-width: calc(100% - 2 * var(--tc-space-4) - 200px);
+  transform: translateX(-50%);
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-1) var(--tc-space-2) var(--tc-space-1) var(--tc-space-3);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  color: var(--tc-text-primary);
+  font-size: var(--tc-font-size-sm);
+}
+.controls {
+  border-radius: var(--tc-radius-lg);
+}
+
+.timer svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.clock {
+  min-width: 3.5em;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--tc-font-weight-semibold);
+}
+.timer.up {
+  border-color: var(--tc-status-danger-fg);
+  color: var(--tc-status-danger-fg);
+}
+.label,
+.muted {
+  color: var(--tc-text-muted);
+}
+.dot {
+  color: var(--tc-accent-text);
+}
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--tc-border-subtle);
+}
+
+.problem {
+  margin: 0;
+  padding: var(--tc-space-1) var(--tc-space-3);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: var(--tc-status-danger-fg);
+  font-size: var(--tc-font-size-sm);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .timer.up {
+    animation: pulse 1s ease-in-out 3;
+  }
+}
+@keyframes pulse {
+  50% {
+    transform: scale(1.04);
+  }
+}

@@ -14,6 +14,10 @@ import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
 import { BoardChat } from './board-chat';
+import { BoardFacilitation } from './board-facilitation';
+import { FacilitationFeed, noteVotes } from './facilitation';
+import { facilitationControllerVote } from '../../api/generated/fn/facilitation/facilitation-controller-vote';
+import type { PresentedView } from './presence';
 import { ChatFeed } from './chat';
 import { Canvas } from './canvas';
 import { BoardShare } from './board-share';
@@ -42,7 +46,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -89,6 +93,57 @@ export class BoardPage {
   protected readonly meId = computed(() => this.#me()?.id);
 
   protected readonly chatOpen = signal(false);
+
+  // ── Facilitation: dot voting, the shared timer, presenting ──
+  protected readonly facilitation = signal<FacilitationFeed | undefined>(undefined);
+  protected readonly facilitating = signal(false);
+  protected readonly canRun = computed(() => atLeast(this.role(), 'updater'));
+  protected readonly fstate = computed(() => this.facilitation()?.state());
+  protected readonly noteVotes = computed(() => {
+    const s = this.fstate();
+    const me = this.#me()?.id;
+    return s && me ? noteVotes(s.voting, s.votes, me) : new Map();
+  });
+  protected readonly votingNow = computed(() => !!this.fstate()?.voting.open && this.canComment());
+  protected readonly votesLeft = computed(() => {
+    const s = this.fstate();
+    const me = this.#me()?.id;
+    return s && me ? Math.max(0, s.voting.votesEach - (s.votes.get(me)?.length ?? 0)) : 0;
+  });
+  protected readonly presenting = signal(false);
+  /** The person this person follows, by their connection; null when not following. */
+  protected readonly followingId = signal<number | null>(null);
+  /** Someone else presenting: the one followed, or the first. */
+  protected readonly presenter = computed(() => {
+    const presenters = (this.connection()?.presence.peers() ?? []).filter((p) => p.presenting);
+    const p = presenters.find((x) => x.clientId === this.followingId()) ?? presenters[0];
+    return p ? { clientId: p.clientId, name: p.user.name, view: p.presenting! } : null;
+  });
+  #lastView: PresentedView | null = null;
+
+  protected async onVote(noteId: string, add: boolean): Promise<void> {
+    try {
+      await this.#api.invoke(facilitationControllerVote, { id: this.id(), body: { noteId, add } });
+    } catch {
+      // The count stays as the document has it; the strip shows how many votes are left.
+    }
+  }
+
+  protected onView(view: PresentedView): void {
+    this.#lastView = view;
+    if (this.presenting()) this.connection()?.presence.setPresenting(view);
+  }
+
+  protected togglePresenting(): void {
+    const next = !this.presenting();
+    this.presenting.set(next);
+    this.followingId.set(null);
+    this.connection()?.presence.setPresenting(next ? this.#lastView : null);
+  }
+
+  protected setFollowing(on: boolean): void {
+    this.followingId.set(on ? (this.presenter()?.clientId ?? null) : null);
+  }
   protected readonly chat = signal<ChatFeed | undefined>(undefined);
   /** Everyone else on the board, once each, and whether they're writing in the chat. */
   protected readonly others = computed(() => {
@@ -146,6 +201,18 @@ export class BoardPage {
       if (this.meta.hasValue()) this.title.set(this.meta.value().title);
     });
 
+    // Following a presenter: look where they look, until they stop or leave.
+    effect(() => {
+      const following = this.followingId();
+      if (following === null) return;
+      const p = this.presenter();
+      if (!p || p.clientId !== following) {
+        untracked(() => this.followingId.set(null));
+        return;
+      }
+      untracked(() => this.canvas()?.lookAt(p.view));
+    });
+
     // The server reconnects someone whose role changed; ask again what they may do here once they're back in.
     effect(() => {
       if ((this.connection()?.signIns() ?? 0) > 1) untracked(() => this.meta.reload());
@@ -162,6 +229,8 @@ export class BoardPage {
         const board = new BoardDoc();
         const connection = new BoardConnection(id, board, () => this.#auth.token() ?? '', user);
         const chat = new ChatFeed(board.doc);
+        const facilitation = new FacilitationFeed(board.doc);
+        this.facilitation.set(facilitation);
         this.board.set(board);
         this.connection.set(connection);
         this.chat.set(chat);
@@ -169,7 +238,11 @@ export class BoardPage {
           this.board.set(undefined);
           this.connection.set(undefined);
           this.chat.set(undefined);
+          this.facilitation.set(undefined);
+          this.presenting.set(false);
+          this.followingId.set(null);
           chat.destroy();
+          facilitation.destroy();
           connection.destroy();
           board.destroy();
         });

@@ -52,6 +52,10 @@
         [editing]="editing() === note.id"
         [peer]="peerMarks().get(note.id) ?? null"
         [comments]="commentCounts().get(note.id) ?? 0"
+        [votes]="votesFor(note.id)"
+        [voting]="voting()"
+        [canVoteMore]="votesLeft() > 0"
+        (vote)="vote.emit({ noteId: note.id, add: $event })"
         [provider]="provider()"
         (editorChange)="editor.set($event)"
       />
