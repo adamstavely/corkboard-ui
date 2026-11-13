@@ -14,6 +14,15 @@ import { boardsControllerList } from '../../api/generated/fn/boards/boards-contr
 import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-controller-templates';
 import type { CreateBoardDto } from '../../api/generated/models/create-board-dto';
 import { aRole, atLeast, ROLE_LABELS } from '../../core/roles';
+import { toast } from '@adamstavely/trenchcoat/toaster';
+import { organiseControllerCreateFolder } from '../../api/generated/fn/organise/organise-controller-create-folder';
+import { organiseControllerFolders } from '../../api/generated/fn/organise/organise-controller-folders';
+import { organiseControllerMove } from '../../api/generated/fn/organise/organise-controller-move';
+import { organiseControllerRemoveFolder } from '../../api/generated/fn/organise/organise-controller-remove-folder';
+import { organiseControllerRenameFolder } from '../../api/generated/fn/organise/organise-controller-rename-folder';
+import { organiseControllerStar } from '../../api/generated/fn/organise/organise-controller-star';
+import { organiseControllerUnstar } from '../../api/generated/fn/organise/organise-controller-unstar';
+import { filterBoards, type BoardFilter } from './organise';
 import { Session } from '../../core/session';
 import { edited } from './edited';
 
@@ -34,10 +43,69 @@ export class BoardList {
     loader: ({ params: orgId }) => this.#api.invoke(boardsControllerList, { orgId }),
   });
 
+  protected readonly folders = resource({
+    params: () => this.session.org()?.id,
+    loader: ({ params: orgId }) => this.#api.invoke(organiseControllerFolders, { orgId }),
+  });
+  protected readonly folderList = computed(() => (this.folders.hasValue() ? this.folders.value() : []));
+  protected readonly folderOptions = computed(() => [{ value: '', label: 'No folder' }, ...this.folderList().map((f) => ({ value: f.id, label: f.name }))]);
+  protected readonly filter = signal<BoardFilter>({ kind: 'all' });
+  protected readonly currentFolder = computed(() => {
+    const f = this.filter();
+    return f.kind === 'folder' ? this.folderList().find((x) => x.id === f.id) : undefined;
+  });
+  /** A folder's name being typed: a new folder ('new') or a rename. */
+  protected readonly naming = signal<{ id: string | 'new'; name: string } | null>(null);
+
+  protected isFilter(kind: BoardFilter['kind'], id?: string): boolean {
+    const f = this.filter();
+    return f.kind === kind && (f.kind !== 'folder' || f.id === id);
+  }
+
+  protected async saveFolder(): Promise<void> {
+    const naming = this.naming();
+    const orgId = this.session.org()?.id;
+    const name = naming?.name.trim();
+    if (!naming || !orgId || !name) return;
+    try {
+      if (naming.id === 'new') {
+        const folder = await this.#api.invoke(organiseControllerCreateFolder, { orgId, body: { name } });
+        this.filter.set({ kind: 'folder', id: folder.id });
+      } else {
+        await this.#api.invoke(organiseControllerRenameFolder, { orgId, folderId: naming.id, body: { name } });
+      }
+      this.naming.set(null);
+      this.folders.reload();
+    } catch {
+      toast.error("The folder couldn't be saved. Try again.");
+    }
+  }
+
+  protected async deleteFolder(id: string, name: string): Promise<void> {
+    const orgId = this.session.org()?.id;
+    if (!orgId) return;
+    await this.#api.invoke(organiseControllerRemoveFolder, { orgId, folderId: id });
+    this.filter.set({ kind: 'all' });
+    this.folders.reload();
+    this.boards.reload();
+    toast.success(`Deleted “${name}”`, { description: 'Its boards are still here, in no folder.' });
+  }
+
+  protected async toggleStar(id: string, starred: boolean): Promise<void> {
+    await this.#api.invoke(starred ? organiseControllerUnstar : organiseControllerStar, { id });
+    this.boards.reload();
+  }
+
+  protected async moveTo(id: string, folderId: string): Promise<void> {
+    await this.#api.invoke(organiseControllerMove, { id, body: { folderId: folderId || null } });
+    this.boards.reload();
+  }
+
   protected readonly cards = computed(() =>
-    (this.boards.hasValue() ? this.boards.value() : []).map((b) => ({
+    filterBoards(this.boards.hasValue() ? this.boards.value() : [], this.filter()).map((b) => ({
       ...b,
       href: `/boards/${b.id}`,
+      canFile: atLeast(b.role, 'updater'),
       // What you can do there, unless it's the usual: changing it.
       meta: b.role === 'updater' ? edited(new Date(b.updatedAt)) : `${edited(new Date(b.updatedAt))} · ${ROLE_LABELS[b.role]}`,
     })),

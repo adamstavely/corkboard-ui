@@ -64,3 +64,55 @@ h1 {
 .empty tc-first-use {
   width: min(320px, 100%);
 }
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-1);
+  margin-bottom: var(--tc-space-4);
+}
+.divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--tc-space-1);
+  background: var(--tc-border-subtle);
+}
+.folder-name {
+  padding: var(--tc-space-1) var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font: inherit;
+}
+.note {
+  color: var(--tc-text-muted);
+}
+
+/* Under each card: star it for yourself, or file it in a folder. */
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  margin-top: var(--tc-space-1);
+}
+.star {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  color: var(--tc-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+.star.on {
+  color: var(--tc-status-warning-fg, #b8860b);
+}
+.star:hover,
+.star:focus-visible {
+  background: var(--tc-accent-subtle);
+  outline: none;
+}

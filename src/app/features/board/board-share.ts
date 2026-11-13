@@ -1,4 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { ShareLinkManager } from '@adamstavely/trenchcoat/angular/share-link-manager';
+import type { ShareLinksChange } from '@adamstavely/trenchcoat/share-link-manager';
+import { toast } from '@adamstavely/trenchcoat/toaster';
+import { linksControllerCreate } from '../../api/generated/fn/links/links-controller-create';
+import { linksControllerList } from '../../api/generated/fn/links/links-controller-list';
+import { linksControllerRevoke } from '../../api/generated/fn/links/links-controller-revoke';
+import { linksControllerSetExpiry } from '../../api/generated/fn/links/links-controller-set-expiry';
+import { sharedUrl, shareLinks } from './share-links';
 import { Component, computed, inject, input, output, resource, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { DataTable } from '@adamstavely/trenchcoat/angular/data-table';
@@ -22,12 +30,47 @@ const COLUMNS: DataColumn[] = [
  */
 @Component({
   selector: 'app-board-share',
-  imports: [SharePanel, DataTable, Button],
+  imports: [SharePanel, ShareLinkManager, DataTable, Button],
   templateUrl: './board-share.html',
   styleUrl: './board-share.css',
 })
 export class BoardShare {
+
   readonly #api = inject(Api);
+
+  readonly #links = resource({
+    params: () => (this.canManage() ? this.boardId() : undefined),
+    loader: ({ params: id }) => this.#api.invoke(linksControllerList, { id }),
+  });
+  protected readonly links = computed(() => shareLinks(this.#links.hasValue() ? this.#links.value() : []));
+
+  protected async createLink(): Promise<void> {
+    try {
+      const link = await this.#api.invoke(linksControllerCreate, { id: this.boardId(), body: {} });
+      await navigator.clipboard?.writeText(sharedUrl(link.token)).catch(() => undefined);
+      toast.success('Link made and copied', { description: 'Anyone with it can view this board.' });
+      this.#links.reload();
+    } catch {
+      toast.error("The link couldn't be made. Try again.");
+    }
+  }
+
+  protected async onLinksChange(e: CustomEvent<ShareLinksChange>): Promise<void> {
+    const { change, link } = e.detail;
+    try {
+      if (change === 'revoke') await this.#api.invoke(linksControllerRevoke, { id: this.boardId(), linkId: link.id });
+      else await this.#api.invoke(linksControllerSetExpiry, { id: this.boardId(), linkId: link.id, body: { expiresAt: link.expiresAt ?? null } });
+      toast.success(change === 'revoke' ? 'Link turned off' : 'Expiry changed');
+    } catch {
+      toast.error("That didn't work. Try again.");
+    } finally {
+      this.#links.reload();
+    }
+  }
+
+  protected onCopy(): void {
+    toast.success('Link copied');
+  }
 
   readonly boardId = input.required<string>();
   readonly boardName = input('');

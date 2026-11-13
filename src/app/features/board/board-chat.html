@@ -1,7 +1,7 @@
 <aside class="chat" aria-label="Board chat">
   <div class="head">
     @if (options().length > 1) {
-      <tc-select label="Model" [options]="options()" [value]="modelId() ?? ''" (tc-value-change)="choose($event.detail.value)"></tc-select>
+      <tc-model-picker [models]="pickerModels()" [value]="modelId() ?? ''" (tc-value-change)="choose($event.detail.value)"></tc-model-picker>
     }
     <span class="scope">{{ scope() }}</span>
     <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>

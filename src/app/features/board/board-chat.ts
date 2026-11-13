@@ -5,7 +5,7 @@ import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions'
 import { MultiplayerThread } from '@adamstavely/trenchcoat/angular/multiplayer-thread';
 import { PromptStarters } from '@adamstavely/trenchcoat/angular/prompt-starters';
 import type { PromptStarter, PromptStarterIconName } from '@adamstavely/trenchcoat/prompt-starters';
-import { Select } from '@adamstavely/trenchcoat/angular/select';
+import { ModelPicker } from '@adamstavely/trenchcoat/angular/model-picker';
 import type { MultiplayerMode, MultiplayerSend } from '@adamstavely/trenchcoat/multiplayer-thread';
 import { Router } from '@angular/router';
 import { Api } from '../../api/generated/api';
@@ -54,7 +54,7 @@ function store(key: string, value: string): void {
  */
 @Component({
   selector: 'app-board-chat',
-  imports: [MultiplayerThread, MessageActions, PromptStarters, Select, Button],
+  imports: [MultiplayerThread, MessageActions, PromptStarters, ModelPicker, Button],
   templateUrl: './board-chat.html',
   styleUrl: './board-chat.css',
 })
@@ -95,6 +95,7 @@ export class BoardChat {
   protected readonly models = this.#choice.models;
   protected readonly options = this.#choice.options;
   protected readonly modelId = this.#choice.modelId;
+  protected readonly pickerModels = this.#choice.pickerModels;
   protected readonly model = computed(() => ({ name: this.#choice.name() }));
 
   protected readonly mode = signal<MultiplayerMode>(stored(MODE_KEY) === 'every' ? 'every' : 'mentions');

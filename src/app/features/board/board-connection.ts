@@ -59,6 +59,14 @@ export class BoardConnection {
       },
       onUnsyncedChanges: ({ number }) => this.#unsynced.set(number),
       onAuthenticated: () => this.#signIns.update((n) => n + 1),
+      // The server closes one board's connection (the socket stays up) when someone's role changes or the share link
+      // they came through is turned off. Join again: they're let back in with their new role, or turned away.
+      onClose: () =>
+        setTimeout(() => {
+          if (this.#destroyed || this.provider.configuration.websocketProvider.status !== WebSocketStatus.Connected) return;
+          this.provider.detach();
+          this.provider.attach();
+        }, 300),
       onStateless: ({ payload }) => {
         try {
           const message = JSON.parse(payload) as { type?: unknown; personId?: unknown; on?: unknown };
@@ -85,7 +93,10 @@ export class BoardConnection {
     this.presence = new Presence(this.provider.awareness!, user);
   }
 
+  #destroyed = false;
+
   destroy(): void {
+    this.#destroyed = true;
     this.presence.destroy();
     this.provider.destroy();
   }
