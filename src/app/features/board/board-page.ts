@@ -15,6 +15,9 @@ import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
 import { BoardChat } from './board-chat';
 import { BoardMatrix } from './board-matrix';
+import { BoardTasks } from './board-tasks';
+import { BoardGantt } from './board-gantt';
+import { TaskFeed } from './tasks';
 import { BoardFacilitation } from './board-facilitation';
 import { FacilitationFeed, noteVotes } from './facilitation';
 import { facilitationControllerVote } from '../../api/generated/fn/facilitation/facilitation-controller-vote';
@@ -47,7 +50,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -163,7 +166,8 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'matrix' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | null>(null);
+  protected readonly tasks = signal<TaskFeed | undefined>(undefined);
   protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
 
   /** The board's comment threads, fetched again whenever someone changes them. */
@@ -187,7 +191,7 @@ export class BoardPage {
     this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'matrix'): void {
+  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -240,6 +244,8 @@ export class BoardPage {
         const chat = new ChatFeed(board.doc);
         const facilitation = new FacilitationFeed(board.doc);
         this.facilitation.set(facilitation);
+        const tasks = new TaskFeed(board.doc);
+        this.tasks.set(tasks);
         this.board.set(board);
         this.connection.set(connection);
         this.chat.set(chat);
@@ -248,6 +254,8 @@ export class BoardPage {
           this.connection.set(undefined);
           this.chat.set(undefined);
           this.facilitation.set(undefined);
+          this.tasks.set(undefined);
+          tasks.destroy();
           this.presenting.set(false);
           this.followingId.set(null);
           chat.destroy();
