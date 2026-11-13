@@ -36,6 +36,8 @@ export interface Frame {
   h: number;
   z: number;
   title: string;
+  /** On a timeline's outer frame: when its first column starts and how long each lasts, for the Gantt view. */
+  schedule?: { start: string; every: 'week' | '2weeks' | 'month' | 'quarter' };
 }
 
 type Box = Pick<Frame, 'x' | 'y' | 'w' | 'h'>;
@@ -46,6 +48,12 @@ export const inFrame = (note: Box, frame: Box) =>
 
 /** Changes that came from the server rather than this person; they don't go on the undo stack or back to the server. */
 export const REMOTE = Symbol('remote');
+
+/** A timeline frame's dates, when someone has set them. */
+function scheduleOf(node: Y.Map<unknown>): Pick<Frame, 'schedule'> {
+  const s = node.get('schedule') as { start?: unknown; every?: unknown } | undefined;
+  return s && typeof s.start === 'string' && ['week', '2weeks', 'month', 'quarter'].includes(s.every as string) ? { schedule: s as Frame['schedule'] } : {};
+}
 
 /** A note's matrix scores, when it has both. */
 function scores(node: Y.Map<unknown>): { value?: number; effort?: number } {
@@ -190,6 +198,14 @@ export class BoardDoc {
     }, this);
   }
 
+  /** Sets when a timeline frame starts and how long each of its columns lasts. */
+  setSchedule(frameId: string, schedule: NonNullable<Frame['schedule']>): void {
+    this.doc.transact(() => {
+      const node = this.#nodes.get(frameId);
+      if (node?.get('kind') === 'frame') node.set('schedule', { ...schedule });
+    }, this);
+  }
+
   /** Places a note on the value-vs-effort matrix. */
   setScore(id: string, value: number, effort: number): void {
     this.undo.stopCapturing();
@@ -251,6 +267,7 @@ export class BoardDoc {
           h: (node.get('h') as number) ?? FRAME_SIZE.h,
           z: (node.get('z') as number) ?? 0,
           title: typeof title === 'string' ? title : '',
+          ...scheduleOf(node),
         });
         return;
       }

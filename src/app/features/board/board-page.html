@@ -17,6 +17,8 @@
     <tc-button size="sm" [variant]="presenting() ? 'primary' : 'secondary'" [label]="presenting() ? 'Presenting' : 'Present'" [disabled]="!connection()" (click)="togglePresenting()"></tc-button>
     <tc-button size="sm" variant="secondary" label="Chat" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())"></tc-button>
     <tc-button size="sm" variant="secondary" label="Prioritise" [disabled]="!connection()" (click)="togglePanel('matrix')"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Tasks" [disabled]="!connection()" (click)="togglePanel('tasks')"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Timeline" [disabled]="!connection()" (click)="togglePanel('gantt')"></tc-button>
     <tc-button
       size="sm"
       variant="secondary"
@@ -110,6 +112,20 @@
           (closed)="panel.set(null)"
           (ask)="askInChat('Place these notes on the value-vs-effort matrix')"
         />
+      }
+      @if (panel() === 'tasks' && tasks() && meta.hasValue()) {
+        <app-board-tasks
+          [boardId]="id()"
+          [boardTitle]="meta.value().title"
+          [board]="board()!"
+          [feed]="tasks()!"
+          [selection]="selection()"
+          [canEdit]="canEdit()"
+          (closed)="panel.set(null)"
+        />
+      }
+      @if (panel() === 'gantt') {
+        <app-board-gantt [board]="board()!" [tasks]="tasks()?.tasks() ?? []" [canEdit]="canEdit()" (closed)="panel.set(null)" (show)="panel.set(null); canvas()?.show($event)" />
       }
       @if (panel() === 'share' && meta.hasValue()) {
         <app-board-share
