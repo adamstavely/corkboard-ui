@@ -183,3 +183,27 @@
   top: -9px;
   right: -9px;
 }
+
+/* Everything on the board in a small box at the lower left; the outlined box is what's in view. */
+.minimap {
+  position: absolute;
+  left: var(--tc-space-4);
+  bottom: var(--tc-space-4);
+  z-index: 2;
+  width: 200px;
+  height: 140px;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  cursor: pointer;
+  touch-action: none;
+}
+.mm-frame {
+  fill: var(--tc-surface-sunken, transparent);
+  stroke: var(--tc-border-default);
+}
+.mm-view {
+  fill: color-mix(in srgb, var(--tc-accent-text) 10%, transparent);
+  stroke: var(--tc-accent-text);
+}

@@ -88,3 +88,62 @@
 .status.offline {
   color: var(--tc-status-warning-fg);
 }
+
+/* Views and Export: Trench Coat's menu-morph, with a trigger that matches the bar's small secondary buttons. */
+.menu-trigger {
+  height: var(--tc-control-h-sm, 28px);
+  padding: 0 var(--tc-space-3);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-control-radius-sm, var(--tc-radius-sm));
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+  cursor: pointer;
+}
+.menu-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.menu-trigger:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  padding: var(--tc-space-1);
+}
+.menu-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-list button:hover,
+.menu-list button:focus-visible {
+  background: var(--tc-fill-default, var(--tc-accent-subtle));
+  outline: none;
+}
+.menu-list button[aria-checked='true'] strong::after {
+  content: ' ✓';
+  color: var(--tc-accent-text);
+}
+.menu-list strong {
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+}
+.menu-list span {
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-xs, 12px);
+}
