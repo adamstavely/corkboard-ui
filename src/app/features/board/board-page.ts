@@ -142,7 +142,7 @@ export class BoardPage {
         const user: PresenceUser = { id: me.id, name: me.name, color: colorFor(me.id) };
         this.#me.set(user);
         const board = new BoardDoc();
-        const connection = new BoardConnection(id, board, () => this.#auth.accessToken() ?? '', user);
+        const connection = new BoardConnection(id, board, () => this.#auth.token() ?? '', user);
         this.board.set(board);
         this.connection.set(connection);
         onCleanup(() => {

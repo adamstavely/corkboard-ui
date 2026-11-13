@@ -14,11 +14,8 @@ COPY . .
 RUN npm run build
 
 FROM nginx:1.27-alpine
-# Where /api is proxied to, and the identity provider the app signs in with (written to /config.json at start).
-ENV API_UPSTREAM=http://corkboard-api:3000 \
-    OIDC_AUTHORITY=http://localhost:8280/realms/corkboard \
-    OIDC_CLIENT_ID=corkboard-ui
+# Where /api is proxied to.
+ENV API_UPSTREAM=http://corkboard-api:3000
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY docker/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
 COPY --from=build /app/dist/corkboard/browser /usr/share/nginx/html
 EXPOSE 8080
