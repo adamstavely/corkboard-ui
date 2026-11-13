@@ -1,0 +1,67 @@
+<aside class="chat" aria-label="Board chat">
+  <div class="head">
+    @if (options().length > 1) {
+      <tc-select label="Model" [options]="options()" [value]="modelId() ?? ''" (tc-value-change)="choose($event.detail.value)"></tc-select>
+    }
+    <span class="scope">{{ scope() }}</span>
+    <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+  </div>
+
+  @if (last(); as answer) {
+    @if (answer.cited.length || canEdit()) {
+      <div class="answer-actions" role="group" aria-label="Last answer to you">
+        @if (answer.cited.length) {
+          <tc-button
+            size="sm"
+            variant="secondary"
+            [label]="'Show ' + answer.cited.length + ' note' + (answer.cited.length === 1 ? '' : 's')"
+            (click)="show.emit(answer.cited)"
+          ></tc-button>
+        }
+        @if (canEdit()) {
+          <tc-button size="sm" variant="ghost" label="Add answer as a note" (click)="pin.emit({ text: answer.reply, near: answer.cited.length ? answer.cited : answer.asked })"></tc-button>
+        }
+      </div>
+    }
+  }
+
+  <tc-multiplayer-thread
+    heading="Board chat"
+    [people]="people()"
+    [model]="model()"
+    [items]="items()"
+    [currentUser]="me().id"
+    [present]="present()"
+    [typing]="typing()"
+    [mode]="mode()"
+    (tc-send)="onSend($event)"
+    (tc-mode-change)="setMode($event.detail.mode)"
+    (input)="onInput()"
+  ></tc-multiplayer-thread>
+
+  @if (models.hasValue() && options().length === 0) {
+    <div class="no-model">
+      <p>
+        No AI model is connected to this workspace, so nobody can ask one yet. Grouping retros, action items, timelines
+        and questions about the board all need one.
+      </p>
+      @if (isOwner()) {
+        <tc-button size="sm" variant="secondary" label="Connect a model" (click)="openModels()"></tc-button>
+      } @else {
+        <p>An owner of this workspace can connect one under AI models.</p>
+      }
+    </div>
+  }
+
+  @if (problem()) {
+    <p class="problem" role="alert">{{ problem() }}</p>
+  }
+
+  @if (canPost() && modelId()) {
+    <div class="quick" role="group" [attr.aria-label]="'Ask ' + model().name">
+      @for (suggestion of suggestions(); track suggestion) {
+        <tc-button size="sm" variant="ghost" [label]="suggestion" (click)="ask(suggestion)"></tc-button>
+      }
+    </div>
+  }
+</aside>

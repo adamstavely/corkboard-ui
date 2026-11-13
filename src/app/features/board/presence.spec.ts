@@ -19,7 +19,7 @@ describe('Presence', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("shows each person the others' pointer, selection and editing, but not their own", () => {
+  it("shows each person the others' pointer, selection, editing and typing, but not their own", () => {
     const { a, b } = pair();
     const ada = new Presence(a, { id: 'ada', name: 'Ada', color: colorFor('ada') });
     const grace = new Presence(b, { id: 'grace', name: 'Grace', color: colorFor('grace') });
@@ -38,9 +38,12 @@ describe('Presence', () => {
         pointer: { x: 30, y: 40 },
         selection: ['n1', 'n2'],
         editing: 'n1',
+        typing: false,
       },
     ]);
 
+    ada.setTyping(true);
+    expect(grace.peers()[0].typing).toBe(true);
     ada.setPointer(null);
     expect(grace.peers()[0].pointer).toBeNull();
 

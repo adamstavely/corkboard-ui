@@ -11,7 +11,7 @@
       (blur)="rename()"
       (keydown)="onTitleKey($event)"
     />
-    <tc-button size="sm" variant="secondary" label="Assistant" [disabled]="!connection()" (click)="assistantOpen.set(!assistantOpen())"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Chat" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())"></tc-button>
     <tc-button
       size="sm"
       variant="secondary"
@@ -41,14 +41,21 @@
         (framesChange)="selectedFrames.set($event)"
         (selectedIds)="selectionIds.set($event)"
       />
-      @if (assistantOpen() && meta.hasValue()) {
-        <app-assistant
+      @if (chatOpen() && meta.hasValue() && meUser(); as me) {
+        <app-board-chat
           [boardId]="id()"
           [orgId]="meta.value().orgId"
+          [messages]="chat()?.messages() ?? []"
+          [me]="me"
+          [here]="others()"
+          [answering]="answering()"
           [selection]="selection()"
           [frames]="selectedFrames()"
           [canEdit]="canEdit()"
-          (closed)="assistantOpen.set(false)"
+          [canPost]="canComment()"
+          [isOwner]="isWorkspaceOwner()"
+          (typingChange)="connection()?.presence?.setTyping($event)"
+          (closed)="chatOpen.set(false)"
           (show)="canvas()?.show($event)"
           (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
         />

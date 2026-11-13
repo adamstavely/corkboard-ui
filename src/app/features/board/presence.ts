@@ -18,6 +18,8 @@ export interface Peer {
   pointer: Point | null;
   selection: string[];
   editing: string | null;
+  /** Whether they're writing in the board's chat. */
+  typing: boolean;
 }
 
 const COLORS = 6;
@@ -33,7 +35,8 @@ export function colorFor(id: string): string {
 const POINTER_MS = 40;
 
 /**
- * Presence over the board's awareness channel: this person's pointer, selection and the note they're editing go out;
+ * Presence over the board's awareness channel: this person's pointer, selection, the note they're editing and whether
+ * they're writing in the chat go out;
  * everyone else's come back as `peers`. Nothing here is saved.
  */
 export class Presence {
@@ -75,6 +78,10 @@ export class Presence {
     this.awareness.setLocalStateField('editing', id);
   }
 
+  setTyping(typing: boolean): void {
+    if (this.awareness.getLocalState()?.['typing'] !== typing) this.awareness.setLocalStateField('typing', typing);
+  }
+
   destroy(): void {
     clearTimeout(this.#pointerTimer);
     this.awareness.off('change', this.#update);
@@ -93,6 +100,7 @@ export class Presence {
         pointer: (state['pointer'] as Point | null | undefined) ?? null,
         selection: (state['selection'] as string[] | undefined) ?? [],
         editing: (state['editing'] as string | null | undefined) ?? null,
+        typing: state['typing'] === true,
       });
     });
     this.#peers.set(peers);
