@@ -21,3 +21,49 @@ body {
   color: var(--tc-text-primary);
   font-family: var(--tc-font-sans);
 }
+
+/* The new-board picker's cards (board-list.ts). Global: tc-dialog renders its content outside the component. */
+.cb-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--tc-space-4);
+}
+.cb-template-preview {
+  display: flex;
+  gap: 6px;
+  height: 120px;
+  padding: 10px;
+  background: var(--app-canvas);
+}
+.cb-template-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: 6px;
+  background: var(--tc-surface-raised);
+}
+.cb-template-column b {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: var(--tc-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cb-template-column i {
+  height: 14px;
+  border-radius: 2px;
+  background: var(--note-yellow);
+}
+.cb-template-blank {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  border: 1px dashed var(--tc-border-default);
+  border-radius: 6px;
+  color: var(--tc-text-muted);
+  font-size: 28px;
+}
