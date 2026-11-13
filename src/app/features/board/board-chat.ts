@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output, resource, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, output, resource, signal, untracked } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { MultiplayerThread } from '@adamstavely/trenchcoat/angular/multiplayer-thread';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
@@ -18,7 +18,7 @@ const TYPING_MS = 4000;
 
 /** For people who can't change the board: questions only. */
 const QUESTIONS = ['Summarise this', 'What are the open questions?', 'Who owns what?'];
-const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn this plan into a timeline', 'Summarise this'];
+const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn this plan into a timeline', 'Score these by value and effort', 'Summarise this'];
 
 function stored(key: string): string | null {
   try {
@@ -68,6 +68,8 @@ export class BoardChat {
   /** Whether they may change the board, and whether they may post at all (readers only read). */
   readonly canEdit = input(true);
   readonly canPost = input(true);
+  /** A request from elsewhere on the page to ask the model; each new `n` is sent once. */
+  readonly request = input<{ text: string; n: number } | null>(null);
   /** Workspace owners can connect a model when there's none. */
   readonly isOwner = input(false);
   readonly closed = output<void>();
@@ -112,6 +114,14 @@ export class BoardChat {
   protected readonly problem = signal('');
 
   #typingTimer: ReturnType<typeof setTimeout> | undefined;
+  #sent = 0;
+  readonly #sendRequests = effect(() => {
+    const request = this.request();
+    // Once the models are known, so it goes to one.
+    if (!request || request.n <= this.#sent || !this.models.hasValue()) return;
+    this.#sent = request.n;
+    untracked(() => this.ask(request.text));
+  });
   readonly #stopTyping = effect((onCleanup) => onCleanup(() => clearTimeout(this.#typingTimer)));
 
   protected choose(id: string): void {

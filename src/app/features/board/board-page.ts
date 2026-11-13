@@ -14,6 +14,7 @@ import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
 import { BoardChat } from './board-chat';
+import { BoardMatrix } from './board-matrix';
 import { BoardFacilitation } from './board-facilitation';
 import { FacilitationFeed, noteVotes } from './facilitation';
 import { facilitationControllerVote } from '../../api/generated/fn/facilitation/facilitation-controller-vote';
@@ -46,7 +47,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -162,7 +163,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'matrix' | null>(null);
   protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
 
   /** The board's comment threads, fetched again whenever someone changes them. */
@@ -178,7 +179,15 @@ export class BoardPage {
     return me ? { id: me.id, name: me.name } : undefined;
   });
 
-  protected togglePanel(which: 'share' | 'comments'): void {
+  /** Something to ask the model in the chat, from elsewhere on the page; `n` makes each request new. */
+  protected readonly chatRequest = signal<{ text: string; n: number } | null>(null);
+
+  protected askInChat(text: string): void {
+    this.chatOpen.set(true);
+    this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
+  }
+
+  protected togglePanel(which: 'share' | 'comments' | 'matrix'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 

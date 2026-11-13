@@ -16,6 +16,7 @@
     }
     <tc-button size="sm" [variant]="presenting() ? 'primary' : 'secondary'" [label]="presenting() ? 'Presenting' : 'Present'" [disabled]="!connection()" (click)="togglePresenting()"></tc-button>
     <tc-button size="sm" variant="secondary" label="Chat" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Prioritise" [disabled]="!connection()" (click)="togglePanel('matrix')"></tc-button>
     <tc-button
       size="sm"
       variant="secondary"
@@ -81,6 +82,7 @@
           [canEdit]="canEdit()"
           [canPost]="canComment()"
           [isOwner]="isWorkspaceOwner()"
+          [request]="chatRequest()"
           (typingChange)="connection()?.presence?.setTyping($event)"
           (closed)="chatOpen.set(false)"
           (show)="canvas()?.show($event)"
@@ -98,6 +100,15 @@
           (closed)="panel.set(null)"
           (show)="showNode($event)"
           (changed)="comments.reload()"
+        />
+      }
+      @if (panel() === 'matrix') {
+        <app-board-matrix
+          [board]="board()!"
+          [selection]="selection()"
+          [canEdit]="canEdit()"
+          (closed)="panel.set(null)"
+          (ask)="askInChat('Place these notes on the value-vs-effort matrix')"
         />
       }
       @if (panel() === 'share' && meta.hasValue()) {

@@ -18,6 +18,13 @@ describe('BoardDoc', () => {
     expect(board.notes()[1].z).toBeGreaterThan(board.notes()[0].z);
   });
 
+  it('places a note on the value-vs-effort matrix', () => {
+    const a = board.addNote(100, 100);
+    expect(board.notes()[0]).not.toHaveProperty('value');
+    board.setScore(a, 8.5, 2);
+    expect(board.notes()[0]).toMatchObject({ value: 8.5, effort: 2 });
+  });
+
   it('moves, recolours and removes several notes at once', () => {
     const a = board.addNote(0, 0);
     const b = board.addNote(0, 0);
