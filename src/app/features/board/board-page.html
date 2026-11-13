@@ -20,6 +20,8 @@
     <tc-button size="sm" variant="secondary" label="Tasks" [disabled]="!connection()" (click)="togglePanel('tasks')"></tc-button>
     <tc-button size="sm" variant="secondary" label="Timeline" [disabled]="!connection()" (click)="togglePanel('gantt')"></tc-button>
     <tc-button size="sm" variant="secondary" label="Summary" [disabled]="!connection()" (click)="togglePanel('summary')"></tc-button>
+    <tc-button size="sm" variant="secondary" label="Clusters" [disabled]="!connection()" (click)="togglePanel('clusters')"></tc-button>
+    <tc-button size="sm" variant="secondary" label="History" [disabled]="!connection()" (click)="togglePanel('history')"></tc-button>
     <tc-button
       size="sm"
       variant="secondary"
@@ -74,6 +76,7 @@
       }
       @if (chatOpen() && meta.hasValue() && meUser(); as me) {
         <app-board-chat
+          [class.beside-panel]="panel() !== null"
           [boardId]="id()"
           [orgId]="meta.value().orgId"
           [messages]="chat()?.messages() ?? []"
@@ -140,6 +143,12 @@
           (show)="canvas()?.show($event)"
           (ask)="askInChat($event)"
         />
+      }
+      @if (panel() === 'history' && ledger()) {
+        <app-board-history [boardId]="id()" [feed]="ledger()!" [canEdit]="canEdit()" (closed)="panel.set(null)" />
+      }
+      @if (panel() === 'clusters') {
+        <app-board-clusters [board]="board()!" (closed)="panel.set(null)" (show)="canvas()?.show($event)" />
       }
       @if (panel() === 'share' && meta.hasValue()) {
         <app-board-share

@@ -11,6 +11,11 @@
   width: min(400px, calc(100% - 2 * var(--tc-space-4)));
   max-height: calc(100% - 2 * var(--tc-space-4) - 56px);
 }
+/* With a panel docked on the right, the chat moves to the left so both stay usable. */
+:host(.beside-panel) .chat {
+  right: auto;
+  left: var(--tc-space-4);
+}
 
 .head {
   display: flex;

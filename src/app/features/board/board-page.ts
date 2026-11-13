@@ -20,6 +20,8 @@ import { BoardGantt } from './board-gantt';
 import { TaskFeed } from './tasks';
 import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
+import { BoardClusters, BoardHistory } from './board-insights';
+import { LedgerFeed } from './ledger';
 import { BoardFacilitation } from './board-facilitation';
 import { FacilitationFeed, noteVotes } from './facilitation';
 import { facilitationControllerVote } from '../../api/generated/fn/facilitation/facilitation-controller-vote';
@@ -52,7 +54,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -168,7 +170,8 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | null>(null);
+  protected readonly ledger = signal<LedgerFeed | undefined>(undefined);
   protected readonly tasks = signal<TaskFeed | undefined>(undefined);
   protected readonly summaryFeed = signal<SummaryFeed | undefined>(undefined);
   protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
@@ -194,7 +197,7 @@ export class BoardPage {
     this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary'): void {
+  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -251,6 +254,8 @@ export class BoardPage {
         this.tasks.set(tasks);
         const summary = new SummaryFeed(board.doc);
         this.summaryFeed.set(summary);
+        const ledger = new LedgerFeed(board.doc);
+        this.ledger.set(ledger);
         this.board.set(board);
         this.connection.set(connection);
         this.chat.set(chat);
@@ -263,6 +268,8 @@ export class BoardPage {
           tasks.destroy();
           this.summaryFeed.set(undefined);
           summary.destroy();
+          this.ledger.set(undefined);
+          ledger.destroy();
           this.presenting.set(false);
           this.followingId.set(null);
           chat.destroy();
