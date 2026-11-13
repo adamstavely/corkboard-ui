@@ -28,7 +28,7 @@
       <tc-button variant="secondary" label="AI models" (click)="go('/models')"></tc-button>
       <tc-button variant="secondary" label="Members" (click)="go('/members')"></tc-button>
       @if (canCreate()) {
-        <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="create()"></tc-button>
+        <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="picking.set(true)"></tc-button>
       }
     </div>
   </div>
@@ -41,7 +41,7 @@
     <div class="empty">
       @if (canCreate()) {
         <tc-first-use caption="No boards yet" label="Start a board for your next retro or plan"></tc-first-use>
-        <tc-button label="Create your first board" variant="secondary" [loading]="creating()" (click)="create()"></tc-button>
+        <tc-button label="Create your first board" variant="secondary" [loading]="creating()" (click)="picking.set(true)"></tc-button>
       } @else {
         <tc-first-use caption="No boards yet" label="Boards shared with you show up here"></tc-first-use>
       }
@@ -62,3 +62,13 @@
     </ul>
   }
 </div>
+
+<tc-dialog
+  size="xl"
+  label="New board"
+  description="Start blank, or from a layout for a retro, a plan or a brainstorm."
+  close-label="Cancel"
+  [open]="picking()"
+  [content]="templateCards()"
+  (tc-open-change)="picking.set($event.detail.open)"
+></tc-dialog>
