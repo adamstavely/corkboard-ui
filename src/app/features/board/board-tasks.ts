@@ -1,10 +1,11 @@
-import { Component, computed, inject, input, output, resource, signal } from '@angular/core';
+import { Component, computed, inject, input, output, resource } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { TaskBoard } from '@adamstavely/trenchcoat/angular/task-board';
 import type { TaskBoardTasksChange, TaskLabel } from '@adamstavely/trenchcoat/task-board';
 import { Api } from '../../api/generated/api';
 import { boardsControllerMembers } from '../../api/generated/fn/boards/boards-controller-members';
 import type { BoardDoc } from './board-doc';
+import { toast } from '@adamstavely/trenchcoat/toaster';
 import { ACTION_LABEL, actionItemNotes, fromTask, ownerAndText, TASK_STATUSES, toTask, type TaskFeed } from './tasks';
 
 const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'var(--tc-chart-1)' }];
@@ -33,9 +34,6 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
         [path]="[boardTitle(), 'Tasks']"
         (tc-tasks-change)="onChange($event)"
       ></tc-task-board>
-      @if (added()) {
-        <p class="note" role="status">{{ added() }}</p>
-      }
     </aside>
   `,
   styles: `
@@ -97,7 +95,6 @@ export class BoardTasks {
   protected readonly hint = computed(() =>
     this.selection().length ? 'The selected notes can become tasks.' : 'Notes in an "Action items" frame can become tasks, or select the notes you want.',
   );
-  protected readonly added = signal('');
 
   protected addActionItems(): void {
     const people = this.people();
@@ -108,7 +105,7 @@ export class BoardTasks {
       return { title: text || 'Untitled', status: 'todo' as const, priority: 0 as const, labels: [ACTION_LABEL], noteId: note.id, ...(who ? { assignee: who.id } : {}) };
     });
     const added = this.feed().add(items);
-    this.added.set(`Added ${added.length} task${added.length === 1 ? '' : 's'}.`);
+    toast.success(`Added ${added.length} task${added.length === 1 ? '' : 's'}`, { description: added.map((t) => `${t.key} ${t.title}`).join(' · ') });
   }
 
   protected onChange(e: CustomEvent<TaskBoardTasksChange>): void {

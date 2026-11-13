@@ -178,6 +178,12 @@
           (closed)="panel.set(null)"
         />
       }
+      @if (panel() === 'activity') {
+        <app-board-activity [boardId]="id()" [canEdit]="canEdit()" (closed)="panel.set(null)" />
+      }
+      @if (away(); as a) {
+        <tc-away-summary class="away" heading="While you were away" [since]="a.since" [items]="a.items" (tc-seen)="away.set(null)"></tc-away-summary>
+      }
       @if (panel() === 'history' && ledger()) {
         <app-board-history [boardId]="id()" [feed]="ledger()!" [canEdit]="canEdit()" (closed)="panel.set(null)" />
       }

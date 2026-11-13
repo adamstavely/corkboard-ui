@@ -147,3 +147,12 @@
   color: var(--tc-text-muted);
   font-size: var(--tc-font-size-xs, 12px);
 }
+
+/* What happened while you were away: top left, under the bar, until you've seen it. */
+.away {
+  position: absolute;
+  top: var(--tc-space-3);
+  left: var(--tc-space-4);
+  z-index: 3;
+  width: min(380px, calc(100% - 2 * var(--tc-space-4)));
+}

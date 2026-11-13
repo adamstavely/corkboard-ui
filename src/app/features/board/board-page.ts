@@ -27,6 +27,11 @@ import { LedgerFeed } from './ledger';
 import { ReactionsFeed, reactionsFor } from './reactions';
 import { FileCache, imageSize } from './file-cache';
 import { BoardFiles, ImageAsk } from './board-files';
+import { BoardActivity } from './board-activity';
+import { AwaySummary } from '@adamstavely/trenchcoat/angular/away-summary';
+import type { AwayItem } from '@adamstavely/trenchcoat/away-summary';
+import { toast } from '@adamstavely/trenchcoat/toaster';
+import { activityControllerList } from '../../api/generated/fn/activity/activity-controller-list';
 import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
 import { FILE_CARD, type Media } from './board-doc';
 import { reactionsControllerReact } from '../../api/generated/fn/reactions/reactions-controller-react';
@@ -62,7 +67,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -140,8 +145,9 @@ export class BoardPage {
   protected async onVote(noteId: string, add: boolean): Promise<void> {
     try {
       await this.#api.invoke(facilitationControllerVote, { id: this.id(), body: { noteId, add } });
-    } catch {
-      // The count stays as the document has it; the strip shows how many votes are left.
+    } catch (err) {
+      const message = (err as { error?: { message?: unknown } }).error?.message;
+      toast.error(typeof message === 'string' ? message : "That vote didn't count. Try again.");
     }
   }
 
@@ -178,7 +184,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** The image being asked about. */
@@ -232,6 +238,7 @@ export class BoardPage {
     { id: 'summary', label: 'Summary', hint: 'A shared AI summary' },
     { id: 'clusters', label: 'Clusters', hint: 'Notes linked by shared words' },
     { id: 'history', label: 'History', hint: 'What the model changed, to undo' },
+    { id: 'activity', label: 'Activity', hint: 'Who did what, and versions to restore' },
   ] as const;
 
   protected openView(id: (typeof this.views)[number]['id']): void {
@@ -243,13 +250,19 @@ export class BoardPage {
     this.exportOpen.set(false);
     const board = this.board();
     if (!board) return;
-    boardCanvas(board).toBlob((blob) => blob && download(`${fileName(this.title())}.png`, blob), 'image/png');
+    boardCanvas(board).toBlob((blob) => {
+      if (!blob) return;
+      download(`${fileName(this.title())}.png`, blob);
+      toast.success('Image saved', { description: `${fileName(this.title())}.png` });
+    }, 'image/png');
   }
 
   protected exportMarkdown(): void {
     this.exportOpen.set(false);
     const board = this.board();
-    if (board) download(`${fileName(this.title())}.md`, new Blob([boardMarkdown(board, this.title() || 'Board')], { type: 'text/markdown' }));
+    if (!board) return;
+    download(`${fileName(this.title())}.md`, new Blob([boardMarkdown(board, this.title() || 'Board')], { type: 'text/markdown' }));
+    toast.success('Markdown saved', { description: `${fileName(this.title())}.md` });
   }
 
   /** Prints the board's picture from a hidden frame; the print dialog can save it as a PDF. */
@@ -297,9 +310,8 @@ export class BoardPage {
       try {
         const stored = await cache.upload(local, () => undefined, new AbortController().signal);
         await this.place(stored, local, { x: at.x + i * 40, y: at.y + i * 40 });
-      } catch {
-        // Too big or the wrong kind: the add-files panel says why when used there.
-        this.togglePanel('files');
+      } catch (err) {
+        toast.error(`${local.name} wasn't added`, { description: (err as Error).message });
       }
     }
   }
@@ -321,7 +333,47 @@ export class BoardPage {
     a.click();
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files'): void {
+  // ── While you were away ──
+
+  /** What others did on the board since this person last had it open; null when there's nothing to say. */
+  protected readonly away = signal<{ since: number; items: AwayItem[] } | null>(null);
+  #seenKey = (id: string) => `corkboard.seen.${id}`;
+
+  #seen(id: string): number | null {
+    try {
+      const v = Number(localStorage.getItem(this.#seenKey(id)));
+      return Number.isFinite(v) && v > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  }
+
+  #markSeen(id: string): void {
+    try {
+      localStorage.setItem(this.#seenKey(id), String(Date.now()));
+    } catch {
+      // Blocked storage: the summary just shows less.
+    }
+  }
+
+  protected async checkAway(id: string, myName: string): Promise<void> {
+    const since = this.#seen(id);
+    this.#markSeen(id);
+    // Not for a first visit, or a quick look back.
+    if (!since || Date.now() - since < 10 * 60 * 1000) return;
+    try {
+      const events = (await this.#api.invoke(activityControllerList, { id, since })).filter((e) => e.actor !== myName);
+      if (!events.length || this.id() !== id) return;
+      this.away.set({
+        since,
+        items: events.slice(0, 20).map((e) => ({ id: e.id, title: `${e.actor} ${e.action}${e.target ? ` “${e.target}”` : ''}`, status: 'done' as const, at: e.at, ...(e.detail ? { detail: e.detail } : {}) })),
+      });
+    } catch {
+      // No summary is fine.
+    }
+  }
+
+  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'activity'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -387,6 +439,7 @@ export class BoardPage {
       untracked(() => {
         const user: PresenceUser = { id: me.id, name: me.name, color: colorFor(me.id) };
         this.#me.set(user);
+        void this.checkAway(id, me.name);
         const board = new BoardDoc();
         const connection = new BoardConnection(id, board, () => this.#auth.token() ?? '', user);
         const chat = new ChatFeed(board.doc);
@@ -420,6 +473,8 @@ export class BoardPage {
           reactions.destroy();
           this.files.set(undefined);
           files.destroy();
+          this.away.set(null);
+          this.#markSeen(id);
           this.presenting.set(false);
           this.followingId.set(null);
           chat.destroy();
