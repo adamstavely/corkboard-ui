@@ -34,6 +34,10 @@ export class BoardConnection {
   /** Goes up whenever someone changes the board's comments, so they can be fetched again. */
   readonly commentsChanged = this.#commentsChanged.asReadonly();
 
+  readonly #answering = signal<ReadonlySet<string>>(new Set());
+  /** People the model is answering in the board's chat right now. */
+  readonly answering = this.#answering.asReadonly();
+
   readonly #signIns = signal(0);
   /** Goes up each time the server lets this person in. It reconnects them when their role changes, so a new value means
    *  their role may have. */
@@ -57,7 +61,17 @@ export class BoardConnection {
       onAuthenticated: () => this.#signIns.update((n) => n + 1),
       onStateless: ({ payload }) => {
         try {
-          if ((JSON.parse(payload) as { type?: unknown }).type === 'comments') this.#commentsChanged.update((n) => n + 1);
+          const message = JSON.parse(payload) as { type?: unknown; personId?: unknown; on?: unknown };
+          if (message.type === 'comments') this.#commentsChanged.update((n) => n + 1);
+          if (message.type === 'answering' && typeof message.personId === 'string') {
+            const id = message.personId;
+            this.#answering.update((ids) => {
+              const next = new Set(ids);
+              if (message.on === true) next.add(id);
+              else next.delete(id);
+              return next;
+            });
+          }
         } catch {
           // Not a message this app sends.
         }

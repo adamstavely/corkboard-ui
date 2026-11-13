@@ -13,7 +13,8 @@ import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
-import { Assistant } from './assistant';
+import { BoardChat } from './board-chat';
+import { ChatFeed } from './chat';
 import { Canvas } from './canvas';
 import { BoardShare } from './board-share';
 import { BoardComments } from './board-comments';
@@ -41,7 +42,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, Assistant, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
+  imports: [Canvas, BoardChat, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -87,7 +88,24 @@ export class BoardPage {
   protected readonly readOnlyLabel = computed(() => (this.role() === 'commenter' ? 'You can comment' : 'View only'));
   protected readonly meId = computed(() => this.#me()?.id);
 
-  protected readonly assistantOpen = signal(false);
+  protected readonly chatOpen = signal(false);
+  protected readonly chat = signal<ChatFeed | undefined>(undefined);
+  /** Everyone else on the board, once each, and whether they're writing in the chat. */
+  protected readonly others = computed(() => {
+    const me = this.#me()?.id;
+    const seen = new Map<string, { id: string; name: string; typing: boolean }>();
+    for (const { user, typing } of this.connection()?.presence.peers() ?? []) {
+      if (user.id === me) continue;
+      const known = seen.get(user.id);
+      seen.set(user.id, { id: user.id, name: user.name, typing: typing || !!known?.typing });
+    }
+    return [...seen.values()];
+  });
+  protected readonly answering = computed(() => (this.connection()?.answering().size ?? 0) > 0);
+  protected readonly isWorkspaceOwner = computed(() => {
+    const orgId = this.meta.hasValue() ? this.meta.value().orgId : undefined;
+    return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
+  });
   /** The panel docked at the upper right, if any: they take turns. */
   protected readonly panel = signal<'share' | 'comments' | null>(null);
   protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
@@ -143,11 +161,15 @@ export class BoardPage {
         this.#me.set(user);
         const board = new BoardDoc();
         const connection = new BoardConnection(id, board, () => this.#auth.token() ?? '', user);
+        const chat = new ChatFeed(board.doc);
         this.board.set(board);
         this.connection.set(connection);
+        this.chat.set(chat);
         onCleanup(() => {
           this.board.set(undefined);
           this.connection.set(undefined);
+          this.chat.set(undefined);
+          chat.destroy();
           connection.destroy();
           board.destroy();
         });
