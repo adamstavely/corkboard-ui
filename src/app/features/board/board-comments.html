@@ -1,4 +1,4 @@
-<aside class="comments" aria-label="Comments" [class.read-only]="!canComment()">
+<aside class="comments" aria-label="Comments">
   <div class="head">
     @if (nodeId()) {
       <tc-button size="sm" variant="ghost" label="All comments" (click)="show.emit('')"></tc-button>
@@ -13,17 +13,14 @@
 
   @if (nodeId()) {
     @if (messages().length || canComment()) {
-      <!-- A fresh element once the thread exists: Trench Coat's thread holds its message area at the height it had
-           when the first comment was sent, which for an empty thread would hide that comment. -->
-      @for (key of [threadKey()]; track key) {
-        <tc-comment-thread
-          [heading]="heading()"
-          [messages]="messages()"
-          [currentUser]="currentUser()"
-          [onReply]="onReply"
-          (tc-messages-change)="onMessages($event)"
-        ></tc-comment-thread>
-      }
+      <tc-comment-thread
+        [heading]="heading()"
+        [messages]="messages()"
+        [currentUser]="currentUser()"
+        [readonly]="!canComment()"
+        [onReply]="onReply"
+        (tc-messages-change)="onMessages($event)"
+      ></tc-comment-thread>
     } @else {
       <p class="note">No comments on this yet.</p>
     }

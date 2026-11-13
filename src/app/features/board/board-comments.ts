@@ -42,7 +42,6 @@ export class BoardComments {
     return selected.length === 1 ? selected[0] : null;
   });
   protected readonly thread = computed(() => this.threads().find((t) => t.nodeId === this.nodeId()));
-  protected readonly threadKey = computed(() => this.thread()?.id ?? `new:${this.nodeId()}`);
   protected readonly heading = computed(() => {
     const id = this.nodeId();
     return id ? nodeLabel(this.board(), id) : '';
