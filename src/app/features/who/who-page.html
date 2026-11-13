@@ -1,0 +1,42 @@
+<div class="page">
+  <h1>Who are you?</h1>
+  <p class="lead">Corkboard has no sign-in. Pick yourself, or add yourself if you're new.</p>
+
+  @if (people.isLoading() && !people.hasValue()) {
+    <tc-skeleton height="160" radius="12"></tc-skeleton>
+  } @else if (people.error()) {
+    <p class="problem" role="alert">People couldn't be loaded. Is corkboard-api running?</p>
+  } @else if (people.value()?.length) {
+    <ul class="people" aria-label="People">
+      @for (person of people.value(); track person.id) {
+        <li>
+          <button type="button" class="person" (click)="pick(person)">
+            <span class="avatar" aria-hidden="true">{{ initials(person.name) }}</span>
+            <span class="who">
+              <span class="name">{{ person.name }}</span>
+              <span class="email">{{ person.email }}</span>
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  <form class="add" aria-labelledby="add-heading" (submit)="add($event)">
+    <h2 id="add-heading">New here?</h2>
+    <label>
+      <span>Name</span>
+      <input name="name" autocomplete="name" maxlength="100" required [value]="name()" (input)="name.set($any($event.target).value)" />
+    </label>
+    <label>
+      <span>Email</span>
+      <input name="email" type="email" autocomplete="email" maxlength="254" required [value]="email()" (input)="email.set($any($event.target).value)" />
+    </label>
+    @if (problem()) {
+      <p class="problem" role="alert">{{ problem() }}</p>
+    }
+    <div class="actions">
+      <tc-button type="submit" label="Add me" [loading]="adding()" [disabled]="!name().trim() || !email().trim()"></tc-button>
+    </div>
+  </form>
+</div>

@@ -24,13 +24,13 @@ export class Session {
   readonly #auth = inject(Auth);
 
   readonly me = resource({
-    params: () => (this.#auth.signedIn() ? true : undefined),
+    params: () => this.#auth.person()?.id,
     loader: () => this.#api.invoke(meControllerMe),
   });
 
-  /** Invites to other workspaces, matched on their verified email. */
+  /** Invites to other workspaces, matched on their email. */
   readonly invites = resource({
-    params: () => (this.#auth.signedIn() ? true : undefined),
+    params: () => this.#auth.person()?.id,
     loader: () => this.#api.invoke(membersControllerMine),
   });
 

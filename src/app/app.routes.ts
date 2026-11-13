@@ -1,10 +1,8 @@
 import { Routes } from '@angular/router';
-import { AuthCallback } from './core/auth-callback';
 import { authGuard } from './core/auth.guard';
-import { CALLBACK_PATH } from './core/auth';
 
 export const routes: Routes = [
-  { path: CALLBACK_PATH.slice(1), component: AuthCallback },
+  { path: 'who', title: 'Who are you? · Corkboard', loadComponent: () => import('./features/who/who-page').then((m) => m.WhoPage) },
   {
     path: '',
     canActivate: [authGuard],

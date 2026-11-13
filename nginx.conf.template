@@ -15,11 +15,6 @@ server {
     client_max_body_size 16m;
   }
 
-  # Per-deployment settings: never cached, so a changed provider takes effect at once.
-  location = /config.json {
-    add_header Cache-Control "no-store";
-  }
-
   # Hashed build output can be cached for good.
   location ~* \.(?:js|css|woff2?)$ {
     expires 1y;

@@ -13,7 +13,7 @@ npm install
 npm start          # http://localhost:4300; /api goes to the API on :3700 (set API_URL to change)
 ```
 
-Sign in as `ada` or `grace` with the password `corkboard`. These are test users in the local Keycloak realm.
+There's no sign-in: pick who you are, or add yourself (a name and an email). Only run Corkboard locally or somewhere private.
 
 ## Using the board
 
@@ -36,7 +36,7 @@ Changes go to the server as you make them, and it saves them. Offline edits are 
 - `features/board/board-doc.ts` is the board model: a Y.Doc with a map of nodes, each note holding its text as a Y.XmlFragment. Every change to the board goes through it.
 - `features/board/board-connection.ts` connects the BoardDoc to the API's `/collab` socket with a Hocuspocus provider, and reports sync status. `presence.ts` handles pointers, selections and editing over the awareness channel.
 - `features/board/canvas.ts` handles pan, zoom, selection and dragging. `note.ts` draws a note's text, and creates a Tiptap editor only for the note being edited.
-- `core/auth.ts` handles OIDC sign-in with authorization code + PKCE (oidc-client-ts). Settings come from `/config.json`, which the Docker image writes from `OIDC_AUTHORITY` and `OIDC_CLIENT_ID`.
+- `core/auth.ts` remembers who you picked on the "Who are you?" page (`features/who`) in localStorage, and sends their id as the bearer token. **Switch person** in the account menu picks again.
 
 ## Commands
 
