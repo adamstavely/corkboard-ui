@@ -22,6 +22,9 @@ export interface Note {
   z: number;
   color: NoteColor;
   text: Y.XmlFragment;
+  /** Where it sits on the value-vs-effort matrix (0–10 each), once someone has placed it there. */
+  value?: number;
+  effort?: number;
 }
 
 /** A titled area of the board. It holds the notes whose centres are inside it: they move when it does. */
@@ -43,6 +46,13 @@ export const inFrame = (note: Box, frame: Box) =>
 
 /** Changes that came from the server rather than this person; they don't go on the undo stack or back to the server. */
 export const REMOTE = Symbol('remote');
+
+/** A note's matrix scores, when it has both. */
+function scores(node: Y.Map<unknown>): { value?: number; effort?: number } {
+  const value = node.get('value');
+  const effort = node.get('effort');
+  return typeof value === 'number' && typeof effort === 'number' ? { value, effort } : {};
+}
 
 /**
  * A board's content as one Yjs document: a map of nodes by id, each a map of its properties, with the note's rich text
@@ -180,6 +190,17 @@ export class BoardDoc {
     }, this);
   }
 
+  /** Places a note on the value-vs-effort matrix. */
+  setScore(id: string, value: number, effort: number): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      const node = this.#nodes.get(id);
+      if (node?.get('kind') !== 'note') return;
+      node.set('value', value);
+      node.set('effort', effort);
+    }, this);
+  }
+
   /** Puts notes above everything else, keeping their order among themselves. */
   bringToFront(ids: Iterable<string>): void {
     const chosen = this.notes().filter((n) => [...ids].includes(n.id));
@@ -244,6 +265,7 @@ export class BoardDoc {
         z: (node.get('z') as number) ?? 0,
         color: NOTE_COLORS.includes(color) ? color : 'yellow',
         text: node.get('text') as Y.XmlFragment,
+        ...scores(node),
       });
     });
     const order = (a: { z: number; id: string }, b: { z: number; id: string }) => a.z - b.z || a.id.localeCompare(b.id);
