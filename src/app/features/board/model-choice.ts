@@ -22,6 +22,8 @@ export function modelChoice(api: Api, orgId: () => string) {
     loader: ({ params }) => api.invoke(providersControllerList, { orgId: params }),
   });
   const options = computed(() => (models.hasValue() ? models.value() : []).map((m) => ({ value: m.id, label: m.label })));
+  /** As Trench Coat's model picker lists them: the name, and which model it is underneath. */
+  const pickerModels = computed(() => (models.hasValue() ? models.value() : []).map((m) => ({ id: m.id, name: m.label, description: m.model })));
   const chosen = signal<string | null>(stored());
   const modelId = computed<string | undefined>(() => options().find((o) => o.value === chosen())?.value ?? options()[0]?.value);
   const name = computed(() => options().find((o) => o.value === modelId())?.label ?? 'Assistant');
@@ -33,5 +35,5 @@ export function modelChoice(api: Api, orgId: () => string) {
       // Blocked storage: the choice lasts for this page only.
     }
   };
-  return { models, options, modelId, name, choose };
+  return { models, options, pickerModels, modelId, name, choose };
 }

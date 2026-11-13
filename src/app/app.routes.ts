@@ -2,6 +2,8 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
+  // Anyone with a share link: no picking who you are.
+  { path: 'shared/:token', title: 'Shared board · Corkboard', loadComponent: () => import('./features/shared/shared-board').then((m) => m.SharedBoard) },
   { path: 'who', title: 'Who are you? · Corkboard', loadComponent: () => import('./features/who/who-page').then((m) => m.WhoPage) },
   {
     path: '',

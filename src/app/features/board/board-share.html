@@ -21,6 +21,15 @@
       [sending]="sending()"
       (tc-share)="onShare($event)"
     ></tc-share-panel>
+    <tc-share-link-manager
+      heading="Links to view this board"
+      description="Anyone with a link can view the board, live and read-only, without picking who they are."
+      [links]="links()"
+      creatable
+      (tc-create)="createLink()"
+      (tc-links-change)="onLinksChange($event)"
+      (tc-copy)="onCopy()"
+    ></tc-share-link-manager>
   } @else {
     <tc-data-table heading="Who can open this board" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
     <p class="note">Only owners of the board can change who's on it.</p>
