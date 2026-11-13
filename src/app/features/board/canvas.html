@@ -7,6 +7,8 @@
   [style.background-position]="viewport().x + 'px ' + viewport().y + 'px'"
   (pointerdown)="onPointerDown($event)"
   (dblclick)="onDoubleClick($event)"
+  (dragover)="onDragOver($event)"
+  (drop)="onDrop($event)"
   (wheel)="onWheel($event)"
 >
   <div class="world" [style.transform]="worldTransform()">
@@ -42,6 +44,34 @@
         }
         @if (selection().has(frame.id) && selection().size === 1) {
           <div class="frame-resize" aria-hidden="true"></div>
+        }
+      </div>
+    }
+    @for (m of board().media(); track m.id) {
+      <div
+        class="media"
+        [class.selected]="selection().has(m.id)"
+        [class.file]="m.kind === 'file'"
+        [attr.data-media-id]="m.id"
+        [style.left.px]="m.x"
+        [style.top.px]="m.y"
+        [style.width.px]="m.w"
+        [style.height.px]="m.h"
+        [style.z-index]="m.z"
+        (dblclick)="m.kind === 'image' ? askImage.emit(m) : openFile.emit(m)"
+      >
+        @if (m.kind === 'image') {
+          @if (fileUrls().get(m.fileId); as src) {
+            <img [src]="src" [alt]="m.name" draggable="false" />
+          } @else {
+            <span class="media-loading">{{ m.name }}</span>
+          }
+        } @else {
+          <span class="file-icon" aria-hidden="true">{{ (m.name.split('.').pop() ?? '').slice(0, 4).toUpperCase() }}</span>
+          <span class="file-text">
+            <span class="file-name">{{ m.name }}</span>
+            <span class="file-size">{{ fileSize(m.size) }} · double-click to open</span>
+          </span>
         }
       </div>
     }
@@ -136,6 +166,10 @@
           ></button>
         }
       </div>
+      <tc-button size="sm" variant="ghost" label="Add files" title="Add images and files (or drop them on the board)" (click)="addFiles.emit()"></tc-button>
+      @if (oneImage(); as image) {
+        <tc-button size="sm" variant="ghost" label="Ask about image" (click)="askImage.emit(image)"></tc-button>
+      }
       <tc-button size="sm" variant="ghost" label="Connect" [disabled]="!pair()" title="Draw an arrow from the first selected note or frame to the second" (click)="connect()"></tc-button>
       <tc-button
         size="sm"

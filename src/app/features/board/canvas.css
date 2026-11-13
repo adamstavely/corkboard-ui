@@ -257,3 +257,59 @@
   background: var(--tc-accent-subtle);
   outline: none;
 }
+
+/* Images and file cards: picked up and moved like notes. */
+.media {
+  position: absolute;
+  overflow: hidden;
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 12px rgb(0 0 0 / 0.08);
+  cursor: grab;
+}
+.media.selected {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}
+.media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.media.file {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-3);
+  padding: var(--tc-space-3);
+  box-sizing: border-box;
+}
+.file-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 48px;
+  border-radius: 4px;
+  background: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
+  font-size: 10px;
+  font-weight: var(--tc-font-weight-semibold);
+}
+.file-text,
+.media-loading {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--tc-text-muted);
+  font-size: 12px;
+}
+.file-name {
+  overflow: hidden;
+  color: var(--tc-text-primary);
+  font-size: 14px;
+  font-weight: var(--tc-font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
