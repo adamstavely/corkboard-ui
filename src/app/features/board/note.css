@@ -124,3 +124,53 @@ app-note .note-comments {
 .frame-comments svg path {
   fill: currentColor;
 }
+
+/* Dot votes: − count + while voting, then the total. Its own pointer target, so voting never drags the note. */
+app-note .note-votes {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  color: var(--tc-text-primary);
+  font-size: 12px;
+  font-weight: var(--tc-font-weight-semibold);
+  cursor: default;
+}
+app-note .note-votes.results {
+  padding: 2px 8px;
+  background: var(--tc-accent-text);
+  color: var(--tc-text-inverse);
+}
+app-note .note-votes button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+app-note .note-votes button:hover:not(:disabled) {
+  background: var(--tc-accent-subtle);
+}
+app-note .note-votes button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+app-note .note-votes button:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+}
+app-note .vote-count {
+  min-width: 14px;
+  text-align: center;
+}

@@ -1,0 +1,66 @@
+@if (anything()) {
+  <div class="strip" role="region" aria-label="Facilitation">
+    @if (timerShown()) {
+      <div class="item timer" [class.up]="timesUp()" role="timer" [attr.aria-label]="timesUp() ? 'Time is up' : clock() + ' left'">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="9" r="6" /><path d="M8 6v3l2 1M6 1h4" /></svg>
+        @if (timer().label) {
+          <span class="label">{{ timer().label }}</span>
+        }
+        <span class="clock" aria-hidden="true">{{ timesUp() ? "Time's up" : clock() }}</span>
+        @if (canRun()) {
+          <tc-button size="sm" variant="ghost" label="+1 min" (click)="addMinute()"></tc-button>
+          <tc-button size="sm" variant="ghost" [label]="timesUp() ? 'Clear' : 'Stop'" (click)="stopTimer()"></tc-button>
+        }
+      </div>
+    }
+
+    @if (voting().open) {
+      <div class="item">
+        <span class="dot" aria-hidden="true">●</span>
+        <span>
+          Voting
+          @if (canVote()) {
+            · {{ votesLeft() }} of {{ voting().votesEach }} vote{{ voting().votesEach === 1 ? '' : 's' }} left
+          }
+        </span>
+        @if (canRun()) {
+          <tc-button size="sm" variant="secondary" label="Finish voting" (click)="finishVote()"></tc-button>
+        }
+      </div>
+    } @else if (results().length) {
+      <div class="item">
+        <span class="dot" aria-hidden="true">●</span>
+        <span>Vote results: top note has {{ results()[0].votes }} vote{{ results()[0].votes === 1 ? '' : 's' }}</span>
+        <tc-button size="sm" variant="ghost" label="Show top voted" (click)="showTop()"></tc-button>
+      </div>
+    }
+
+    @if (presenting()) {
+      <div class="item presenting">
+        <span>You're presenting: everyone following sees what you see</span>
+        <tc-button size="sm" variant="ghost" label="Stop presenting" (click)="stopPresenting.emit()"></tc-button>
+      </div>
+    } @else if (presenter(); as p) {
+      <div class="item presenting">
+        <span>{{ following() ? 'Following ' + p.name : p.name + ' is presenting' }}</span>
+        <tc-button size="sm" [variant]="following() ? 'ghost' : 'secondary'" [label]="following() ? 'Stop following' : 'Follow'" (click)="follow.emit(!following())"></tc-button>
+      </div>
+    }
+
+    @if (controlsOpen() && canRun()) {
+      <div class="item controls" role="group" aria-label="Start a timer or a vote">
+        <span class="muted">Timer</span>
+        @for (m of timerMinutes; track m) {
+          <tc-button size="sm" variant="ghost" [label]="m + ' min'" (click)="startTimer(m)"></tc-button>
+        }
+        <span class="divider" aria-hidden="true"></span>
+        <tc-select label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
+        <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
+      </div>
+    }
+
+    @if (problem()) {
+      <p class="problem" role="alert">{{ problem() }}</p>
+    }
+  </div>
+}

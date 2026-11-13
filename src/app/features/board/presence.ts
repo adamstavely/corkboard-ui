@@ -20,6 +20,15 @@ export interface Peer {
   editing: string | null;
   /** Whether they're writing in the board's chat. */
   typing: boolean;
+  /** Set while they present: the middle of what they're looking at, in board coordinates, and their zoom. */
+  presenting: PresentedView | null;
+}
+
+/** What a presenter is showing, so followers can look at the same place whatever their screen size. */
+export interface PresentedView {
+  cx: number;
+  cy: number;
+  zoom: number;
 }
 
 const COLORS = 6;
@@ -45,6 +54,8 @@ export class Presence {
 
   #pointer: Point | null = null;
   #pointerTimer: ReturnType<typeof setTimeout> | undefined;
+  #view: PresentedView | null = null;
+  #viewTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly awareness: Awareness,
@@ -78,12 +89,28 @@ export class Presence {
     this.awareness.setLocalStateField('editing', id);
   }
 
+  /** Starts presenting (or moves what's presented) with a view; null stops at once, moves are batched. */
+  setPresenting(view: PresentedView | null): void {
+    this.#view = view;
+    if (!view) {
+      clearTimeout(this.#viewTimer);
+      this.#viewTimer = undefined;
+      this.awareness.setLocalStateField('presenting', null);
+      return;
+    }
+    this.#viewTimer ??= setTimeout(() => {
+      this.#viewTimer = undefined;
+      this.awareness.setLocalStateField('presenting', this.#view);
+    }, POINTER_MS);
+  }
+
   setTyping(typing: boolean): void {
     if (this.awareness.getLocalState()?.['typing'] !== typing) this.awareness.setLocalStateField('typing', typing);
   }
 
   destroy(): void {
     clearTimeout(this.#pointerTimer);
+    clearTimeout(this.#viewTimer);
     this.awareness.off('change', this.#update);
     this.awareness.setLocalState(null);
   }
@@ -101,6 +128,7 @@ export class Presence {
         selection: (state['selection'] as string[] | undefined) ?? [],
         editing: (state['editing'] as string | null | undefined) ?? null,
         typing: state['typing'] === true,
+        presenting: (state['presenting'] as PresentedView | null | undefined) ?? null,
       });
     });
     this.#peers.set(peers);

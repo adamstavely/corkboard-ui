@@ -11,6 +11,10 @@
       (blur)="rename()"
       (keydown)="onTitleKey($event)"
     />
+    @if (canRun()) {
+      <tc-button size="sm" [variant]="facilitating() ? 'primary' : 'secondary'" label="Facilitate" [disabled]="!connection()" (click)="facilitating.set(!facilitating())"></tc-button>
+    }
+    <tc-button size="sm" [variant]="presenting() ? 'primary' : 'secondary'" [label]="presenting() ? 'Presenting' : 'Present'" [disabled]="!connection()" (click)="togglePresenting()"></tc-button>
     <tc-button size="sm" variant="secondary" label="Chat" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())"></tc-button>
     <tc-button
       size="sm"
@@ -40,7 +44,30 @@
         (selectionChange)="selection.set($event)"
         (framesChange)="selectedFrames.set($event)"
         (selectedIds)="selectionIds.set($event)"
+        [noteVotes]="noteVotes()"
+        [voting]="votingNow()"
+        [votesLeft]="votesLeft()"
+        (vote)="onVote($event.noteId, $event.add)"
+        (viewChange)="onView($event)"
       />
+      @if (fstate(); as f) {
+        <app-board-facilitation
+          [boardId]="id()"
+          [voting]="f.voting"
+          [votes]="f.votes"
+          [timer]="f.timer"
+          [votesLeft]="votesLeft()"
+          [canRun]="canRun()"
+          [canVote]="canComment()"
+          [controlsOpen]="facilitating()"
+          [presenter]="presenter()"
+          [following]="followingId() !== null"
+          [presenting]="presenting()"
+          (follow)="setFollowing($event)"
+          (stopPresenting)="togglePresenting()"
+          (show)="canvas()?.show($event)"
+        />
+      }
       @if (chatOpen() && meta.hasValue() && meUser(); as me) {
         <app-board-chat
           [boardId]="id()"

@@ -12,6 +12,8 @@ import type { Editor } from '@tiptap/core';
 import { NOTE_COLORS, NOTE_SIZE, type BoardDoc, type NoteColor } from './board-doc';
 import { NoteView } from './note';
 import type { Presence } from './presence';
+import type { NoteVotes } from './facilitation';
+import type { PresentedView } from './presence';
 import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
 type Gesture =
@@ -79,6 +81,13 @@ export class Canvas {
   readonly framesChange = output<readonly string[]>();
   /** Exactly what's selected – notes and frames – for comments on them. */
   readonly selectedIds = output<readonly string[]>();
+  /** Dot votes per note (see noteVotes), whether this person is voting, and how many votes they have left. */
+  readonly noteVotes = input<ReadonlyMap<string, NoteVotes>>(new Map());
+  readonly voting = input(false);
+  readonly votesLeft = input(0);
+  readonly vote = output<{ noteId: string; add: boolean }>();
+  /** What this person is looking at, whenever it changes: for presenting it to others. */
+  readonly viewChange = output<PresentedView>();
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
@@ -93,6 +102,8 @@ export class Canvas {
   protected readonly formatItems = FORMAT_ITEMS;
 
   private readonly surface = viewChild.required<ElementRef<HTMLElement>>('surface');
+  /** The same, for effects that may run before the view exists. */
+  private readonly surfaceIfReady = viewChild<ElementRef<HTMLElement>>('surface');
   private readonly renameInput = viewChild<ElementRef<HTMLInputElement>>('renameInput');
   #gesture: Gesture | undefined;
 
@@ -159,6 +170,13 @@ export class Canvas {
       }
     });
     effect(() => this.presence()?.setEditing(this.editing()));
+    effect(() => {
+      const { x, y, zoom } = this.viewport();
+      const surface = this.surfaceIfReady()?.nativeElement;
+      if (!surface) return;
+      const { width, height } = surface.getBoundingClientRect();
+      this.viewChange.emit({ cx: (width / 2 - x) / zoom, cy: (height / 2 - y) / zoom, zoom });
+    });
 
     // A note or frame that's gone – deleted by someone else, or by undo – can't stay selected or open here.
     effect(() => {
@@ -205,7 +223,7 @@ export class Canvas {
     const id = noteEl?.dataset['noteId'] ?? frameId;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
-    if (target.closest('.toolbar') || target.closest('.frame-rename')) return;
+    if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.note-votes')) return;
 
     // Moves and releases are followed on the window (see below) rather than by capturing the pointer, which would
     // retarget the double-click that opens a note.
@@ -392,6 +410,18 @@ export class Canvas {
   select(ids: readonly string[]): void {
     this.editing.set(null);
     this.selection.set(new Set(ids));
+  }
+
+  /** Looks where a presenter is looking: the same middle and zoom, on this screen. */
+  lookAt(view: PresentedView): void {
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const zoom = clampZoom(view.zoom);
+    this.viewport.set({ zoom, x: width / 2 - view.cx * zoom, y: height / 2 - view.cy * zoom });
+  }
+
+  /** A note's vote controls or count: while voting, every note gets them. */
+  protected votesFor(id: string): NoteVotes | null {
+    return this.noteVotes().get(id) ?? (this.voting() ? { mine: 0, total: null } : null);
   }
 
   /** Selects these notes and frames and brings them into view, zoomed to fit (never past 100%). */

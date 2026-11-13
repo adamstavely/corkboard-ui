@@ -2,6 +2,7 @@ import { Component, computed, effect, ElementRef, input, output, untracked, view
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { Editor } from '@tiptap/core';
 import type { Note } from './board-doc';
+import type { NoteVotes } from './facilitation';
 import { noteExtensions, renderNoteText } from './note-text';
 
 /**
@@ -15,6 +16,17 @@ import { noteExtensions, renderNoteText } from './note-text';
     <div class="text" #text></div>
     @if (peer(); as peer) {
       <span class="note-peer" [style.background]="peer.color">{{ peer.name }}{{ peer.editing ? ' is writing' : '' }}</span>
+    }
+    @if (votes(); as v) {
+      <span class="note-votes" [class.results]="v.total !== null">
+        @if (voting()) {
+          <button type="button" class="vote-less" [disabled]="v.mine === 0" aria-label="Take back a vote" (click)="vote.emit(false)">−</button>
+          <span class="vote-count" [attr.aria-label]="'Your votes: ' + v.mine">{{ v.mine }}</span>
+          <button type="button" class="vote-more" [disabled]="!canVoteMore()" aria-label="Vote for this note" (click)="vote.emit(true)">+</button>
+        } @else if (v.total !== null) {
+          <span class="vote-count" [attr.aria-label]="v.total + (v.total === 1 ? ' vote' : ' votes')">● {{ v.total }}</span>
+        }
+      </span>
     }
     @if (comments()) {
       <span class="note-comments" [attr.aria-label]="comments() + (comments() === 1 ? ' comment' : ' comments')">
@@ -45,6 +57,13 @@ export class NoteView {
   readonly peer = input<{ name: string; color: string; editing: boolean } | null>(null);
   /** Comments in its open thread, shown as a badge; 0 for none. */
   readonly comments = input(0);
+  /** Its dot votes: this person's while a vote runs, everyone's after; null when there's nothing to show. */
+  readonly votes = input<NoteVotes | null>(null);
+  /** Whether this person is voting now, and has votes left. */
+  readonly voting = input(false);
+  readonly canVoteMore = input(false);
+  /** Add a vote (true) or take one back. */
+  readonly vote = output<boolean>();
   /** The board's live connection, so others' carets show while this note is edited. */
   readonly provider = input<HocuspocusProvider | undefined>(undefined);
   /** The live editor while this note is being edited; null when editing stops. */
