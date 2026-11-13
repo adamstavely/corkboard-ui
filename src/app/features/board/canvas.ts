@@ -52,7 +52,8 @@ const isEditable = (el: EventTarget | null) =>
  * The board: an endless surface to pan and zoom, with notes to add, select, drag and edit, and frames that group them.
  * Drag the background to select with a box; hold Space (or use the middle button) and drag to pan; scroll to pan, and
  * pinch or Ctrl/⌘-scroll to zoom. Double-click empty space to add a note, a note to write in it, or a frame's title to
- * rename it. A frame is picked up by its title, carries its notes with it, and resizes from its corner.
+ * rename it. A frame is picked up anywhere on it (Shift-drag inside one to box-select instead), carries its notes with
+ * it, and resizes from its corner.
  */
 @Component({
   selector: 'app-canvas',
@@ -197,8 +198,10 @@ export class Canvas {
   protected onPointerDown(e: PointerEvent): void {
     const target = e.target as HTMLElement;
     const noteEl = target.closest<HTMLElement>('app-note');
-    // A frame is grabbed by its title; its body is open board, for selecting and adding the notes inside it.
-    const frameId = noteEl ? undefined : target.closest<HTMLElement>('.frame-title, .frame-resize')?.closest<HTMLElement>('.frame')?.dataset['frameId'];
+    // A frame is grabbed anywhere on it (a note can cover its title). Shift-drag inside one boxes notes instead.
+    const frameEl = noteEl ? null : target.closest<HTMLElement>('.frame');
+    const onFrameBody = !!frameEl && !target.closest('.frame-title, .frame-resize');
+    const frameId = frameEl && !(onFrameBody && e.shiftKey) ? frameEl.dataset['frameId'] : undefined;
     const id = noteEl?.dataset['noteId'] ?? frameId;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;

@@ -113,9 +113,10 @@
   white-space: nowrap;
 }
 
-/* A frame: a titled area under the notes. Its title is the handle that moves it; its body is open board. */
+/* A frame: a titled area under the notes, picked up anywhere on it. Shift-dragging its body boxes notes instead. */
 .frame {
   position: absolute;
+  cursor: grab;
   border: 1.5px solid var(--tc-border-default);
   border-radius: var(--tc-radius-lg);
   background: color-mix(in srgb, var(--tc-surface-raised) 60%, transparent);
