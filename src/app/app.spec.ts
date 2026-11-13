@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { Auth } from './core/auth';
 import { Session } from './core/session';
+import { Notifications } from './core/notifications';
 
 describe('App', () => {
   async function render(signedIn: boolean) {
@@ -12,6 +13,7 @@ describe('App', () => {
         provideRouter([]),
         { provide: Auth, useValue: { signedIn: () => signedIn, profile: () => ({ name: 'Ada', email: 'ada@x.test' }) } },
         { provide: Session, useValue: { org: () => undefined } },
+        { provide: Notifications, useValue: { items: () => [], unread: () => 0, read: () => Promise.resolve() } },
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(App);

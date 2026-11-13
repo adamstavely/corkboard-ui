@@ -10,11 +10,19 @@
             <app-board-search />
           }
         }
+        <tc-notifications
+          [items]="notifications.items()"
+          [categories]="notificationCategories"
+          (tc-item-open)="onNotificationOpen($event)"
+          (tc-read-change)="onNotificationsRead($event)"
+          (tc-mark-all-read)="onAllRead($event)"
+        ></tc-notifications>
         <tc-header-nav [user]="auth.profile()" [accountItems]="accountItems()" (tc-account-select)="onAccountSelect($event)"></tc-header-nav>
       </header>
     }
     <main class="content">
       <router-outlet />
     </main>
+    <tc-toaster position="bottom-right"></tc-toaster>
   </div>
 </tc-look-provider>
