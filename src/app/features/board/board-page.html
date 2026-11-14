@@ -77,6 +77,17 @@
         (askImage)="askAbout($event)"
         (openFile)="open($event)"
       />
+      @if (previewing(); as v) {
+        <app-version-preview
+          [boardId]="id()"
+          [version]="v"
+          [current]="board()!"
+          [canEdit]="canEdit()"
+          [fileUrls]="files()?.urls() ?? emptyUrls"
+          (closed)="previewing.set(null)"
+          (restored)="previewing.set(null); versionsChanged.set(versionsChanged() + 1)"
+        />
+      }
       @if (fstate(); as f) {
         <app-board-facilitation
           [boardId]="id()"
@@ -179,7 +190,7 @@
         />
       }
       @if (panel() === 'activity') {
-        <app-board-activity [boardId]="id()" [canEdit]="canEdit()" (closed)="panel.set(null)" />
+        <app-board-activity [boardId]="id()" [canEdit]="canEdit()" [refresh]="versionsChanged()" (preview)="previewing.set($event)" (closed)="panel.set(null)" />
       }
       @if (away(); as a) {
         <tc-away-summary class="away" heading="While you were away" [since]="a.since" [items]="a.items" (tc-seen)="away.set(null)"></tc-away-summary>
