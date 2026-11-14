@@ -21,8 +21,8 @@
         }
         <span class="clock" aria-hidden="true">{{ timesUp() ? "Time's up" : clock() }}</span>
         @if (canRun()) {
-          <tc-button size="sm" variant="ghost" label="+1 min" (click)="addMinute()"></tc-button>
-          <tc-button size="sm" variant="ghost" [label]="timesUp() ? 'Clear' : 'Stop'" (click)="stopTimer()"></tc-button>
+          <tc-button size="lg" variant="ghost" label="+1 min" (click)="addMinute()"></tc-button>
+          <tc-button size="lg" variant="ghost" [label]="timesUp() ? 'Clear' : 'Stop'" (click)="stopTimer()"></tc-button>
         }
       </div>
     }

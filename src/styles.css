@@ -12,6 +12,13 @@
   --note-purple: light-dark(#e6dbff, #3f3360);
   --note-gray: light-dark(#ececec, #3a3a3a);
 
+  /* Highlighter colours for note text: stronger than the note fills, so a highlight shows on a note of any colour. */
+  --hl-yellow: light-dark(#ffe066, #8a7400);
+  --hl-green: light-dark(#8ce99a, #2b6b35);
+  --hl-blue: light-dark(#8fd0ff, #1f5a8a);
+  --hl-pink: light-dark(#ffa8c5, #8a2f52);
+  --hl-purple: light-dark(#d0bfff, #5a43a0);
+
   /* Pen colours: strong enough to read as lines on the board and on notes, lighter in dark mode. */
   --pen-ink: var(--tc-text-strong);
   --pen-gray: light-dark(#868e96, #adb5bd);

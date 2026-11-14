@@ -31,6 +31,19 @@
   border-radius: var(--tc-radius-lg);
 }
 
+/* The timer is read from across a room (or a shared screen), so it's the biggest thing in the strip. */
+.item.timer {
+  gap: var(--tc-space-3);
+  padding: var(--tc-space-2) var(--tc-space-3) var(--tc-space-2) var(--tc-space-4);
+  font-size: var(--tc-font-size-md, 1rem);
+}
+.strip .timer app-icon {
+  --icon-size: 28px;
+}
+.timer .clock {
+  font-size: 2.25rem;
+  line-height: 1;
+}
 .timer svg {
   fill: none;
   stroke: currentColor;
