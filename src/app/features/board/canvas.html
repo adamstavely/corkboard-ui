@@ -16,6 +16,8 @@
     @for (frame of board().frames(); track frame.id) {
       <div
         class="frame"
+        [class.dimmed]="dims(frame.id)"
+        [class.found-current]="current() === frame.id"
         [attr.data-frame-id]="frame.id"
         [class.selected]="selection().has(frame.id)"
         [style.left.px]="frame.x"
@@ -62,6 +64,9 @@
       <div
         class="media"
         [class.selected]="selection().has(m.id)"
+        [class.dimmed]="dims(m.id)"
+        [class.found]="isFound(m.id)"
+        [class.found-current]="current() === m.id"
         [class.file]="m.kind === 'file'"
         [attr.data-media-id]="m.id"
         [style.left.px]="m.x"
@@ -91,6 +96,9 @@
         class="item"
         [class]="'item item-' + item.kind"
         [class.selected]="selection().has(item.id)"
+        [class.dimmed]="dims(item.id)"
+        [class.found]="isFound(item.id)"
+        [class.found-current]="current() === item.id"
         [attr.data-item-id]="item.id"
         [style.left.px]="item.x"
         [style.top.px]="item.y"
@@ -200,6 +208,9 @@
     }
     @for (note of board().notes(); track note.id) {
       <app-note
+        [class.dimmed]="dims(note.id)"
+        [class.found]="isFound(note.id)"
+        [class.found-current]="current() === note.id"
         [note]="note"
         [selected]="selection().has(note.id)"
         [editing]="editing() === note.id"
@@ -259,6 +270,41 @@
     </svg>
   }
 
+  @if (finding()) {
+    <div class="find" role="search" aria-label="Find on this board">
+      <input
+        class="find-input"
+        type="search"
+        placeholder="Find on this board"
+        aria-label="Find on this board"
+        [value]="query().text"
+        (input)="setQuery({ text: $any($event.target).value })"
+        (keydown)="onFindKey($event)"
+        [attr.data-find-autofocus]="true"
+      />
+      @if (tags().length) {
+        <select aria-label="Only notes tagged" [value]="query().tag" (change)="setQuery({ tag: $any($event.target).value })">
+          <option value="">Any tag</option>
+          @for (tag of tags(); track tag) {
+            <option [value]="tag">#{{ tag }}</option>
+          }
+        </select>
+      }
+      @if (people().length) {
+        <select aria-label="Only notes by" [value]="query().person" (change)="setQuery({ person: $any($event.target).value })">
+          <option value="">Anyone</option>
+          @for (p of people(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      }
+      <span class="find-count" role="status">{{ foundLabel() }}</span>
+      <tc-button size="sm" variant="ghost" label="↑" aria-label="Previous match" [disabled]="!found()?.length" (click)="step(-1)"></tc-button>
+      <tc-button size="sm" variant="ghost" label="↓" aria-label="Next match" [disabled]="!found()?.length" (click)="step(1)"></tc-button>
+      <tc-button size="sm" variant="ghost" label="Close" (click)="toggleFind()"></tc-button>
+    </div>
+  }
+
   <div class="toolbar" role="toolbar" aria-label="Board">
     @if (readOnly()) {
       <span class="read-only">{{ readOnlyLabel() }}</span>
@@ -291,6 +337,9 @@
           <button type="button" role="menuitem" (click)="insert('table')"><strong>Table</strong><span>Three by three, to fill in together</span></button>
           <button type="button" role="menuitem" (click)="insert('link')"><strong>Link</strong><span>A web page as a card</span></button>
           <button type="button" role="menuitem" (click)="insertOpen.set(false); addFiles.emit()"><strong>Images and files</strong><span>Or drop them on the board</span></button>
+          @for (t of noteTemplates; track t.id) {
+            <button type="button" role="menuitem" (click)="insertTemplate(t)"><strong>{{ t.name }} note</strong><span>{{ t.hint }}</span></button>
+          }
         </div>
       </tc-menu-morph>
       <tc-button size="sm" [variant]="pen() ? 'primary' : 'ghost'" label="Pen" [attr.aria-pressed]="pen()" title="Draw on the board (Esc to stop)" (click)="pen.set(!pen())"></tc-button>
@@ -350,6 +399,21 @@
       </div>
       <span class="divider" aria-hidden="true"></span>
     }
+    @if (!readOnly() && selectedNoteIds().length) {
+      <form class="tag-tools" (submit)="$event.preventDefault(); addTag(tagInput)">
+        @for (tag of selectedTags(); track tag) {
+          <button type="button" class="tag-chip" [attr.aria-label]="'Remove tag ' + tag" (click)="board().removeTag(selectedNoteIds(), tag)">#{{ tag }} ×</button>
+        }
+        <input #tagInput class="tag-input" placeholder="Add tag" aria-label="Add a tag to the selected notes" maxlength="30" list="board-tags" />
+        <datalist id="board-tags">
+          @for (tag of tags(); track tag) {
+            <option [value]="tag"></option>
+          }
+        </datalist>
+      </form>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    <tc-button size="sm" [variant]="finding() ? 'secondary' : 'ghost'" label="Find" title="Find and filter (Ctrl/⌘ F)" (click)="toggleFind()"></tc-button>
     <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>
     <tc-button size="sm" variant="ghost" [label]="zoomPercent()" aria-label="Reset zoom to 100%" (click)="resetZoom()"></tc-button>
     <tc-button size="sm" variant="ghost" label="+" aria-label="Zoom in" (click)="zoomBy(1.25)"></tc-button>

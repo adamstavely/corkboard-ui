@@ -24,6 +24,10 @@ export interface Note {
   text: Y.XmlFragment;
   /** Who wrote it, when a signed writing round put it here; anonymous and ordinary notes have none. */
   authorName?: string;
+  /** Who added it, for filtering by person; notes from before this was kept, or from the model, have none. */
+  createdBy?: { id: string; name: string };
+  /** Short labels to group and filter notes by: "bug", "q3". */
+  tags: string[];
   /** Where it sits on the value-vs-effort matrix (0–10 each), once someone has placed it there. */
   value?: number;
   effort?: number;
@@ -116,6 +120,23 @@ export interface LinkItem extends Placed {
 export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem;
 const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link']);
 
+/** A ready-made note: a bold heading and prompts to fill in. */
+export interface NoteTemplate {
+  id: string;
+  name: string;
+  hint: string;
+  color: NoteColor;
+  text: string;
+}
+
+export const NOTE_TEMPLATES: readonly NoteTemplate[] = [
+  { id: 'story', name: 'User story', hint: 'As a…, I want…, so that…', color: 'blue', text: 'User story\nAs a \nI want \nso that ' },
+  { id: 'idea', name: 'Idea', hint: 'What, why, and the first step', color: 'yellow', text: 'Idea\nWhat: \nWhy: \nFirst step: ' },
+  { id: 'risk', name: 'Risk', hint: 'What could go wrong, and what to do', color: 'pink', text: 'Risk\nWhat could go wrong: \nHow likely: \nWhat we\'ll do: ' },
+  { id: 'decision', name: 'Decision', hint: 'What, why, who decided', color: 'green', text: 'Decision\nWe decided: \nBecause: \nDecided by: ' },
+  { id: 'question', name: 'Question', hint: 'An open question and who can answer', color: 'purple', text: 'Question\n \nWho can answer: ' },
+];
+
 /** A file's card on the board. */
 export const FILE_CARD = { w: 240, h: 72 } as const;
 
@@ -166,6 +187,8 @@ function scores(node: Y.Map<unknown>): { value?: number; effort?: number } {
  */
 export class BoardDoc {
   readonly doc = new Y.Doc();
+  /** Who's adding things here, stamped on new notes so they can be filtered by person. */
+  author: { id: string; name: string } | null = null;
   readonly #nodes = this.doc.getMap<Y.Map<unknown>>('nodes');
   /** Moves made within 400ms of each other undo together; adding, recolouring and deleting are each their own step. */
   readonly undo: Y.UndoManager = new Y.UndoManager(this.#nodes, { captureTimeout: 400, trackedOrigins: new Set([null, this]) });
@@ -201,7 +224,7 @@ export class BoardDoc {
   }
 
   /** Adds a note centred on a point, with text if given (a paragraph a line), and returns its id. */
-  addNote(cx: number, cy: number, color: NoteColor = 'yellow', text = ''): string {
+  addNote(cx: number, cy: number, color: NoteColor = 'yellow', text = '', boldFirst = false): string {
     const id = crypto.randomUUID();
     this.undo.stopCapturing();
     this.doc.transact(() => {
@@ -213,21 +236,58 @@ export class BoardDoc {
       node.set('h', NOTE_SIZE.h);
       node.set('z', this.#topZ() + 1);
       node.set('color', color);
+      if (this.author) node.set('createdBy', { ...this.author });
       const fragment = new Y.XmlFragment();
       node.set('text', fragment);
       this.#nodes.set(id, node);
       if (text) {
         fragment.insert(
           0,
-          text.split(/\r?\n/).map((line) => {
+          text.split(/\r?\n/).map((line, i) => {
             const p = new Y.XmlElement('paragraph');
-            if (line) p.insert(0, [new Y.XmlText(line)]);
+            if (line) {
+              const run = new Y.XmlText(line);
+              p.insert(0, [run]);
+              if (i === 0 && boldFirst) run.format(0, line.length, { bold: true });
+            }
             return p;
           }),
         );
       }
     }, this);
     return id;
+  }
+
+  /** A note from a template: its heading bold, its prompts below, in the template's colour. */
+  addTemplateNote(cx: number, cy: number, template: NoteTemplate): string {
+    return this.addNote(cx, cy, template.color, template.text, true);
+  }
+
+  /** Adds a tag to notes (lower case, trimmed), keeping each note's tags unique. */
+  addTag(ids: Iterable<string>, tag: string): void {
+    const t = tag.trim().toLowerCase().replace(/^#/, '').slice(0, 30);
+    if (!t) return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (node?.get('kind') !== 'note') continue;
+        const tags = tagsOf(node);
+        if (!tags.includes(t)) node.set('tags', [...tags, t]);
+      }
+    }, this);
+  }
+
+  removeTag(ids: Iterable<string>, tag: string): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (node?.get('kind') !== 'note') continue;
+        const tags = tagsOf(node);
+        if (tags.includes(tag)) node.set('tags', tags.filter((x) => x !== tag));
+      }
+    }, this);
   }
 
   /** Adds a frame and returns its id: around `around` (with room for a title) or, without, a blank one centred on a point. */
@@ -628,6 +688,8 @@ export class BoardDoc {
         color: NOTE_COLORS.includes(color) ? color : 'yellow',
         text: node.get('text') as Y.XmlFragment,
         ...(typeof node.get('authorName') === 'string' ? { authorName: node.get('authorName') as string } : {}),
+        ...createdByOf(node),
+        tags: tagsOf(node),
         ...scores(node),
       });
     });
@@ -693,4 +755,14 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
     default:
       return null;
   }
+}
+
+function tagsOf(node: Y.Map<unknown>): string[] {
+  const tags = node.get('tags');
+  return Array.isArray(tags) ? tags.filter((t): t is string => typeof t === 'string') : [];
+}
+
+function createdByOf(node: Y.Map<unknown>): Pick<Note, 'createdBy'> {
+  const by = node.get('createdBy') as { id?: unknown; name?: unknown } | undefined;
+  return by && typeof by.id === 'string' && typeof by.name === 'string' ? { createdBy: { id: by.id, name: by.name } } : {};
 }
