@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import type { Task, TaskStatus } from '@adamstavely/trenchcoat/task-board';
 import * as Y from 'yjs';
-import type { BoardDoc, Note } from './board-doc';
+import { trackText, type BoardDoc, type Note } from './board-doc';
 
 export type TaskState = 'todo' | 'doing' | 'done';
 
@@ -75,6 +75,7 @@ export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now
 
 /** A note's paragraphs, each with whether it's all bold. */
 export function noteLines(fragment: Y.XmlFragment): { text: string; bold: boolean }[] {
+  trackText(fragment);
   return fragment.toArray().flatMap((block) => {
     if (!(block instanceof Y.XmlElement)) return [];
     const runs = block.toArray().filter((c): c is Y.XmlText => c instanceof Y.XmlText).flatMap((t) => t.toDelta() as { insert: unknown; attributes?: Record<string, unknown> }[]);

@@ -203,6 +203,9 @@
   fill: var(--tc-surface-sunken, transparent);
   stroke: var(--tc-border-default);
 }
+.mm-media {
+  fill: var(--tc-border-strong, var(--tc-border-default));
+}
 .mm-view {
   fill: color-mix(in srgb, var(--tc-accent-text) 10%, transparent);
   stroke: var(--tc-accent-text);

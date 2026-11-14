@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
-import { boardBounds, boardMarkdown, fileName } from './export';
+import { arrowLines, boardBounds, boardBoxes, boardMarkdown, fileName } from './export';
 
 describe('export', () => {
   it('writes the board as Markdown: frames as headings, notes as bullets, bold kept', () => {
@@ -18,6 +18,27 @@ describe('export', () => {
     // Frames inside frames go a level deeper; an empty frame is just its heading.
     board.addFrame(0, 0, board.frames(), 'Plan');
     expect(boardMarkdown(board, 'Retro')).toContain('## Plan\n\n### Delivery\n\n- Deploys are slow');
+    board.destroy();
+  });
+
+  it("counts images and files in the bounds, so an image-only board isn't empty", () => {
+    const board = new BoardDoc();
+    expect(boardBounds(board)).toBeNull();
+    board.addMedia({ id: 'f1', name: 'photo.png', mime: 'image/png', size: 10 }, 3000, 3000, { w: 200, h: 100 });
+    expect(boardBounds(board, 0)).toEqual({ x: 2900, y: 2950, w: 200, h: 100 });
+    expect(boardBoxes(board)).toHaveLength(1);
+    board.destroy();
+  });
+
+  it('draws arrows from edge to edge', () => {
+    const board = new BoardDoc();
+    const a = board.addNote(100, 100);
+    const b = board.addNote(600, 100);
+    board.connect(a, b);
+    const [line] = arrowLines(board);
+    const [na, nb] = board.notes();
+    expect(line.start).toEqual({ x: na.x + na.w, y: 100 });
+    expect(line.end).toEqual({ x: nb.x, y: 100 });
     board.destroy();
   });
 

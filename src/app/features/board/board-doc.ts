@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
 
 export const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'gray'] as const;
@@ -71,6 +71,17 @@ type Box = Pick<Frame, 'x' | 'y' | 'w' | 'h'>;
 export const inFrame = (note: Box, frame: Box) =>
   note.x + note.w / 2 >= frame.x && note.x + note.w / 2 <= frame.x + frame.w && note.y + note.h / 2 >= frame.y && note.y + note.h / 2 <= frame.y + frame.h;
 
+/** Each board's text revision, by its Yjs document, so code holding only a note's fragment can depend on its text. */
+const textRevisions = new WeakMap<Y.Doc, Signal<number>>();
+
+/**
+ * Makes the caller (a computed, an effect, a template) depend on the text of the board this fragment is on: it reruns
+ * when anyone edits any note's words. Everything that reads note text goes through here (see `noteLines`, `plainText`).
+ */
+export function trackText(fragment: Y.XmlFragment): void {
+  if (fragment.doc) textRevisions.get(fragment.doc)?.();
+}
+
 /** Changes that came from the server rather than this person; they don't go on the undo stack or back to the server. */
 export const REMOTE = Symbol('remote');
 
@@ -111,8 +122,14 @@ export class BoardDoc {
   /** Every arrow between notes and frames. */
   readonly connectors = this.#connectors.asReadonly();
 
+  readonly #textRevision = signal(0);
+  /** Goes up whenever a note's text changes; `trackText` depends on it. */
+  readonly textRevision = this.#textRevision.asReadonly();
+
   constructor() {
+    textRevisions.set(this.doc, this.textRevision);
     this.#nodes.observeDeep((events) => {
+      if (events.some((e) => !(e.target instanceof Y.Map))) this.#textRevision.update((n) => n + 1);
       // Typing inside a note changes only its fragment; the list needs rebuilding when nodes or their properties do.
       if (events.some((e) => e.target === this.#nodes || e.target instanceof Y.Map)) this.#refresh();
     });
