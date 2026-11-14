@@ -1,9 +1,14 @@
+import { IndexeddbPersistence } from 'y-indexeddb';
+import { LOCAL_PREFIX } from '../../core/pending-work';
 import { computed, signal } from '@angular/core';
 import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider';
 import type { BoardDoc } from './board-doc';
 import { Presence, type PresenceUser } from './presence';
 
-export type ConnectionStatus = 'connecting' | 'saving' | 'saved' | 'offline' | 'denied';
+export type ConnectionStatus = 'connecting' | 'saving' | 'saved' | 'offline' | 'denied' | 'stuck';
+
+/** How long edits may wait for the server, while connected, before they're taken as refused. */
+export const STUCK_MS = 20_000;
 
 /** The API's collaboration socket, through the same /api prefix as everything else. */
 export function collabUrl(loc: Pick<Location, 'protocol' | 'host'> = location): string {
@@ -12,7 +17,9 @@ export function collabUrl(loc: Pick<Location, 'protocol' | 'host'> = location): 
 
 /**
  * A board shared live with everyone who has it open: Hocuspocus keeps the BoardDoc in step with the server, which
- * saves it, and carries each person's presence. Edits made offline are kept and sent on reconnecting.
+ * saves it, and carries each person's presence. Edits are also kept in this browser (IndexedDB) until the server has
+ * them, so ones made offline survive leaving the board or reloading, and are sent when it's next open; once everything
+ * is sent, the local copy is cleared.
  */
 export class BoardConnection {
   readonly provider: HocuspocusProvider;
@@ -23,8 +30,16 @@ export class BoardConnection {
   readonly #unsynced = signal(0);
   readonly #denied = signal(false);
 
+  /**
+   * Connected and in step, yet edits the server hasn't taken for STUCK_MS: it refused them (an update it can't accept,
+   * e.g. one carrying things it lost in a crash). They'll never go through as they are.
+   */
+  readonly #stuck = signal(false);
+  #stuckTimer: ReturnType<typeof setTimeout> | undefined;
+
   readonly status = computed<ConnectionStatus>(() => {
     if (this.#denied()) return 'denied';
+    if (this.#stuck()) return 'stuck';
     if (!this.#synced()) return 'connecting';
     if (!this.#connected()) return 'offline';
     return this.#unsynced() > 0 ? 'saving' : 'saved';
@@ -46,18 +61,28 @@ export class BoardConnection {
   /** Changes this person has made that the server hasn't confirmed yet. */
   readonly pending = computed(() => this.#unsynced() > 0);
 
+  readonly #local: IndexeddbPersistence | undefined;
+
   constructor(boardId: string, board: BoardDoc, token: () => string, user: PresenceUser) {
+    // Edits left from last time (made offline, then the board was left) load into the board and go to the server.
+    this.#local = typeof indexedDB === 'undefined' ? undefined : new IndexeddbPersistence(`${LOCAL_PREFIX}${boardId}`, board.doc);
     this.provider = new HocuspocusProvider({
       url: collabUrl(),
       name: boardId,
       document: board.doc,
       // Read on every (re)connect, so a renewed session's token is the one sent.
       token,
-      onStatus: ({ status }) => this.#connected.set(status === WebSocketStatus.Connected),
+      onStatus: ({ status }) => {
+        this.#connected.set(status === WebSocketStatus.Connected);
+        this.#watchStuck();
+      },
       onSynced: ({ state }) => {
         if (state) this.#synced.set(true);
       },
-      onUnsyncedChanges: ({ number }) => this.#unsynced.set(number),
+      onUnsyncedChanges: ({ number }) => {
+        this.#unsynced.set(number);
+        this.#watchStuck();
+      },
       onAuthenticated: () => this.#signIns.update((n) => n + 1),
       // The server closes one board's connection (the socket stays up) when someone's role changes or the share link
       // they came through is turned off. Join again: they're let back in with their new role, or turned away.
@@ -95,9 +120,29 @@ export class BoardConnection {
 
   #destroyed = false;
 
+  /** Starts the stuck clock while connected with edits waiting, and stops it (and clears stuck) otherwise. */
+  #watchStuck(): void {
+    const waiting = this.#connected() && this.#unsynced() > 0;
+    if (!waiting) {
+      clearTimeout(this.#stuckTimer);
+      this.#stuckTimer = undefined;
+      this.#stuck.set(false);
+      return;
+    }
+    this.#stuckTimer ??= setTimeout(() => this.#stuck.set(true), STUCK_MS);
+  }
+
+  /** Throws away this browser's copy of the board's unsent edits, e.g. once the server has refused them. */
+  async discardLocal(): Promise<void> {
+    await this.#local?.clearData();
+  }
+
   destroy(): void {
     this.#destroyed = true;
     this.presence.destroy();
+    clearTimeout(this.#stuckTimer);
+    // Everything sent (or refused for good): the local copy isn't needed. Otherwise it's kept, to be sent next time.
+    if (this.#local) void (this.pending() && !this.#stuck() ? this.#local.destroy() : this.#local.clearData());
     this.provider.destroy();
   }
 }

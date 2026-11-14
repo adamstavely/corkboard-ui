@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, resource, signal, untracked } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, input, resource, signal, untracked } from '@angular/core';
 import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { Api } from '../../api/generated/api';
 import { linksControllerOpen } from '../../api/generated/fn/links/links-controller-open';
@@ -91,6 +91,17 @@ export class SharedBoard {
   protected readonly meta = resource({ params: () => this.token(), loader: ({ params }) => this.#api.invoke(linksControllerOpen, { token: params }) });
   protected readonly board = signal<BoardDoc | undefined>(undefined);
   protected readonly connection = signal<BoardConnection | undefined>(undefined);
+
+  /** For the route's guard: an editable link's guest may have edits not yet sent. */
+  hasPendingWork(): boolean {
+    return !!this.connection()?.pending();
+  }
+
+  /** The browser asks before closing the tab with edits not yet sent. */
+  @HostListener('window:beforeunload', ['$event'])
+  protected onBeforeUnload(e: BeforeUnloadEvent): void {
+    if (this.hasPendingWork()) e.preventDefault();
+  }
   /** The board's images and files, fetched with the link. */
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();

@@ -10,9 +10,20 @@ import { noteLines } from './tasks';
 export function boardMarkdown(board: BoardDoc, title: string): string {
   const frames = [...board.frames()].sort((a, b) => a.y - b.y || a.x - b.x);
   const placed = new Set<string>();
+  // A note is a bullet: its paragraphs joined, with any list it holds nested under it as a Markdown list.
   const bullet = (note: Note) => {
-    const lines = noteLines(note.text).map((l) => (l.bold ? `**${l.text}**` : l.text));
-    return lines.length ? `- ${lines.join(' — ')}` : '';
+    const lines = noteLines(note.text);
+    const item = /^(\s*)(•|\d+\.) (.*)$/;
+    const head = lines.filter((l) => !item.test(l.text)).map((l) => (l.bold ? `**${l.text}**` : l.text.trim()));
+    const nested = lines.flatMap((l) => {
+      const m = item.exec(l.text);
+      if (!m) return [];
+      const text = l.bold ? `**${m[3]}**` : m[3];
+      return [`  ${m[1]}${m[2] === '•' ? '-' : m[2]} ${text}`];
+    });
+    if (!head.length && !nested.length) return '';
+    const first = head.length ? head.join(' — ') : nested.shift()!.trim().replace(/^(-|\d+\.) /, '');
+    return [`- ${first}`, ...nested].join('\n');
   };
   const out = [`# ${title}`, ''];
   // Innermost frame wins, so a note in a timeline's column is listed under the column.

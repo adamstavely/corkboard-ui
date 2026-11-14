@@ -78,15 +78,56 @@ export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now
   };
 }
 
-/** A note's paragraphs, each with whether it's all bold. */
+type Run = { insert: unknown; attributes?: Record<string, unknown> };
+
+/**
+ * A note's lines, each with whether it's all bold: every paragraph and heading, and every list item, however deeply
+ * nested ("• " or "1. " before it, indented two spaces a level), so nothing written in a list is lost when the note
+ * becomes Markdown, a picture, a task or a timeline.
+ */
 export function noteLines(fragment: Y.XmlFragment): { text: string; bold: boolean }[] {
   trackText(fragment);
-  return fragment.toArray().flatMap((block) => {
-    if (!(block instanceof Y.XmlElement)) return [];
-    const runs = block.toArray().filter((c): c is Y.XmlText => c instanceof Y.XmlText).flatMap((t) => t.toDelta() as { insert: unknown; attributes?: Record<string, unknown> }[]);
+  const lines: { text: string; bold: boolean }[] = [];
+  const line = (block: Y.XmlElement, lead: string) => {
+    const runs = block.toArray().filter((c): c is Y.XmlText => c instanceof Y.XmlText).flatMap((t) => t.toDelta() as Run[]);
     const text = runs.map((r) => (typeof r.insert === 'string' ? r.insert : '')).join('').trim();
-    return text ? [{ text, bold: runs.length > 0 && runs.every((r) => !!r.attributes?.['bold']) }] : [];
-  });
+    if (text) lines.push({ text: lead + text, bold: runs.length > 0 && runs.every((r) => !!r.attributes?.['bold']) });
+  };
+  const blocks = (parent: Y.XmlFragment | Y.XmlElement, depth: number) => {
+    for (const node of parent.toArray()) {
+      if (!(node instanceof Y.XmlElement)) continue;
+      const name = node.nodeName;
+      if (name === 'bulletList' || name === 'orderedList') {
+        list(node, depth);
+      } else if (node.toArray().some((c) => c instanceof Y.XmlElement)) {
+        blocks(node, depth);
+      } else {
+        line(node, '  '.repeat(depth));
+      }
+    }
+  };
+  // An item's first paragraph gets its marker; later paragraphs line up under it; lists inside go a level deeper.
+  const listItem = (item: Y.XmlElement, depth: number, first: string, rest: string) => {
+    let lead = first;
+    for (const child of item.toArray()) {
+      if (!(child instanceof Y.XmlElement)) continue;
+      if (child.nodeName === 'bulletList' || child.nodeName === 'orderedList') {
+        list(child, depth + 1);
+      } else {
+        line(child, lead);
+        lead = rest;
+      }
+    }
+  };
+  const list = (el: Y.XmlElement, depth: number) => {
+    el.toArray().forEach((item, i) => {
+      if (!(item instanceof Y.XmlElement)) return;
+      const marker = el.nodeName === 'bulletList' ? '• ' : `${i + 1}. `;
+      listItem(item, depth, '  '.repeat(depth) + marker, '  '.repeat(depth) + ' '.repeat(marker.length));
+    });
+  };
+  blocks(fragment, 0);
+  return lines;
 }
 
 /** Who a note is for, when its first line is a name in bold (as the model writes action items), and the rest. */

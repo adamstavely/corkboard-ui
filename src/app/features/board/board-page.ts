@@ -69,7 +69,8 @@ const STATUS_TEXT: Record<ConnectionStatus, string> = {
   connecting: 'Connecting…',
   saving: 'Saving…',
   saved: 'Saved',
-  offline: 'Offline – your changes will sync when you reconnect',
+  offline: 'Offline – your changes are kept in this browser and sent when you reconnect',
+  stuck: "Some changes weren't accepted by the server",
   denied: '',
 };
 
@@ -717,6 +718,29 @@ export class BoardPage {
   }
 
   /** Warn before closing the tab while changes are still on their way to the server. */
+  /** For the route's guard: whether leaving now would leave edits unsent (they're kept in this browser). */
+  hasPendingWork(): boolean {
+    return !!this.connection()?.pending() && this.status() !== 'stuck';
+  }
+
+  /**
+   * Once the server has refused edits for good, says so, and offers the way out: start again from the server's board,
+   * dropping what it wouldn't take (they'd otherwise be kept and refused again every time the board opens).
+   */
+  readonly #sayStuck = effect(() => {
+    if (this.status() !== 'stuck') return;
+    untracked(() =>
+      toast.error("Some changes on this board weren't accepted", {
+        description: "The server couldn't take them, so they can't be saved. Reload the board from the server to carry on; those changes are dropped.",
+        duration: Infinity,
+        action: {
+          label: 'Reload from the server',
+          onClick: () => void this.connection()?.discardLocal().then(() => location.reload()),
+        },
+      }),
+    );
+  });
+
   @HostListener('window:beforeunload', ['$event'])
   protected onBeforeUnload(e: BeforeUnloadEvent): void {
     if (this.connection()?.pending()) e.preventDefault();

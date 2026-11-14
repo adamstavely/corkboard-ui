@@ -165,24 +165,18 @@ export class BoardActivity {
   protected async restore(versionId: string, label: string): Promise<void> {
     this.restoring.set(versionId);
     try {
-      await this.#api.invoke(activityControllerRestore, { id: this.boardId(), versionId });
+      const { beforeVersionId } = await this.#api.invoke(activityControllerRestore, { id: this.boardId(), versionId });
       this.#refresh();
       toast.success(`Restored “${label}”`, {
         description: 'Everyone on the board sees it. What was here was saved as a version first.',
-        action: { label: 'Undo', onClick: () => void this.#undoRestore() },
+        // Undo brings back exactly what this restore saved, whatever anyone else restores meanwhile.
+        action: { label: 'Undo', onClick: () => void this.restore(beforeVersionId, 'the board as it was') },
       });
     } catch (err) {
       toast.error("The version couldn't be restored", { description: problem(err, 'Try again.') });
     } finally {
       this.restoring.set(null);
     }
-  }
-
-  /** Undoing a restore brings back the version saved just before it. */
-  async #undoRestore(): Promise<void> {
-    const list = await this.#api.invoke(activityControllerListVersions, { id: this.boardId() });
-    const before = list.find((v) => v.label.startsWith('Before restoring'));
-    if (before) await this.restore(before.id, before.label);
   }
 
   #refresh(): void {
