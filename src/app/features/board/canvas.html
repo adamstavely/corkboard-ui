@@ -152,7 +152,7 @@
             <svg [attr.viewBox]="'0 0 ' + item.vw + ' ' + item.vh" preserveAspectRatio="none" aria-hidden="true">
               <polyline
                 [attr.points]="item.points.join(' ')"
-                [style.stroke]="item.color === 'ink' ? 'var(--tc-text-strong)' : 'var(--note-' + item.color + '-ink, var(--note-' + item.color + '))'"
+                [style.stroke]="'var(--pen-' + item.color + ')'"
                 [attr.stroke-width]="item.width"
                 vector-effect="non-scaling-stroke"
               />
@@ -240,7 +240,7 @@
     }
     @if (draft(); as d) {
       <svg class="draft-stroke" aria-hidden="true">
-        <polyline [attr.points]="d.join(' ')" />
+        <polyline [attr.points]="d.join(' ')" [style.stroke]="'var(--pen-' + penStyle().color + ')'" [attr.stroke-width]="penStyle().width" />
       </svg>
     }
     @if (arrows().length) {
@@ -384,6 +384,16 @@
                 <span class="border-sample" [attr.data-border]="border.id" aria-hidden="true"></span><span class="app-menu-label">{{ border.label }}</span>
               </button>
             }
+          </div>
+        </tc-menu-morph>
+      }
+      @if (!readOnly() && selectedDrawings().length) {
+        <tc-menu-morph [open]="penOpen()" (tc-open-change)="penOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Pen colour and thickness" data-tip="Pen">
+            <span class="current-colour" [style.background]="'var(--pen-' + drawingStyle().color + ')'"></span>
+          </button>
+          <div data-menu class="app-menu pen-menu" aria-label="Pen colour and thickness">
+            <app-pen-style label="Selected strokes" [inMenu]="true" [value]="drawingStyle()" (changed)="restyleDrawings($event)" />
           </div>
         </tc-menu-morph>
       }
@@ -671,6 +681,9 @@
         <button type="button" class="icon-btn" aria-label="Comment" data-tip="Comment  C" data-tip-side="right" [attr.aria-pressed]="tool() === 'comment'" (click)="pickTool('comment')"><app-icon name="comment" /></button>
       }
     </div>
+    @if (pen() && !readOnly()) {
+      <app-pen-style class="arrow-defaults" label="Pen" [vertical]="true" [value]="penStyle()" (changed)="penStyle.update((s) => ({ ...s, ...$event }))" />
+    }
     @if (tool() === 'connect' && !readOnly()) {
       <app-arrow-style class="arrow-defaults" label="Next arrows" [value]="arrowStyle()" (changed)="arrowStyle.update((s) => ({ ...s, ...$event }))" />
     }

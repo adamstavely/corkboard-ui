@@ -141,6 +141,12 @@
   transform: scale(1.08);
 }
 
+/* The pen picker sits in the menu as its own panel, not as menu rows. */
+.pen-menu {
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
 /* The frame style picker: fills as small frames (square, not round), four to a row, then the borders. */
 .frame-menu {
   min-width: 176px !important;

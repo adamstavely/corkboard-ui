@@ -30,8 +30,17 @@ describe('shapes, text, drawings, tables and link cards', () => {
     expect(board.addDrawing([5, 5])).toBeNull();
     const id = board.addDrawing([100, 100, 150, 120, 200, 100])!;
     const d = item<DrawingItem>(id);
-    expect(d).toMatchObject({ kind: 'drawing', x: 97, y: 97, w: 106, h: 26, vw: 106, vh: 26 });
-    expect(d.points.slice(0, 2)).toEqual([3, 3]);
+    expect(d).toMatchObject({ kind: 'drawing', x: 96, y: 96, w: 108, h: 28, vw: 108, vh: 28, color: 'ink', width: 4 });
+    expect(d.points.slice(0, 2)).toEqual([4, 4]);
+  });
+
+  it('draws in the pen colour and thickness picked, and restyles strokes afterwards', () => {
+    const id = board.addDrawing([0, 0, 50, 50], { color: 'red', width: 16 })!;
+    expect(item<DrawingItem>(id)).toMatchObject({ color: 'red', width: 16 });
+    board.setPenStyle([id], { color: 'blue' });
+    board.setPenStyle([id], { width: 2 });
+    board.setPenStyle([id], { width: 5 });
+    expect(item<DrawingItem>(id)).toMatchObject({ color: 'blue', width: 2 });
   });
 
   it('fills in table cells one at a time, and drops cells a smaller table loses', () => {

@@ -87,8 +87,8 @@
   pointer-events: none;
 }
 .draft-stroke polyline {
-  stroke: var(--tc-text-strong);
-  stroke-width: 3;
+  stroke: var(--pen-ink);
+  stroke-width: 4;
 }
 .table-grid {
   display: grid;

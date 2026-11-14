@@ -315,7 +315,7 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       break;
     case 'drawing': {
       ctx.scale(item.w / item.vw, item.h / item.vh);
-      ctx.strokeStyle = item.color === 'ink' ? c.text : color(`--note-${item.color}`, '#888');
+      ctx.strokeStyle = color(`--pen-${item.color}`, c.text);
       ctx.lineWidth = item.width;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
