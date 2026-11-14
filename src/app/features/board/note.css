@@ -226,3 +226,43 @@ app-note .note-author {
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* Tags, small in the top right; the note's text keeps clear of them. */
+app-note .note-tags {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+  max-width: 70%;
+  pointer-events: none;
+}
+app-note .note-tag {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.08);
+  color: rgb(0 0 0 / 0.65);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+/* While finding or filtering: what doesn't match fades back; matches get a ring, the current one a stronger one. */
+app-note.dimmed,
+.frame.dimmed,
+.media.dimmed,
+.item.dimmed {
+  opacity: 0.25;
+}
+app-note.found,
+.item.found,
+.media.found {
+  box-shadow: 0 0 0 3px var(--tc-status-warning-fg, #d39b00);
+}
+app-note.found-current,
+.item.found-current,
+.media.found-current,
+.frame.found-current {
+  box-shadow: 0 0 0 4px var(--tc-accent-text);
+}

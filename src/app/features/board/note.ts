@@ -18,6 +18,13 @@ import { noteExtensions, renderNoteText } from './note-text';
     @if (note().authorName) {
       <span class="note-author">{{ note().authorName }}</span>
     }
+    @if (note().tags.length) {
+      <span class="note-tags" [attr.aria-label]="'Tags: ' + note().tags.join(', ')">
+        @for (tag of note().tags; track tag) {
+          <span class="note-tag">#{{ tag }}</span>
+        }
+      </span>
+    }
     @if (peer(); as peer) {
       <span class="note-peer" [style.background]="peer.color">{{ peer.name }}{{ peer.editing ? ' is writing' : '' }}</span>
     }

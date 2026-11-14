@@ -12,7 +12,8 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { NOTE_COLORS, NOTE_SIZE, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { NOTE_COLORS, NOTE_SIZE, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
@@ -160,6 +161,87 @@ export class Canvas {
     const [id] = this.selection();
     return (this.board().items().find((i) => i.id === id && i.kind === 'table') as TableItem | undefined) ?? null;
   });
+
+  // ── Note templates, tags, and finding things ──
+
+  protected readonly noteTemplates = NOTE_TEMPLATES;
+  protected readonly selectedNoteIds = computed(() => this.board().notes().filter((n) => this.selection().has(n.id)).map((n) => n.id));
+  /** Tags on any selected note, to take off. */
+  protected readonly selectedTags = computed(() => [...new Set(this.board().notes().filter((n) => this.selection().has(n.id)).flatMap((n) => n.tags))]);
+  protected readonly tags = computed(() => boardTags(this.board()));
+  protected readonly people = computed(() => notePeople(this.board()));
+  protected readonly finding = signal(false);
+  protected readonly query = signal<FindQuery>(NO_QUERY);
+  /** What matches, in reading order; null when nothing's being looked for. */
+  protected readonly found = computed(() => (this.finding() ? findOnBoard(this.board(), this.query()) : null));
+  readonly #foundSet = computed(() => new Set(this.found() ?? []));
+  readonly #at = signal(0);
+  /** The match shown last with ↑/↓ or Enter. */
+  protected readonly current = computed(() => {
+    const f = this.found();
+    return f?.length ? f[Math.min(this.#at(), f.length - 1)] : null;
+  });
+  protected readonly foundLabel = computed(() => {
+    const f = this.found();
+    if (!f) return '';
+    if (!f.length) return 'No matches';
+    return `${Math.min(this.#at(), f.length - 1) + 1} of ${f.length}`;
+  });
+  protected dims(id: string): boolean {
+    return !!this.found() && !this.#foundSet().has(id);
+  }
+  protected isFound(id: string): boolean {
+    return !!this.found() && this.#foundSet().has(id);
+  }
+
+  protected insertTemplate(t: NoteTemplate): void {
+    this.insertOpen.set(false);
+    const at = this.#viewCentre();
+    const id = this.board().addTemplateNote(at.x, at.y, t);
+    this.selection.set(new Set([id]));
+    this.#edit(id);
+  }
+
+  protected addTag(input: HTMLInputElement): void {
+    this.board().addTag(this.selectedNoteIds(), input.value);
+    input.value = '';
+  }
+
+  protected toggleFind(): void {
+    const open = !this.finding();
+    this.finding.set(open);
+    if (!open) {
+      this.query.set(NO_QUERY);
+      return;
+    }
+    setTimeout(() => this.surface().nativeElement.parentElement?.querySelector<HTMLInputElement>('[data-find-autofocus]')?.focus());
+  }
+
+  protected setQuery(change: Partial<FindQuery>): void {
+    this.query.update((q) => ({ ...q, ...change }));
+    this.#at.set(0);
+    // Bring the first match into view as you type.
+    const first = this.found()?.[0];
+    if (first) this.show([first], false);
+  }
+
+  /** The next (or previous) match, brought into view. */
+  protected step(by: 1 | -1): void {
+    const f = this.found();
+    if (!f?.length) return;
+    this.#at.update((i) => (Math.min(i, f.length - 1) + by + f.length) % f.length);
+    this.show([this.current()!], false);
+  }
+
+  protected onFindKey(e: KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.step(e.shiftKey ? -1 : 1);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      this.toggleFind();
+    }
+  }
 
   protected itemLabel(item: Item): string {
     switch (item.kind) {
@@ -594,6 +676,12 @@ export class Canvas {
       this.editing.set(null);
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      if (!this.finding()) this.toggleFind();
+      else this.surface().nativeElement.parentElement?.querySelector<HTMLInputElement>('[data-find-autofocus]')?.focus();
+      return;
+    }
     if (e.key === 'Escape' && this.pen() && !isEditable(e.target)) {
       this.pen.set(false);
       return;
@@ -676,12 +764,12 @@ export class Canvas {
     if (items.length) this.#fit(items);
   }
 
-  /** Selects these notes, frames, images or files and brings them into view, zoomed to fit (never past 100%). */
-  show(ids: readonly string[]): void {
+  /** Brings these notes, frames, images or files into view, zoomed to fit (never past 100%), selecting them unless told not to. */
+  show(ids: readonly string[], select = true): void {
     const notes = boardBoxes(this.board()).filter((n) => ids.includes(n.id));
     if (notes.length === 0) return;
     this.editing.set(null);
-    this.selection.set(new Set(notes.map((n) => n.id)));
+    if (select) this.selection.set(new Set(notes.map((n) => n.id)));
     this.#fit(notes);
   }
 

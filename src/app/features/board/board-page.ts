@@ -542,6 +542,7 @@ export class BoardPage {
         this.#me.set(user);
         void this.checkAway(id, me.name);
         const board = new BoardDoc();
+        board.author = { id: me.id, name: me.name };
         const connection = new BoardConnection(id, board, () => this.#auth.token() ?? '', user);
         const chat = new ChatFeed(board.doc);
         const facilitation = new FacilitationFeed(board.doc);
