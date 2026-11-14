@@ -63,18 +63,33 @@ export interface Writing {
   writers: number;
 }
 
-/** The board's dot voting, timer and hidden writing, live from its document. Only the API writes them. */
+/** One breakout group: the frame it works in, who's in it, and its own timer. */
+export interface BreakoutGroup {
+  frameId: string;
+  members: { id: string; name: string }[];
+  endsAt: number | null;
+  seconds: number;
+}
+
+export interface Breakouts {
+  open: boolean;
+  groups: BreakoutGroup[];
+}
+
+/** The board's dot voting, timer, hidden writing and breakouts, live from its document. Only the API writes them. */
 export class FacilitationFeed {
   readonly #voting: Y.Map<unknown>;
   readonly #votes: Y.Map<string[]>;
   readonly #timer: Y.Map<unknown>;
   readonly #writing: Y.Map<unknown>;
+  readonly #breakouts: Y.Map<unknown>;
 
-  readonly #state = signal<{ voting: Voting; votes: ReadonlyMap<string, readonly string[]>; timer: Timer; writing: Writing }>({
+  readonly #state = signal<{ voting: Voting; votes: ReadonlyMap<string, readonly string[]>; timer: Timer; writing: Writing; breakouts: Breakouts }>({
     voting: { open: false, votesEach: 0, round: 0 },
     votes: new Map(),
     timer: { endsAt: null, seconds: 0, label: '', by: '' },
     writing: { open: false, anonymous: false, round: null, frameId: null, startedBy: '', notes: 0, writers: 0 },
+    breakouts: { open: false, groups: [] },
   });
   readonly state = this.#state.asReadonly();
 
@@ -83,12 +98,17 @@ export class FacilitationFeed {
     this.#votes = doc.getMap('votes');
     this.#timer = doc.getMap('timer');
     this.#writing = doc.getMap('writing');
-    for (const map of [this.#voting, this.#votes, this.#timer, this.#writing]) map.observe(this.#update);
+    this.#breakouts = doc.getMap('breakouts');
+    for (const map of this.#maps()) map.observe(this.#update);
     this.#update();
   }
 
   destroy(): void {
-    for (const map of [this.#voting, this.#votes, this.#timer, this.#writing]) map.unobserve(this.#update);
+    for (const map of this.#maps()) map.unobserve(this.#update);
+  }
+
+  #maps(): Y.Map<unknown>[] {
+    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts];
   }
 
   readonly #update = () => {
@@ -110,6 +130,10 @@ export class FacilitationFeed {
         startedBy: text(this.#writing.get('startedBy')),
         notes: Number(this.#writing.get('notes') ?? 0),
         writers: Number(this.#writing.get('writers') ?? 0),
+      },
+      breakouts: {
+        open: this.#breakouts.get('open') === true,
+        groups: Array.isArray(this.#breakouts.get('groups')) ? (this.#breakouts.get('groups') as BreakoutGroup[]) : [],
       },
     });
   };

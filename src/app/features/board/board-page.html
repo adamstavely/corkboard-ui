@@ -11,6 +11,11 @@
       (blur)="rename()"
       (keydown)="onTitleKey($event)"
     />
+    @if (previous.hasValue() && previous.value(); as prev) {
+      <a class="continues" [href]="'/boards/' + prev.id" (click)="$event.preventDefault(); go('/boards/' + prev.id)" [title]="'This board carries on from ' + prev.title">
+        ← {{ prev.title }}
+      </a>
+    }
     @if (canRun()) {
       <tc-button size="sm" [variant]="facilitating() ? 'primary' : 'secondary'" label="Facilitate" [disabled]="!connection()" (click)="facilitating.set(!facilitating())"></tc-button>
     }
@@ -43,6 +48,16 @@
       </div>
     </tc-menu-morph>
     <tc-button size="sm" variant="secondary" label="Share" [disabled]="!meta.hasValue()" (click)="togglePanel('share')"></tc-button>
+    @if (canEdit()) {
+      <tc-button
+        size="sm"
+        variant="ghost"
+        label="Next session"
+        title="A new board with the same frames, carrying over the tasks and action items still open"
+        [loading]="startingNext()"
+        (click)="nextSession()"
+      ></tc-button>
+    }
     <span class="status" [class.offline]="status() === 'offline'" role="status">{{ statusText() }}</span>
     @if (isOwner()) {
       <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
@@ -76,6 +91,8 @@
         (addFiles)="togglePanel('files')"
         (askImage)="askAbout($event)"
         (openFile)="open($event)"
+        [frameBadges]="frameBadges()"
+        (joinFrame)="joinBreakout($event)"
       />
       @if (fstate()?.writing; as w) {
         @if (w.open && canComment()) {
@@ -100,6 +117,9 @@
           [votes]="f.votes"
           [timer]="f.timer"
           [writing]="f.writing"
+          [breakouts]="f.breakouts"
+          [breakoutFrames]="breakoutFrames()"
+          [framesSelected]="framesSelected()"
           [frames]="board()!.frames()"
           [votesLeft]="votesLeft()"
           [canRun]="canRun()"

@@ -68,4 +68,17 @@ describe('FacilitationFeed', () => {
     expect(feed.state().writing).toEqual({ open: true, anonymous: true, round: 'r1', frameId: null, startedBy: 'Ada', notes: 4, writers: 2 });
     feed.destroy();
   });
+
+  it('shows breakout groups as the API writes them', () => {
+    const doc = new Y.Doc();
+    const feed = new FacilitationFeed(doc);
+    expect(feed.state().breakouts).toEqual({ open: false, groups: [] });
+    const groups = [{ frameId: 'f1', members: [{ id: 'u1', name: 'Ada' }], endsAt: 5, seconds: 300 }];
+    doc.transact(() => {
+      doc.getMap('breakouts').set('open', true);
+      doc.getMap('breakouts').set('groups', groups);
+    });
+    expect(feed.state().breakouts).toEqual({ open: true, groups });
+    feed.destroy();
+  });
 });

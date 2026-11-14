@@ -49,6 +49,16 @@
       </div>
     }
 
+    @if (breakouts().open) {
+      <div class="item">
+        <span class="dot" aria-hidden="true">●</span>
+        <span>Breakouts · {{ breakouts().groups.length }} groups</span>
+        @if (canRun()) {
+          <tc-button size="sm" variant="secondary" label="Bring everyone back" (click)="endBreakouts()"></tc-button>
+        }
+      </div>
+    }
+
     @if (presenting()) {
       <div class="item presenting">
         <span>You're presenting: everyone following sees what you see</span>
@@ -78,6 +88,12 @@
             <tc-select label="Where revealed notes go" [labelVisible]="false" [options]="frameOptions()" [value]="into()" (tc-value-change)="into.set($event.detail.value)"></tc-select>
           }
           <tc-button size="sm" variant="secondary" label="Start writing" (click)="startWriting()"></tc-button>
+        }
+        @if (!breakouts().open && breakoutFrames().length >= 2) {
+          <span class="divider" aria-hidden="true"></span>
+          <span class="muted">Breakouts in {{ framesSelected() ? 'the ' : '' }}{{ breakoutFrames().length }} {{ framesSelected() ? 'selected ' : '' }}frames</span>
+          <tc-select label="Time per group" [labelVisible]="false" [options]="breakoutOptions" [value]="breakoutMinutes()" (tc-value-change)="breakoutMinutes.set($event.detail.value)"></tc-select>
+          <tc-button size="sm" variant="secondary" label="Start breakouts" (click)="startBreakouts()"></tc-button>
         }
       </div>
     }

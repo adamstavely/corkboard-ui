@@ -37,6 +37,16 @@
         } @else {
           <div class="frame-title" [title]="frame.title || 'Untitled frame'">{{ frame.title || 'Untitled frame' }}</div>
         }
+        @if (frameBadges().get(frame.id); as badge) {
+          <div class="frame-badge" [class.mine]="badge.mine">
+            <span>{{ badge.label }}</span>
+            @if (badge.joinable) {
+              <button type="button" class="frame-join" [attr.aria-label]="'Join ' + (frame.title || 'this group')" (pointerdown)="$event.stopPropagation()" (click)="joinFrame.emit(frame.id)">
+                Join
+              </button>
+            }
+          </div>
+        }
         @if (commentCounts().get(frame.id); as count) {
           <span class="frame-comments" [attr.aria-label]="count + (count === 1 ? ' comment' : ' comments')">
             <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v8H6l-3 3v-3H2z" /></svg>{{ count }}
