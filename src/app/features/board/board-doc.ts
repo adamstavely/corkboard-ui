@@ -357,8 +357,8 @@ export class BoardDoc {
       for (const id of ids) {
         const node = this.#nodes.get(id);
         if (!node) continue;
-        node.set('x', (node.get('x') as number) + dx);
-        node.set('y', (node.get('y') as number) + dy);
+        node.set('x', pos(node.get('x')) + dx);
+        node.set('y', pos(node.get('y')) + dy);
       }
     }, this);
   }
@@ -720,7 +720,9 @@ export class BoardDoc {
 
   #topZ(): number {
     let top = 0;
-    this.#nodes.forEach((node) => (top = Math.max(top, (node.get('z') as number) ?? 0)));
+    this.#nodes.forEach((node) => {
+      if (node instanceof Y.Map) top = Math.max(top, num(node.get('z')));
+    });
     return top;
   }
 
@@ -732,65 +734,13 @@ export class BoardDoc {
     const items: Item[] = [];
     const locked = new Set<string>();
     this.#nodes.forEach((node, id) => {
-      if (node.get('locked') === true) locked.add(id);
-      const kind = node.get('kind');
-      if (kind === 'image' || kind === 'file') {
-        media.push({
-          id,
-          kind,
-          fileId: String(node.get('fileId') ?? ''),
-          name: String(node.get('name') ?? ''),
-          mime: String(node.get('mime') ?? ''),
-          size: Number(node.get('size') ?? 0),
-          x: node.get('x') as number,
-          y: node.get('y') as number,
-          w: (node.get('w') as number) ?? FILE_CARD.w,
-          h: (node.get('h') as number) ?? FILE_CARD.h,
-          z: (node.get('z') as number) ?? 0,
-        });
-        return;
+      // Anything the API let through that isn't a node is skipped, not allowed to break the board for everyone.
+      if (!(node instanceof Y.Map)) return;
+      try {
+        this.#read(node, id, { notes, frames, connectors, media, items, locked });
+      } catch {
+        // A node that can't be read is left out.
       }
-      if (ITEM_KINDS.has(String(kind))) {
-        const item = itemOf(id, node);
-        if (item) items.push(item);
-        return;
-      }
-      if (node.get('kind') === 'connector') {
-        const from = node.get('from');
-        const to = node.get('to');
-        if (typeof from === 'string' && typeof to === 'string') connectors.push({ id, from, to });
-        return;
-      }
-      if (node.get('kind') === 'frame') {
-        const title = node.get('title');
-        frames.push({
-          id,
-          x: node.get('x') as number,
-          y: node.get('y') as number,
-          w: (node.get('w') as number) ?? FRAME_SIZE.w,
-          h: (node.get('h') as number) ?? FRAME_SIZE.h,
-          z: (node.get('z') as number) ?? 0,
-          title: typeof title === 'string' ? title : '',
-          ...scheduleOf(node),
-        });
-        return;
-      }
-      if (node.get('kind') !== 'note') return;
-      const color = node.get('color') as NoteColor;
-      notes.push({
-        id,
-        x: node.get('x') as number,
-        y: node.get('y') as number,
-        w: (node.get('w') as number) ?? NOTE_SIZE.w,
-        h: (node.get('h') as number) ?? NOTE_SIZE.h,
-        z: (node.get('z') as number) ?? 0,
-        color: NOTE_COLORS.includes(color) ? color : 'yellow',
-        text: node.get('text') as Y.XmlFragment,
-        ...(typeof node.get('authorName') === 'string' ? { authorName: node.get('authorName') as string } : {}),
-        ...createdByOf(node),
-        tags: tagsOf(node),
-        ...scores(node),
-      });
     });
     const order = (a: { z: number; id: string }, b: { z: number; id: string }) => a.z - b.z || a.id.localeCompare(b.id);
     this.#notes.set(notes.sort(order));
@@ -800,14 +750,99 @@ export class BoardDoc {
     this.#items.set(items.sort(order));
     if (locked.size !== this.#locked().size || [...locked].some((id) => !this.#locked().has(id))) this.#locked.set(locked);
   }
+
+  /** One node, into the list it belongs in; positions and sizes made safe on the way (see pos and size). */
+  #read(
+    node: Y.Map<unknown>,
+    id: string,
+    out: { notes: Note[]; frames: Frame[]; connectors: Connector[]; media: Media[]; items: Item[]; locked: Set<string> },
+  ): void {
+    const { notes, frames, connectors, media, items, locked } = out;
+    if (node.get('locked') === true) locked.add(id);
+    const kind = node.get('kind');
+    if (kind === 'image' || kind === 'file') {
+      media.push({
+        id,
+        kind,
+        fileId: String(node.get('fileId') ?? ''),
+        name: String(node.get('name') ?? ''),
+        mime: String(node.get('mime') ?? ''),
+        size: Number(node.get('size') ?? 0),
+        x: pos(node.get('x')),
+        y: pos(node.get('y')),
+        w: size(node.get('w'), FILE_CARD.w),
+        h: size(node.get('h'), FILE_CARD.h),
+        z: num(node.get('z')),
+      });
+      return;
+    }
+    if (ITEM_KINDS.has(String(kind))) {
+      const item = itemOf(id, node);
+      if (item) items.push(item);
+      return;
+    }
+    if (node.get('kind') === 'connector') {
+      const from = node.get('from');
+      const to = node.get('to');
+      if (typeof from === 'string' && typeof to === 'string') connectors.push({ id, from, to });
+      return;
+    }
+    if (node.get('kind') === 'frame') {
+      const title = node.get('title');
+      frames.push({
+        id,
+        x: pos(node.get('x')),
+        y: pos(node.get('y')),
+        w: size(node.get('w'), FRAME_SIZE.w),
+        h: size(node.get('h'), FRAME_SIZE.h),
+        z: num(node.get('z')),
+        title: typeof title === 'string' ? title : '',
+        ...scheduleOf(node),
+      });
+      return;
+    }
+    if (node.get('kind') !== 'note') return;
+    const color = node.get('color') as NoteColor;
+    const text = node.get('text');
+    // A note's words are a rich-text fragment; without one it can't be shown or edited.
+    if (!(text instanceof Y.XmlFragment)) return;
+    notes.push({
+      id,
+      x: pos(node.get('x')),
+      y: pos(node.get('y')),
+      w: size(node.get('w'), NOTE_SIZE.w),
+      h: size(node.get('h'), NOTE_SIZE.h),
+      z: num(node.get('z')),
+      color: NOTE_COLORS.includes(color) ? color : 'yellow',
+      text,
+      ...(typeof node.get('authorName') === 'string' ? { authorName: node.get('authorName') as string } : {}),
+      ...createdByOf(node),
+      tags: tagsOf(node),
+      ...scores(node),
+    });
+  }
 }
 
 const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+/** A position: finite, and on the board (a very far one would make fitting the view useless). */
+const pos = (v: unknown) => Math.max(-MAX_COORD, Math.min(MAX_COORD, num(v)));
+/** A size: positive and not absurd, else the kind's usual size. */
+const size = (v: unknown, fallback: number) => {
+  const n = num(v, fallback);
+  return n > 0 ? Math.min(n, MAX_SIZE) : fallback;
+};
+/** Table dimensions: whole, at least one, at most MAX_TABLE. */
+const dim = (v: unknown) => Math.max(1, Math.min(MAX_TABLE, Math.floor(num(v, 1))));
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+/** Limits on what a node may say, so one malformed or hostile node can't break or freeze the board for everyone. */
+export const MAX_COORD = 1_000_000;
+export const MAX_SIZE = 100_000;
+export const MAX_TABLE = 100;
 
 /** A shape, text, drawing, table or link card as the canvas draws it; null if its node is malformed. */
 function itemOf(id: string, node: Y.Map<unknown>): Item | null {
-  const box = { id, x: num(node.get('x')), y: num(node.get('y')), w: num(node.get('w'), 200), h: num(node.get('h'), 120), z: num(node.get('z')) };
+  const box = { id, x: pos(node.get('x')), y: pos(node.get('y')), w: size(node.get('w'), 200), h: size(node.get('h'), 120), z: num(node.get('z')) };
   const color = node.get('color') as NoteColor;
   switch (node.get('kind')) {
     case 'shape': {
@@ -835,8 +870,8 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
       return {
         ...box,
         kind: 'table',
-        rows: Math.max(1, num(node.get('rows'), 1)),
-        cols: Math.max(1, num(node.get('cols'), 1)),
+        rows: dim(node.get('rows')),
+        cols: dim(node.get('cols')),
         cells: cells instanceof Y.Map ? new Map([...cells.entries()].filter((e): e is [string, string] => typeof e[1] === 'string')) : new Map(),
       };
     }
