@@ -1,0 +1,12 @@
+{
+  "current": "corkboard",
+  "apps": [
+    {
+      "id": "corkboard",
+      "name": "Corkboard",
+      "href": "/",
+      "description": "Boards your team and a model work on together",
+      "tone": "amber"
+    }
+  ]
+}

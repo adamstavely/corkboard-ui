@@ -1,0 +1,27 @@
+{
+  "heading": "Terms and Conditions",
+  "version": "0.1 (placeholder)",
+  "effectiveDate": "14 November 2026",
+  "sections": [
+    {
+      "id": "placeholder",
+      "heading": "Placeholder text",
+      "body": "These are placeholder terms. Replace this file (public/terms.json) with the real Terms and Conditions before Corkboard is used outside the team."
+    },
+    {
+      "id": "use",
+      "heading": "Use of Corkboard",
+      "body": "PLACEHOLDER. Describe who may use Corkboard, for what purposes, and what they may not do with it, including what may be put on boards and shared through links."
+    },
+    {
+      "id": "data",
+      "heading": "Data and privacy",
+      "body": "PLACEHOLDER. Describe what Corkboard keeps about people and boards, who can see it, and how long it is kept."
+    },
+    {
+      "id": "models",
+      "heading": "AI models",
+      "body": "PLACEHOLDER. Each workspace connects its own models. Say what is sent to them, and that their suggestions should be checked before anyone relies on them."
+    }
+  ]
+}
