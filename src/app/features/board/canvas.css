@@ -210,10 +210,11 @@
 .arrows marker path {
   fill: var(--tc-text-secondary);
 }
+/* Weight and dashes come from each arrow (see arrowLines); round caps turn tiny dashes into dots. */
 .arrow-line {
   fill: none;
   stroke: var(--tc-text-secondary);
-  stroke-width: 2;
+  stroke-linecap: round;
 }
 .arrow-hit {
   fill: none;
@@ -224,7 +225,6 @@
 }
 .arrow.selected .arrow-line {
   stroke: var(--tc-accent-text);
-  stroke-width: 3;
 }
 
 /* Images and file cards: picked up and moved like notes. */

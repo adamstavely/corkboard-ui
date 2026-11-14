@@ -1,4 +1,4 @@
-import { FILE_CARD, TEXT_SIZES, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
+import { FILE_CARD, TEXT_SIZES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -65,15 +65,66 @@ export function edgePoint(box: Box, toward: { x: number; y: number }): { x: numb
   return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
-/** Each arrow as a line from the edge of one box to the edge of the other, aimed at their centres. */
-export function arrowLines(board: BoardDoc): { id: string; start: { x: number; y: number }; end: { x: number; y: number } }[] {
+type Point = { x: number; y: number };
+
+/** An arrow as drawn: its path (SVG path data, which canvas's Path2D reads too), its style, and where its head points. */
+export interface ArrowPath {
+  id: string;
+  start: Point;
+  end: Point;
+  d: string;
+  /** The direction of the line arriving at the end, in radians, for the arrowhead. */
+  angle: number;
+  style: ArrowStyle;
+}
+
+/**
+ * Each arrow's path. Straight runs edge to edge, aimed at the centres. Elbow and curved arrows leave from the middle of
+ * the side facing the other box and arrive at the middle of the side facing back: elbows across, along, then across
+ * (or down, across, down), curves bowing the same way.
+ */
+export function arrowLines(board: BoardDoc): ArrowPath[] {
   const boxes = new Map<string, Box>([...board.notes(), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
   return board.connectors().flatMap((c) => {
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
     if (!a || !b) return [];
-    return [{ id: c.id, start: edgePoint(a, { x: b.x + b.w / 2, y: b.y + b.h / 2 }), end: edgePoint(b, { x: a.x + a.w / 2, y: a.y + a.h / 2 }) }];
+    const style = { route: c.route, dash: c.dash, weight: c.weight };
+    if (c.route === 'straight') {
+      const start = edgePoint(a, centre(b));
+      const end = edgePoint(b, centre(a));
+      return [{ id: c.id, start, end, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}`, angle: Math.atan2(end.y - start.y, end.x - start.x), style }];
+    }
+    const ca = centre(a);
+    const cb = centre(b);
+    const across = Math.abs(cb.x - ca.x) >= Math.abs(cb.y - ca.y);
+    const sx = Math.sign(cb.x - ca.x) || 1;
+    const sy = Math.sign(cb.y - ca.y) || 1;
+    const start = across ? { x: ca.x + (sx * a.w) / 2, y: ca.y } : { x: ca.x, y: ca.y + (sy * a.h) / 2 };
+    const end = across ? { x: cb.x - (sx * b.w) / 2, y: cb.y } : { x: cb.x, y: cb.y - (sy * b.h) / 2 };
+    const angle = across ? (sx > 0 ? 0 : Math.PI) : sy > 0 ? Math.PI / 2 : -Math.PI / 2;
+    let d: string;
+    if (c.route === 'elbow') {
+      const mid = across ? (start.x + end.x) / 2 : (start.y + end.y) / 2;
+      d = across ? `M ${start.x} ${start.y} H ${mid} V ${end.y} H ${end.x}` : `M ${start.x} ${start.y} V ${mid} H ${end.x} V ${end.y}`;
+    } else {
+      const pull = across ? Math.abs(end.x - start.x) / 2 : Math.abs(end.y - start.y) / 2;
+      const [c1, c2] = across
+        ? [{ x: start.x + sx * pull, y: start.y }, { x: end.x - sx * pull, y: end.y }]
+        : [{ x: start.x, y: start.y + sy * pull }, { x: end.x, y: end.y - sy * pull }];
+      d = `M ${start.x} ${start.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${end.x} ${end.y}`;
+    }
+    return [{ id: c.id, start, end, d, angle, style }];
   });
+}
+
+const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+/** An arrow's dashes as a dash pattern for its weight: [] for solid. Dots need round line caps. */
+export function dashPattern(style: ArrowStyle): number[] {
+  if (style.dash === 'dashed') return [style.weight * 4, style.weight * 3];
+  if (style.dash === 'dotted') return [0.1, style.weight * 2.5];
+  return [];
 }
 
 /** The board's images, loaded from their object URLs, to draw; ones that fail are left out. */
@@ -174,20 +225,21 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   const ink = color('--tc-text-secondary', '#555555');
   ctx.strokeStyle = ink;
   ctx.fillStyle = ink;
-  ctx.lineWidth = 2;
-  for (const { start, end } of arrowLines(board)) {
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
-    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  ctx.lineCap = 'round';
+  for (const { end, d, angle, style } of arrowLines(board)) {
+    ctx.lineWidth = style.weight;
+    ctx.setLineDash(dashPattern(style));
+    ctx.stroke(new Path2D(d));
+    ctx.setLineDash([]);
+    const head = 8 + style.weight * 2;
     ctx.beginPath();
     ctx.moveTo(end.x, end.y);
-    ctx.lineTo(end.x - 12 * Math.cos(angle - 0.4), end.y - 12 * Math.sin(angle - 0.4));
-    ctx.lineTo(end.x - 12 * Math.cos(angle + 0.4), end.y - 12 * Math.sin(angle + 0.4));
+    ctx.lineTo(end.x - head * Math.cos(angle - 0.4), end.y - head * Math.sin(angle - 0.4));
+    ctx.lineTo(end.x - head * Math.cos(angle + 0.4), end.y - head * Math.sin(angle + 0.4));
     ctx.closePath();
     ctx.fill();
   }
+  ctx.lineCap = 'butt';
   for (const n of board.notes()) {
     ctx.fillStyle = color(`--note-${n.color}`, '#fff3a8');
     ctx.beginPath();
