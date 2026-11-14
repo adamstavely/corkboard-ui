@@ -54,3 +54,38 @@
 .rail > tc-menu-morph > [data-menu] {
   translate: 48px -40px;
 }
+
+/* Bottom right: map, fit, zoom and the shortcuts. */
+.zoom-panel {
+  position: absolute;
+  right: var(--tc-space-3);
+  bottom: var(--tc-space-3);
+  z-index: 8;
+}
+.zoom-level {
+  position: relative;
+  min-width: 52px;
+  height: 36px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.zoom-level:hover {
+  background: var(--tc-fill-hover, var(--tc-fill-default));
+}
+.zoom-level:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+}
+/* Tooltips at the right edge open leftward, so they stay on screen. */
+.zoom-panel [data-tip]:hover::after,
+.zoom-panel [data-tip]:focus-visible::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
