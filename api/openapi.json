@@ -164,6 +164,158 @@
         ]
       }
     },
+    "/boards/{id}/breakouts": {
+      "post": {
+        "operationId": "FacilitationController_startBreakouts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartBreakoutsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Updaters and owners: split everyone with the board open across these frames, each group with its own timer.",
+        "tags": [
+          "facilitation"
+        ]
+      },
+      "delete": {
+        "operationId": "FacilitationController_endBreakouts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Updaters and owners: bring everyone back together.",
+        "tags": [
+          "facilitation"
+        ]
+      }
+    },
+    "/boards/{id}/breakouts/join": {
+      "post": {
+        "operationId": "FacilitationController_joinBreakout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinBreakoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Commenters and up: move yourself into a breakout group.",
+        "tags": [
+          "facilitation"
+        ]
+      }
+    },
+    "/boards/{id}/breakouts/{frameId}/timer": {
+      "put": {
+        "operationId": "FacilitationController_setBreakoutTimer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "frameId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BreakoutTimerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Updaters and owners: start or stop one group's timer.",
+        "tags": [
+          "facilitation"
+        ]
+      }
+    },
     "/orgs/{orgId}/folders": {
       "get": {
         "operationId": "OrganiseController_folders",
@@ -2269,6 +2421,52 @@
         ]
       }
     },
+    "/boards/{id}/next": {
+      "post": {
+        "operationId": "BoardsController_next",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NextSessionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Updaters and owners: the next session's board. It has the same frames, the tasks not yet done, and their notes; it\ngoes in the same workspace and folder, owned by whoever started it.",
+        "tags": [
+          "boards"
+        ]
+      }
+    },
     "/boards/{id}": {
       "get": {
         "operationId": "BoardsController_get",
@@ -3281,6 +3479,57 @@
             "type": "string",
             "description": "What the time is for, e.g. \"Add notes\".",
             "maxLength": 80
+          }
+        },
+        "required": [
+          "seconds"
+        ]
+      },
+      "StartBreakoutsDto": {
+        "type": "object",
+        "properties": {
+          "frameIds": {
+            "description": "A frame for each group to work in.",
+            "minItems": 2,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "minutes": {
+            "type": "number",
+            "description": "Each group's time, if they get a timer.",
+            "minimum": 1,
+            "maximum": 120
+          }
+        },
+        "required": [
+          "frameIds"
+        ]
+      },
+      "JoinBreakoutDto": {
+        "type": "object",
+        "properties": {
+          "frameId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "frameId"
+        ]
+      },
+      "BreakoutTimerDto": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "number",
+            "nullable": true,
+            "description": "How long, from now; null stops the group's timer.",
+            "minimum": 10,
+            "maximum": 7200
           }
         },
         "required": [
@@ -4335,6 +4584,11 @@
             "format": "date-time",
             "type": "string",
             "nullable": true
+          },
+          "continuesId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The board this one carries on from, if it was started as its next session."
           }
         },
         "required": [
@@ -4346,7 +4600,8 @@
           "updatedAt",
           "folderId",
           "starred",
-          "lastVisitedAt"
+          "lastVisitedAt",
+          "continuesId"
         ]
       },
       "BoardTemplateDto": {
@@ -4398,6 +4653,16 @@
         "required": [
           "title"
         ]
+      },
+      "NextSessionDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The new board's title; by default the last one's, numbered up (\"Sprint 13 retro\").",
+            "maxLength": 200
+          }
+        }
       },
       "UpdateBoardDto": {
         "type": "object",

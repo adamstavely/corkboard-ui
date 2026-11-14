@@ -84,6 +84,10 @@ export class Canvas {
   readonly selectionChange = output<readonly string[]>();
   /** Titles of the selected frames, so the assistant can say which region it's about. */
   readonly framesChange = output<readonly string[]>();
+  /** A line under some frames' titles (a breakout group's members and time), and whether this person can join it. */
+  readonly frameBadges = input<ReadonlyMap<string, { label: string; mine: boolean; joinable: boolean }>>(new Map());
+  /** This person asked to join the group in this frame. */
+  readonly joinFrame = output<string>();
   /** Exactly what's selected – notes and frames – for comments on them. */
   readonly selectedIds = output<readonly string[]>();
   /** Dot votes per note (see noteVotes), whether this person is voting, and how many votes they have left. */

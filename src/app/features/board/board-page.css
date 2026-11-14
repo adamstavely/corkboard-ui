@@ -156,3 +156,19 @@
   z-index: 3;
   width: min(380px, calc(100% - 2 * var(--tc-space-4)));
 }
+
+/* "← Sprint 12 retro": the board this one carries on from. */
+.continues {
+  flex: none;
+  max-width: 200px;
+  overflow: hidden;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.continues:hover {
+  color: var(--tc-accent-text);
+  text-decoration: underline;
+}

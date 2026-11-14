@@ -15,6 +15,9 @@ import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
+import { formatRemaining } from './facilitation';
+import { facilitationControllerJoinBreakout } from '../../api/generated/fn/facilitation/facilitation-controller-join-breakout';
+import { boardsControllerNext } from '../../api/generated/fn/boards/boards-controller-next';
 import { VersionPreview } from './version-preview';
 import { WritingTray } from './writing-tray';
 import type { BoardVersionDto } from '../../api/generated/models/board-version-dto';
@@ -391,6 +394,73 @@ export class BoardPage {
   protected readonly selection = signal<readonly string[]>([]);
   protected readonly selectedFrames = signal<readonly string[]>([]);
   protected readonly selectionIds = signal<readonly string[]>([]);
+
+  // ── Breakouts ──
+
+  readonly #breakouts = computed(() => this.fstate()?.breakouts ?? { open: false, groups: [] });
+  /** The frames breakouts would use: those selected, else every frame not inside another. */
+  protected readonly breakoutFrames = computed(() => {
+    const board = this.board();
+    if (!board) return [];
+    const selected = board.frames().filter((f) => this.selectionIds().includes(f.id));
+    if (selected.length >= 2) return selected.map((f) => f.id);
+    const frames = board.frames();
+    return frames.filter((f) => !frames.some((o) => o.id !== f.id && board.withInnerFrames([o.id]).includes(f.id))).map((f) => f.id);
+  });
+  protected readonly framesSelected = computed(() => (this.board()?.frames() ?? []).filter((f) => this.selectionIds().includes(f.id)).length >= 2);
+  /** Now, every second while a breakout group has a timer. */
+  readonly #tick = signal(Date.now());
+  /** Under each group's frame: who's in it and the time left; their own group stands out, others can be joined. */
+  protected readonly frameBadges = computed(() => {
+    const b = this.#breakouts();
+    const me = this.meUser()?.id;
+    const now = this.#tick();
+    const badges = new Map<string, { label: string; mine: boolean; joinable: boolean }>();
+    if (!b.open) return badges;
+    for (const g of b.groups) {
+      const mine = g.members.some((m) => m.id === me);
+      const names = g.members.length ? g.members.map((m) => m.name.split(/\s+/)[0]).join(', ') : 'Nobody yet';
+      const left = g.endsAt === null ? '' : g.endsAt - now > 0 ? ` · ${formatRemaining(g.endsAt - now)} left` : " · Time's up";
+      badges.set(g.frameId, { label: `${mine ? 'Your group' : 'Group'} · ${names}${left}`, mine, joinable: !mine && this.canComment() });
+    }
+    return badges;
+  });
+
+  // ── Recurring boards ──
+
+  /** The board this one carries on from, to link back to; null when there's none, or it's gone. */
+  protected readonly previous = resource({
+    params: () => (this.meta.hasValue() ? this.meta.value().continuesId : null) ?? undefined,
+    loader: ({ params: id }) => this.#api.invoke(boardsControllerGet, { id }).catch(() => null),
+  });
+  protected readonly startingNext = signal(false);
+
+  /** Starts the next session's board from this one and opens it. */
+  protected async nextSession(): Promise<void> {
+    this.startingNext.set(true);
+    try {
+      const next = await this.#api.invoke(boardsControllerNext, { id: this.id(), body: {} });
+      toast.success(`Started “${next.title}”`, { description: 'Same frames; open tasks and action items carried over.' });
+      void this.#router.navigateByUrl(`/boards/${next.id}`);
+    } catch {
+      toast.error("The next session couldn't be started", { description: 'Try again.' });
+    } finally {
+      this.startingNext.set(false);
+    }
+  }
+
+  protected go(url: string): void {
+    void this.#router.navigateByUrl(url);
+  }
+
+  protected async joinBreakout(frameId: string): Promise<void> {
+    try {
+      await this.#api.invoke(facilitationControllerJoinBreakout, { id: this.id(), body: { frameId } });
+      this.canvas()?.show([frameId]);
+    } catch {
+      toast.error("You couldn't join that group", { description: 'Try again.' });
+    }
+  }
   protected readonly canvas = viewChild(Canvas);
 
   protected readonly title = signal('');
@@ -398,6 +468,26 @@ export class BoardPage {
   protected readonly deleting = signal(false);
 
   constructor() {
+    // Breakout timers tick; when breakouts start, each person goes to their group's frame, and back to the whole board
+    // when they end.
+    effect((onCleanup) => {
+      if (!this.#breakouts().groups.some((g) => g.endsAt !== null)) return;
+      const timer = setInterval(() => this.#tick.set(Date.now()), 1000);
+      onCleanup(() => clearInterval(timer));
+    });
+    let wasOpen = false;
+    effect(() => {
+      const b = this.#breakouts();
+      const me = this.meUser()?.id;
+      untracked(() => {
+        if (b.open && !wasOpen) {
+          const mine = b.groups.find((g) => g.members.some((m) => m.id === me));
+          if (mine) this.canvas()?.show([mine.frameId]);
+        } else if (!b.open && wasOpen) this.canvas()?.fitAll();
+        wasOpen = b.open;
+      });
+    });
+
     effect(() => {
       if (this.meta.hasValue()) this.title.set(this.meta.value().title);
     });
@@ -409,15 +499,20 @@ export class BoardPage {
     });
 
     // A board opens showing everything on it, once, when its content first arrives.
-    let fitted: string | null = null;
+    // Keyed to the board loaded, not the route: going from one board to the next, the old one is still here at first.
+    let fitted: BoardDoc | null = null;
     effect(() => {
-      const id = this.id();
       const board = this.board();
-      const ready = this.status() !== 'connecting' && !!this.canvas() && !!board && board.notes().length + board.frames().length > 0;
-      if (ready && fitted !== id && this.followingId() === null) {
-        fitted = id;
+      const ready = this.status() !== 'connecting' && !!this.canvas() && !!board && board.notes().length + board.frames().length + board.media().length > 0;
+      if (ready && fitted !== board && this.followingId() === null) {
+        fitted = board;
         untracked(() => this.canvas()?.fitAll());
       }
+    });
+    // A new board starts without the facilitator's controls open.
+    effect(() => {
+      this.id();
+      untracked(() => this.facilitating.set(false));
     });
 
     // Following a presenter: look where they look, until they stop or leave.
