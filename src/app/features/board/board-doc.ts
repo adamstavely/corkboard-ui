@@ -589,6 +589,60 @@ export class BoardDoc {
     }, this);
   }
 
+  /**
+   * Copies notes, frames and other things, moved by (dx, dy), on top; arrows between two copied things are copied too.
+   * Returns the copies' ids, in the order given.
+   */
+  duplicate(ids: Iterable<string>, dx: number, dy: number): string[] {
+    const wanted = [...ids].filter((id) => this.#nodes.get(id) && this.#nodes.get(id)!.get('kind') !== 'connector');
+    const copies = new Map<string, string>();
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      let z = this.#topZ();
+      for (const id of wanted) {
+        const original = this.#nodes.get(id)!;
+        // A clone can't be read or changed until it's in the document: place it, then move it.
+        const newId = crypto.randomUUID();
+        const copy = this.#nodes.set(newId, original.clone());
+        copy.set('x', (original.get('x') as number) + dx);
+        copy.set('y', (original.get('y') as number) + dy);
+        copy.set('z', ++z);
+        if (this.author && original.get('kind') === 'note') copy.set('createdBy', { ...this.author });
+        copies.set(id, newId);
+      }
+      for (const c of this.connectors()) {
+        const from = copies.get(c.from);
+        const to = copies.get(c.to);
+        if (!from || !to) continue;
+        const arrow = new Y.Map<unknown>();
+        arrow.set('kind', 'connector');
+        arrow.set('from', from);
+        arrow.set('to', to);
+        this.#nodes.set(crypto.randomUUID(), arrow);
+      }
+    }, this);
+    return wanted.map((id) => copies.get(id)!);
+  }
+
+  /** A new empty note beside this one (same colour and size), in a direction, with a gap; returns its id. */
+  addNoteNext(id: string, side: 'right' | 'left' | 'down' | 'up', gap = 24): string | null {
+    const from = this.notes().find((n) => n.id === id);
+    if (!from) return null;
+    const dx = side === 'right' ? from.w + gap : side === 'left' ? -(from.w + gap) : 0;
+    const dy = side === 'down' ? from.h + gap : side === 'up' ? -(from.h + gap) : 0;
+    const newId = this.addNote(from.x + from.w / 2 + dx, from.y + from.h / 2 + dy, from.color);
+    const node = this.#nodes.get(newId);
+    if (node && (from.w !== NOTE_SIZE.w || from.h !== NOTE_SIZE.h)) {
+      this.doc.transact(() => {
+        node.set('x', from.x + dx);
+        node.set('y', from.y + dy);
+        node.set('w', from.w);
+        node.set('h', from.h);
+      }, this);
+    }
+    return newId;
+  }
+
   /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
   connect(from: string, to: string): string | null {
     if (from === to || !this.#nodes.has(from) || !this.#nodes.has(to)) return null;

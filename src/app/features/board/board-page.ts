@@ -15,6 +15,7 @@ import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
+import { Commands, type AppCommand } from '../../core/commands';
 import { formatRemaining } from './facilitation';
 import { facilitationControllerJoinBreakout } from '../../api/generated/fn/facilitation/facilitation-controller-join-breakout';
 import { boardsControllerNext } from '../../api/generated/fn/boards/boards-controller-next';
@@ -79,6 +80,7 @@ const initials = (name: string) =>
 })
 export class BoardPage {
   readonly #api = inject(Api);
+  readonly #commands = inject(Commands);
   readonly #router = inject(Router);
   readonly #auth = inject(Auth);
   readonly #session = inject(Session);
@@ -476,6 +478,41 @@ export class BoardPage {
   protected readonly deleting = signal(false);
 
   constructor() {
+    // What this board can do, in the header's ⌘K menu, for as long as it's open.
+    effect((onCleanup) => {
+      const canvas = this.canvas();
+      if (!canvas) return;
+      const edit = this.canEdit();
+      const view = (id: (typeof this.views)[number]['id'], label: string): AppCommand => ({ id: `view:${id}`, label, run: () => this.openView(id) });
+      const commands: AppCommand[] = [
+        ...(edit
+          ? [
+              { id: 'note', label: 'Add a note', hint: 'N', run: () => canvas.addNote() },
+              { id: 'text', label: 'Add text', run: () => canvas.insert('text') },
+              { id: 'rect', label: 'Add a rectangle', run: () => canvas.insert('rect') },
+              { id: 'diamond', label: 'Add a diamond', run: () => canvas.insert('diamond') },
+              { id: 'table', label: 'Add a table', run: () => canvas.insert('table') },
+              { id: 'link', label: 'Add a link', run: () => canvas.insert('link') },
+              { id: 'pen', label: 'Draw with the pen', run: () => canvas.togglePen() },
+            ]
+          : []),
+        { id: 'find', label: 'Find on this board', hint: '⌘F', run: () => canvas.toggleFind() },
+        { id: 'fit', label: 'Fit everything in view', run: () => canvas.fitAll() },
+        { id: 'chat', label: 'Open the chat', run: () => this.chatOpen.set(true) },
+        { id: 'present', label: 'Present this board', run: () => this.togglePresenting() },
+        ...(this.canRun() ? [{ id: 'facilitate', label: 'Facilitate: timer, votes, writing, breakouts', run: () => this.facilitating.set(true) }] : []),
+        view('tasks', 'Open Tasks'),
+        view('matrix', 'Open the prioritisation matrix'),
+        view('gantt', 'Open the timeline'),
+        view('summary', 'Open the summary'),
+        view('activity', 'Open activity and versions'),
+        { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },
+        { id: 'markdown', label: 'Export as Markdown', run: () => this.exportMarkdown() },
+        ...(edit ? [{ id: 'next', label: 'Start the next session', run: () => void this.nextSession() }] : []),
+      ];
+      onCleanup(this.#commands.offer(commands));
+    });
+
     // Selecting something else on the board shows its comments instead of a pin's.
     effect(() => {
       this.selectionIds();

@@ -59,3 +59,29 @@
   outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
   outline-offset: -2px;
 }
+
+/* The + handles round a selected note: each adds a note on that side, joined by an arrow. */
+.quick-add {
+  position: absolute;
+  z-index: 100000;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  padding: 0;
+  border: 2px solid var(--tc-surface-raised);
+  border-radius: 50%;
+  background: var(--tc-accent-text);
+  color: var(--tc-surface-raised);
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 1;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+  opacity: 0.85;
+}
+.quick-add:hover,
+.quick-add:focus-visible {
+  opacity: 1;
+  transform: scale(1.15);
+}

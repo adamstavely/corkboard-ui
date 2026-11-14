@@ -205,6 +205,21 @@
         }
       </div>
     }
+    @if (handles(); as h) {
+      @for (spot of h.spots; track spot.side) {
+        <button
+          type="button"
+          class="quick-add"
+          [style.left.px]="spot.x"
+          [style.top.px]="spot.y"
+          [attr.aria-label]="'Add a note ' + (spot.side === 'down' ? 'below' : spot.side === 'up' ? 'above' : 'to the ' + spot.side) + ', with an arrow'"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="onHandle(h.id, spot.side, $event)"
+        >
+          +
+        </button>
+      }
+    }
     @if (draft(); as d) {
       <svg class="draft-stroke" aria-hidden="true">
         <polyline [attr.points]="d.join(' ')" />

@@ -203,6 +203,43 @@ export class Canvas {
     return !!this.found() && this.#foundSet().has(id);
   }
 
+  togglePen(): void {
+    this.pen.set(!this.pen());
+  }
+
+  /** The note just added next to another (Tab, ⌘Enter or a + handle), open to write in, joined by an arrow if asked. */
+  #addNext(id: string, side: 'right' | 'left' | 'down' | 'up', arrow = false): void {
+    const next = this.board().addNoteNext(id, side);
+    if (!next) return;
+    if (arrow) this.board().connect(id, next);
+    this.selection.set(new Set([next]));
+    this.#reveal(next);
+    this.#edit(next);
+  }
+
+  /** The + handles round the one note selected: each adds a note on that side, with an arrow to it. */
+  protected readonly handles = computed(() => {
+    if (this.readOnly() || this.editing() || this.selection().size !== 1) return null;
+    const [id] = this.selection();
+    const n = this.board().notes().find((x) => x.id === id);
+    if (!n) return null;
+    const gap = 14;
+    return {
+      id,
+      spots: [
+        { side: 'right' as const, x: n.x + n.w + gap, y: n.y + n.h / 2 },
+        { side: 'down' as const, x: n.x + n.w / 2, y: n.y + n.h + gap },
+        { side: 'left' as const, x: n.x - gap, y: n.y + n.h / 2 },
+        { side: 'up' as const, x: n.x + n.w / 2, y: n.y - gap },
+      ],
+    };
+  });
+
+  protected onHandle(id: string, side: 'right' | 'left' | 'down' | 'up', e: Event): void {
+    e.stopPropagation();
+    this.#addNext(id, side, true);
+  }
+
   protected insertTemplate(t: NoteTemplate): void {
     this.insertOpen.set(false);
     const at = this.#viewCentre();
@@ -216,7 +253,7 @@ export class Canvas {
     input.value = '';
   }
 
-  protected toggleFind(): void {
+  toggleFind(): void {
     const open = !this.finding();
     this.finding.set(open);
     if (!open) {
@@ -335,7 +372,7 @@ export class Canvas {
   }
 
   /** Adds something from the Insert menu in the middle of the view, selected (and open to write in, for text). */
-  protected insert(what: ShapeKind | 'text' | 'table' | 'link'): void {
+  insert(what: ShapeKind | 'text' | 'table' | 'link'): void {
     this.insertOpen.set(false);
     if (what === 'link') {
       this.linkPrompt.set(true);
@@ -754,6 +791,46 @@ export class Canvas {
   @HostListener('document:keydown', ['$event'])
   protected onKeyDown(e: KeyboardEvent): void {
     const mod = e.metaKey || e.ctrlKey;
+    // Writing in a note: Tab starts the next one beside it, ⌘/Ctrl Enter the next one below (Tab in a list still indents).
+    const writing = this.editing();
+    if (writing && !this.readOnly()) {
+      const inList = !!this.editor()?.isActive('bulletList') || !!this.editor()?.isActive('orderedList');
+      if (e.key === 'Tab' && !e.shiftKey && !inList) {
+        e.preventDefault();
+        this.#addNext(writing, 'right');
+        return;
+      }
+      if (e.key === 'Enter' && mod) {
+        e.preventDefault();
+        this.#addNext(writing, 'down');
+        return;
+      }
+    }
+    if (!isEditable(e.target) && !this.readOnly() && this.selection().size) {
+      // ⌘/Ctrl D: a copy beside; Alt + arrow: a copy of one note on that side.
+      if (mod && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        const copies = this.board().duplicate(this.selection(), 24, 24);
+        this.selection.set(new Set(copies));
+        return;
+      }
+      const sides: Record<string, 'right' | 'left' | 'down' | 'up'> = { ArrowRight: 'right', ArrowLeft: 'left', ArrowDown: 'down', ArrowUp: 'up' };
+      const side = sides[e.key];
+      if (e.altKey && side && this.selection().size === 1) {
+        const [id] = this.selection();
+        const note = this.board().notes().find((n) => n.id === id);
+        if (note) {
+          e.preventDefault();
+          const gap = 24;
+          const dx = side === 'right' ? note.w + gap : side === 'left' ? -(note.w + gap) : 0;
+          const dy = side === 'down' ? note.h + gap : side === 'up' ? -(note.h + gap) : 0;
+          const [copy] = this.board().duplicate([id], dx, dy);
+          this.selection.set(new Set([copy]));
+          this.#reveal(copy);
+          return;
+        }
+      }
+    }
     if (e.key === 'Escape' && this.editing()) {
       this.editing.set(null);
       // Back to the board, so the keyboard carries on from here.
@@ -839,7 +916,7 @@ export class Canvas {
 
   // ── Toolbar ──────────────────────────────────────────────────────────
 
-  protected addNote(): void {
+  addNote(): void {
     const { width, height } = this.surface().nativeElement.getBoundingClientRect();
     // A little off-centre each time, so repeated adds don't stack exactly.
     const jitter = () => (Math.random() - 0.5) * 60;

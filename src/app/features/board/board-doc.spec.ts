@@ -31,6 +31,21 @@ describe('BoardDoc', () => {
     expect(lines()).toEqual(['After']);
   });
 
+  it('duplicates things with their text and the arrows between them, and adds a note beside another', () => {
+    const a = board.addNote(100, 100, 'pink', 'Original');
+    const b = board.addNote(400, 100);
+    board.connect(a, b);
+    const [ca, cb] = board.duplicate([a, b], 24, 24);
+    const copy = board.notes().find((n) => n.id === ca)!;
+    expect(copy).toMatchObject({ color: 'pink', x: board.notes().find((n) => n.id === a)!.x + 24 });
+    expect(copy.text.toString()).toContain('Original');
+    expect(board.connectors().some((c) => c.from === ca && c.to === cb)).toBe(true);
+
+    const right = board.addNoteNext(a, 'right')!;
+    const original = board.notes().find((n) => n.id === a)!;
+    expect(board.notes().find((n) => n.id === right)).toMatchObject({ x: original.x + original.w + 24, y: original.y, color: 'pink' });
+  });
+
   it('adds notes centred on a point, each above the last', () => {
     const a = board.addNote(100, 100);
     const b = board.addNote(300, 100, 'pink');
