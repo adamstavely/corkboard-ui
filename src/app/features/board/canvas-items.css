@@ -1,0 +1,265 @@
+/* The canvas's styles for breakout tabs, and for shapes, text, pen strokes, tables and link cards. */
+
+/* A breakout group's tab above its frame: who's in it and their time; the person's own group stands out. */
+.frame-badge {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  color: var(--tc-text-muted);
+  font-size: 12px;
+  font-weight: var(--tc-font-weight-regular);
+}
+.frame-badge.mine {
+  color: var(--tc-accent-text);
+  font-weight: var(--tc-font-weight-semibold);
+}
+.frame-join {
+  padding: 1px 8px;
+  border: 1px solid var(--tc-border-default);
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ── Shapes, text, pen strokes, tables and link cards ── */
+.item {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: grab;
+}
+.item.selected {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}
+.item > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.item-shape .shape-fill path {
+  stroke: color-mix(in srgb, currentColor 15%, transparent);
+  stroke-width: 1;
+}
+.shape-label {
+  position: absolute;
+  inset: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #1a1a1a;
+  font-size: 15px;
+  font-weight: var(--tc-font-weight-medium);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.item-text .text-body {
+  display: block;
+  overflow: hidden;
+  color: var(--tc-text-strong);
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 1.25;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.item-drawing polyline,
+.draft-stroke polyline {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.draft-stroke {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.draft-stroke polyline {
+  stroke: var(--tc-text-strong);
+  stroke-width: 3;
+}
+.table-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  overflow: hidden;
+  background: var(--tc-surface-raised);
+}
+.table-grid .cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 8px;
+  border-right: 1px solid var(--tc-border-subtle);
+  border-bottom: 1px solid var(--tc-border-subtle);
+  overflow: hidden;
+  color: var(--tc-text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cell-input {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 2px solid var(--tc-accent-text);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font: inherit;
+}
+.link-card {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 12px rgb(0 0 0 / 0.08);
+  color: var(--tc-text-primary);
+  text-decoration: none;
+  cursor: grab;
+}
+.link-card img {
+  width: 34%;
+  height: 100%;
+  flex: none;
+  object-fit: cover;
+}
+.link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 14px;
+}
+.link-title {
+  overflow: hidden;
+  font-weight: var(--tc-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--tc-text-secondary, var(--tc-text-muted));
+  font-size: 12px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.link-site {
+  margin-top: auto;
+  color: var(--tc-text-muted);
+  font-size: 11px;
+}
+.item-editor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 2px solid var(--tc-accent-text);
+  border-radius: var(--tc-radius-sm);
+  background: color-mix(in srgb, var(--tc-surface-base) 90%, transparent);
+  color: var(--tc-text-strong);
+  font: inherit;
+  font-size: 15px;
+  text-align: center;
+  resize: none;
+}
+.item-editor.for-text {
+  font-weight: var(--tc-font-weight-semibold);
+  text-align: left;
+}
+.item-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--tc-accent-text);
+  border-radius: 2px;
+  background: var(--tc-surface-raised);
+  cursor: nwse-resize;
+}
+.surface.pen {
+  cursor: crosshair;
+}
+.insert .menu-trigger {
+  height: var(--tc-control-h-sm, 28px);
+  white-space: nowrap;
+  padding: 0 var(--tc-space-3);
+  border: 0;
+  border-radius: var(--tc-control-radius-sm, var(--tc-radius-sm));
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+  cursor: pointer;
+}
+.insert .menu-trigger:hover {
+  background: var(--tc-fill-default, var(--tc-accent-subtle));
+}
+.insert .menu-list:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  padding: var(--tc-space-1);
+}
+.insert .menu-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: transparent;
+  color: var(--tc-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.insert .menu-list button:hover,
+.insert .menu-list button:focus-visible {
+  background: var(--tc-fill-default, var(--tc-accent-subtle));
+  outline: none;
+}
+.insert .menu-list strong {
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+}
+.insert .menu-list span {
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-xs, 12px);
+}
+.item-tools,
+.link-prompt {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.link-prompt input {
+  width: 220px;
+  padding: 4px 8px;
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+}

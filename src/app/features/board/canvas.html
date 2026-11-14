@@ -3,6 +3,7 @@
   class="surface"
   [class.can-pan]="spaceHeld()"
   [class.panning]="panning()"
+  [class.pen]="pen()"
   [style.background-size.px]="gridSize()"
   [style.background-position]="viewport().x + 'px ' + viewport().y + 'px'"
   (pointerdown)="onPointerDown($event)"
@@ -85,6 +86,103 @@
         }
       </div>
     }
+    @for (item of board().items(); track item.id) {
+      <div
+        class="item"
+        [class]="'item item-' + item.kind"
+        [class.selected]="selection().has(item.id)"
+        [attr.data-item-id]="item.id"
+        [style.left.px]="item.x"
+        [style.top.px]="item.y"
+        [style.width.px]="item.w"
+        [style.height.px]="item.h"
+        [style.z-index]="item.z"
+        [attr.aria-label]="itemLabel(item)"
+        role="img"
+      >
+        @switch (item.kind) {
+          @case ('shape') {
+            <svg class="shape-fill" [attr.viewBox]="'0 0 ' + item.w + ' ' + item.h" preserveAspectRatio="none" aria-hidden="true">
+              <path [attr.d]="shapePath(item.shape, item.w, item.h)" [style.fill]="'var(--note-' + item.color + ')'" />
+            </svg>
+            @if (itemEditing()?.id !== item.id) {
+              <span class="shape-label">{{ item.label }}</span>
+            }
+          }
+          @case ('text') {
+            @if (itemEditing()?.id !== item.id) {
+              <span class="text-body" [style.font-size.px]="textSizes[item.size]">{{ item.text }}</span>
+            }
+          }
+          @case ('drawing') {
+            <svg [attr.viewBox]="'0 0 ' + item.vw + ' ' + item.vh" preserveAspectRatio="none" aria-hidden="true">
+              <polyline
+                [attr.points]="item.points.join(' ')"
+                [style.stroke]="item.color === 'ink' ? 'var(--tc-text-strong)' : 'var(--note-' + item.color + '-ink, var(--note-' + item.color + '))'"
+                [attr.stroke-width]="item.width"
+                vector-effect="non-scaling-stroke"
+              />
+            </svg>
+          }
+          @case ('table') {
+            <div class="table-grid" [style.grid-template-columns]="'repeat(' + item.cols + ', 1fr)'" [style.grid-template-rows]="'repeat(' + item.rows + ', 1fr)'">
+              @for (cell of tableCells(item); track cell.key) {
+                <div class="cell" [attr.data-cell]="cell.key" [class.editing]="itemEditing()?.id === item.id && itemEditing()?.cell === cell.key">
+                  @if (itemEditing()?.id === item.id && itemEditing()?.cell === cell.key) {
+                    <input
+                      class="cell-input"
+                      aria-label="Cell"
+                      [value]="cell.text"
+                      (pointerdown)="$event.stopPropagation()"
+                      (keydown)="onCellKey(item, cell.row, cell.col, $event)"
+                      (blur)="finishItemEdit(item.id, $any($event.target).value, cell.key)"
+                      [attr.data-autofocus]="true"
+                    />
+                  } @else {
+                    {{ cell.text }}
+                  }
+                </div>
+              }
+            </div>
+          }
+          @case ('link') {
+            <a class="link-card" [href]="safeUrl(item.url)" target="_blank" rel="noopener noreferrer" draggable="false" (click)="$event.preventDefault()">
+              @if (item.image) {
+                <img [src]="item.image" alt="" draggable="false" referrerpolicy="no-referrer" />
+              }
+              <span class="link-text">
+                <span class="link-title">{{ item.title }}</span>
+                @if (item.description) {
+                  <span class="link-desc">{{ item.description }}</span>
+                }
+                <span class="link-site">{{ item.site }} · double-click to open</span>
+              </span>
+            </a>
+          }
+        }
+        @if (itemEditing()?.id === item.id && !itemEditing()?.cell) {
+          <textarea
+            class="item-editor"
+            [class.for-text]="item.kind === 'text'"
+            [attr.aria-label]="item.kind === 'shape' ? 'Shape label' : 'Text'"
+            [style.font-size.px]="item.kind === 'text' ? textSizes[item.size] : null"
+            [value]="item.kind === 'shape' ? item.label : item.kind === 'text' ? item.text : ''"
+            (pointerdown)="$event.stopPropagation()"
+            (keydown)="onItemEditKey(item.id, $event)"
+            (blur)="finishItemEdit(item.id, $any($event.target).value)"
+            [attr.data-autofocus]="true"
+          ></textarea>
+        }
+        @if (selection().has(item.id) && selection().size === 1 && !readOnly()) {
+          <div class="item-resize" aria-hidden="true"></div>
+        }
+      </div>
+    }
+    @if (draft(); as d) {
+      <svg class="draft-stroke" aria-hidden="true">
+        <polyline [attr.points]="d.join(' ')" />
+      </svg>
+    }
     @if (arrows().length) {
       <svg class="arrows" aria-hidden="true">
         <defs>
@@ -131,7 +229,7 @@
     <div class="marquee" [style.left.px]="m.x" [style.top.px]="m.y" [style.width.px]="m.w" [style.height.px]="m.h"></div>
   }
 
-  @if (board().notes().length === 0 && board().frames().length === 0 && board().media().length === 0) {
+  @if (board().notes().length === 0 && board().frames().length === 0 && board().media().length === 0 && board().items().length === 0) {
     <p class="hint">{{ readOnly() ? 'Nothing on this board yet' : 'Double-click anywhere to add a note' }}</p>
   }
 
@@ -147,6 +245,9 @@
     >
       @for (f of m.frames; track f.id) {
         <rect class="mm-frame" [attr.x]="f.x" [attr.y]="f.y" [attr.width]="f.w" [attr.height]="f.h" [attr.stroke-width]="m.stroke" />
+      }
+      @for (i of m.items; track i.id) {
+        <rect class="mm-media" [attr.x]="i.x" [attr.y]="i.y" [attr.width]="i.w" [attr.height]="i.h" />
       }
       @for (i of m.media; track i.id) {
         <rect class="mm-media" [attr.x]="i.x" [attr.y]="i.y" [attr.width]="i.w" [attr.height]="i.h" />
@@ -179,7 +280,20 @@
           ></button>
         }
       </div>
-      <tc-button size="sm" variant="ghost" label="Add files" title="Add images and files (or drop them on the board)" (click)="addFiles.emit()"></tc-button>
+      <tc-menu-morph class="insert" side="top" [open]="insertOpen()" (tc-open-change)="insertOpen.set($event.detail.open)">
+        <button type="button" class="menu-trigger" data-menu-trigger>Insert ▾</button>
+        <div data-menu class="menu-list" aria-label="Insert">
+          <button type="button" role="menuitem" (click)="insert('text')"><strong>Text</strong><span>A heading or label</span></button>
+          <button type="button" role="menuitem" (click)="insert('rect')"><strong>Rectangle</strong><span>A shape with a label</span></button>
+          <button type="button" role="menuitem" (click)="insert('ellipse')"><strong>Ellipse</strong><span>A shape with a label</span></button>
+          <button type="button" role="menuitem" (click)="insert('diamond')"><strong>Diamond</strong><span>A decision in a flow</span></button>
+          <button type="button" role="menuitem" (click)="insert('triangle')"><strong>Triangle</strong><span>A shape with a label</span></button>
+          <button type="button" role="menuitem" (click)="insert('table')"><strong>Table</strong><span>Three by three, to fill in together</span></button>
+          <button type="button" role="menuitem" (click)="insert('link')"><strong>Link</strong><span>A web page as a card</span></button>
+          <button type="button" role="menuitem" (click)="insertOpen.set(false); addFiles.emit()"><strong>Images and files</strong><span>Or drop them on the board</span></button>
+        </div>
+      </tc-menu-morph>
+      <tc-button size="sm" [variant]="pen() ? 'primary' : 'ghost'" label="Pen" [attr.aria-pressed]="pen()" title="Draw on the board (Esc to stop)" (click)="pen.set(!pen())"></tc-button>
       @if (oneImage(); as image) {
         <tc-button size="sm" variant="ghost" label="Ask about image" (click)="askImage.emit(image)"></tc-button>
       }
@@ -193,6 +307,39 @@
         [disabled]="selection().size === 0"
         (click)="deleteSelection()"
       ></tc-button>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    @if (linkPrompt()) {
+      <form class="link-prompt" (submit)="$event.preventDefault(); addLink(linkInput.value)">
+        <input #linkInput type="url" placeholder="https://…" aria-label="Link to add" required [attr.data-autofocus]="true" />
+        <tc-button size="sm" type="submit" label="Add link"></tc-button>
+        <tc-button size="sm" variant="ghost" label="Cancel" (click)="linkPrompt.set(false)"></tc-button>
+      </form>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    @if (!readOnly() && selectedShapes().length) {
+      <div class="item-tools" role="group" aria-label="Shape">
+        @for (shape of shapes; track shape) {
+          <tc-button size="sm" variant="ghost" [label]="shapeNames[shape]" (click)="board().setShape(selectedShapes(), shape)"></tc-button>
+        }
+      </div>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    @if (!readOnly() && selectedTexts().length) {
+      <div class="item-tools" role="group" aria-label="Text size">
+        @for (size of textSizeNames; track size.id) {
+          <tc-button size="sm" variant="ghost" [label]="size.label" (click)="board().setTextSize(selectedTexts(), size.id)"></tc-button>
+        }
+      </div>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    @if (!readOnly() && oneTable(); as t) {
+      <div class="item-tools" role="group" aria-label="Table">
+        <tc-button size="sm" variant="ghost" label="+ Row" (click)="board().resizeTable(t.id, t.rows + 1, t.cols)"></tc-button>
+        <tc-button size="sm" variant="ghost" label="− Row" [disabled]="t.rows === 1" (click)="board().resizeTable(t.id, t.rows - 1, t.cols)"></tc-button>
+        <tc-button size="sm" variant="ghost" label="+ Column" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"></tc-button>
+        <tc-button size="sm" variant="ghost" label="− Column" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"></tc-button>
+      </div>
       <span class="divider" aria-hidden="true"></span>
     }
     @if (canReact() && oneNote(); as id) {
