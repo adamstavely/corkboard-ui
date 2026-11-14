@@ -220,6 +220,17 @@
         </button>
       }
     }
+    @if (guides().length) {
+      <svg class="guides" aria-hidden="true">
+        @for (g of guides(); track $index) {
+          @if (g.axis === 'x') {
+            <line [attr.x1]="g.at" [attr.x2]="g.at" [attr.y1]="g.from - 16" [attr.y2]="g.to + 16" />
+          } @else {
+            <line [attr.y1]="g.at" [attr.y2]="g.at" [attr.x1]="g.from - 16" [attr.x2]="g.to + 16" />
+          }
+        }
+      </svg>
+    }
     @if (draft(); as d) {
       <svg class="draft-stroke" aria-hidden="true">
         <polyline [attr.points]="d.join(' ')" />
@@ -309,6 +320,43 @@
     further. Enter edits it, Delete removes it, Escape clears the selection. Control or Command F finds.
   </p>
   <div class="sr-only" aria-live="polite" role="status">{{ announcement() }}</div>
+
+  @if (selectionBar(); as bar) {
+    <div class="selection-bar" role="toolbar" aria-label="Selection" [style.left.px]="bar.left" [style.top.px]="bar.top" (pointerdown)="$event.stopPropagation()">
+      @if (!readOnly() && bar.count > 1) {
+        <tc-menu-morph class="insert" [open]="layoutOpen()" (tc-open-change)="layoutOpen.set($event.detail.open)">
+          <button type="button" class="menu-trigger" data-menu-trigger>Arrange ▾</button>
+          <div data-menu class="menu-list" aria-label="Arrange">
+            <button type="button" role="menuitem" (click)="arrange('tidy')"><strong>Tidy into a grid</strong><span>In reading order</span></button>
+            <button type="button" role="menuitem" (click)="arrange('left')"><strong>Align left</strong></button>
+            <button type="button" role="menuitem" (click)="arrange('center')"><strong>Align centres</strong><span>Across</span></button>
+            <button type="button" role="menuitem" (click)="arrange('right')"><strong>Align right</strong></button>
+            <button type="button" role="menuitem" (click)="arrange('top')"><strong>Align tops</strong></button>
+            <button type="button" role="menuitem" (click)="arrange('middle')"><strong>Align middles</strong><span>Down</span></button>
+            <button type="button" role="menuitem" (click)="arrange('bottom')"><strong>Align bottoms</strong></button>
+            @if (bar.count > 2) {
+              <button type="button" role="menuitem" (click)="arrange('h')"><strong>Space evenly across</strong></button>
+              <button type="button" role="menuitem" (click)="arrange('v')"><strong>Space evenly down</strong></button>
+            }
+          </div>
+        </tc-menu-morph>
+      }
+      @if (bar.notes && canReact()) {
+        <tc-menu-morph class="insert" [open]="aiOpen()" (tc-open-change)="aiOpen.set($event.detail.open)">
+          <button type="button" class="menu-trigger" data-menu-trigger>✦ Ask AI ▾</button>
+          <div data-menu class="menu-list" aria-label="Ask the model about the selection">
+            @if (!readOnly()) {
+              <button type="button" role="menuitem" (click)="ask('Group these notes into themes')"><strong>Group into themes</strong><span>Frames for what belongs together</span></button>
+              <button type="button" role="menuitem" (click)="ask('Draft action items with owners from these notes')"><strong>Turn into action items</strong><span>With owners, in an Action items frame</span></button>
+            }
+            <button type="button" role="menuitem" (click)="ask('Summarise these notes')"><strong>Summarise</strong><span>In the chat</span></button>
+            <button type="button" role="menuitem" (click)="ask('What are the open questions in these notes?')"><strong>Find open questions</strong></button>
+          </div>
+        </tc-menu-morph>
+      }
+      <span class="selection-count">{{ bar.count }} selected</span>
+    </div>
+  }
 
   @if (finding()) {
     <div class="find" role="search" aria-label="Find on this board">
