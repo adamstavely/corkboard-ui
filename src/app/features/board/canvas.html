@@ -1,6 +1,11 @@
 <div
   #surface
   class="surface"
+  tabindex="0"
+  role="application"
+  aria-roledescription="board"
+  [attr.aria-label]="'Board. ' + summary()"
+  aria-describedby="board-keys"
   [class.can-pan]="spaceHeld()"
   [class.panning]="panning()"
   [class.pen]="pen()"
@@ -283,6 +288,12 @@
       <rect class="mm-view" [attr.x]="m.view.x" [attr.y]="m.view.y" [attr.width]="m.view.w" [attr.height]="m.view.h" [attr.stroke-width]="m.stroke * 2" />
     </svg>
   }
+
+  <p id="board-keys" class="sr-only">
+    Keys: N adds a note. Tab and Shift Tab move through what's on the board. Arrow keys move what's selected; with Shift,
+    further. Enter edits it, Delete removes it, Escape clears the selection. Control or Command F finds.
+  </p>
+  <div class="sr-only" aria-live="polite" role="status">{{ announcement() }}</div>
 
   @if (finding()) {
     <div class="find" role="search" aria-label="Find on this board">
