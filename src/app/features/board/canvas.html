@@ -67,7 +67,7 @@
         }
       </div>
     }
-    @for (m of board().media(); track m.id) {
+    @for (m of drawnMedia(); track m.id) {
       <div
         class="media"
         [class.selected]="selection().has(m.id)"
@@ -112,7 +112,7 @@
         }
       </div>
     }
-    @for (item of board().items(); track item.id) {
+    @for (item of drawnItems(); track item.id) {
       <div
         class="item"
         [class]="'item item-' + item.kind"
@@ -254,7 +254,7 @@
         }
       </svg>
     }
-    @for (note of board().notes(); track note.id) {
+    @for (note of drawnNotes(); track note.id) {
       <app-note
         [class.dimmed]="dims(note.id)"
         [class.found]="isFound(note.id)"

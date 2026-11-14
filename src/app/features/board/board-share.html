@@ -21,9 +21,17 @@
       [sending]="sending()"
       (tc-share)="onShare($event)"
     ></tc-share-panel>
+    <div class="link-edit">
+      <tc-switch
+        label="New links can edit"
+        description="People with the link can add, move and write in notes and shapes, not just view the board."
+        [value]="editableLinks()"
+        (tc-value-change)="editableLinks.set($event.detail.value)"
+      ></tc-switch>
+    </div>
     <tc-share-link-manager
-      heading="Links to view this board"
-      description="Anyone with a link can view the board, live and read-only, without picking who they are."
+      heading="Links to this board"
+      description="Anyone with a link can open the board live without signing in: to view, or to edit if the link allows. Chat, votes and settings stay with signed-in people."
       [links]="links()"
       creatable
       (tc-create)="createLink()"

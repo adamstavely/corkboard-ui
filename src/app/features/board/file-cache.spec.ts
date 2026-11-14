@@ -1,4 +1,4 @@
-import { FileCache, fileSize, imageSize } from './file-cache';
+import { FileCache, fileSize, imageSize, shrinkImage } from './file-cache';
 
 describe('files on the board', () => {
   it('fits images within 360 by 360, keeping their shape, never tiny', () => {
@@ -43,12 +43,20 @@ describe('files on the board', () => {
 
       const during = new AbortController();
       const upload = cache.upload(file, () => undefined, during.signal);
+      await new Promise((resolve) => setTimeout(resolve));
       expect(sent).toHaveLength(1);
       during.abort();
       await expect(upload).rejects.toMatchObject({ name: 'AbortError' });
     } finally {
       globalThis.XMLHttpRequest = real;
     }
+  });
+
+  it('sends small images, GIFs and other files as they are', async () => {
+    const small = new File(['x'], 'x.png', { type: 'image/png' });
+    const gif = new File([new Uint8Array(2_000_000)], 'big.gif', { type: 'image/gif' });
+    const pdf = new File([new Uint8Array(2_000_000)], 'big.pdf', { type: 'application/pdf' });
+    for (const f of [small, gif, pdf]) expect(await shrinkImage(f)).toBe(f);
   });
 
   it("fetches a shared board's files with the link, not a person's token", () => {

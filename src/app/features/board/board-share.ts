@@ -11,6 +11,7 @@ import { Component, computed, inject, input, output, resource, signal } from '@a
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { DataTable } from '@adamstavely/trenchcoat/angular/data-table';
 import { SharePanel } from '@adamstavely/trenchcoat/angular/share-panel';
+import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import type { DataColumn, DataRow } from '@adamstavely/trenchcoat/data-table';
 import type { ShareRecipient, ShareSubmit } from '@adamstavely/trenchcoat/share-panel';
 import { Api } from '../../api/generated/api';
@@ -30,7 +31,7 @@ const COLUMNS: DataColumn[] = [
  */
 @Component({
   selector: 'app-board-share',
-  imports: [SharePanel, ShareLinkManager, DataTable, Button],
+  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch],
   templateUrl: './board-share.html',
   styleUrl: './board-share.css',
 })
@@ -44,11 +45,15 @@ export class BoardShare {
   });
   protected readonly links = computed(() => shareLinks(this.#links.hasValue() ? this.#links.value() : []));
 
+  /** Whether the next link made lets people edit. */
+  protected readonly editableLinks = signal(false);
+
   protected async createLink(): Promise<void> {
     try {
-      const link = await this.#api.invoke(linksControllerCreate, { id: this.boardId(), body: {} });
+      const canEdit = this.editableLinks();
+      const link = await this.#api.invoke(linksControllerCreate, { id: this.boardId(), body: { canEdit } });
       await navigator.clipboard?.writeText(sharedUrl(link.token)).catch(() => undefined);
-      toast.success('Link made and copied', { description: 'Anyone with it can view this board.' });
+      toast.success('Link made and copied', { description: canEdit ? 'Anyone with it can edit this board.' : 'Anyone with it can view this board.' });
       this.#links.reload();
     } catch {
       toast.error("The link couldn't be made. Try again.");

@@ -74,6 +74,9 @@ const GRID = 24;
 const isEditable = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 
+/** How many things a board has before only what's on screen is drawn. */
+const CULL_FROM = 300;
+
 /**
  * The board: an endless surface to pan and zoom, with notes to add, select, drag and edit, and frames that group them.
  * Drag the background to select with a box; hold Space (or use the middle button) and drag to pan; scroll to pan, and
@@ -525,6 +528,27 @@ export class Canvas {
     const { x, y, zoom } = this.viewport();
     return `translate(${x}px, ${y}px) scale(${zoom})`;
   });
+  /**
+   * On a big board, only what's on screen (with a margin) is drawn, plus whatever's selected or being written in, so
+   * panning and typing stay quick with thousands of notes. Small boards draw everything.
+   */
+  readonly #onScreen = computed(() => {
+    const board = this.board();
+    if (board.notes().length + board.items().length + board.media().length < CULL_FROM) return null;
+    const { x, y, zoom } = this.viewport();
+    const { width, height } = this.#size();
+    const margin = 400 / zoom;
+    const view: Rect = { x: -x / zoom - margin, y: -y / zoom - margin, w: width / zoom + 2 * margin, h: height / zoom + 2 * margin };
+    const keep = new Set([...this.selection(), this.editing(), this.itemEditing()?.id].filter((id): id is string => !!id));
+    return (thing: { id: string } & Rect) => keep.has(thing.id) || intersects(view, thing);
+  });
+  protected readonly drawnNotes = computed(() => this.#cull(this.board().notes()));
+  protected readonly drawnItems = computed(() => this.#cull(this.board().items()));
+  protected readonly drawnMedia = computed(() => this.#cull(this.board().media()));
+  #cull<T extends { id: string } & Rect>(all: T[]): T[] {
+    const show = this.#onScreen();
+    return show ? all.filter(show) : all;
+  }
   protected readonly gridSize = computed(() => GRID * this.viewport().zoom);
   protected readonly hasNotesSelected = computed(() => this.board().notes().some((n) => this.selection().has(n.id)));
   protected readonly zoomPercent = computed(() => `${Math.round(this.viewport().zoom * 100)}%`);
