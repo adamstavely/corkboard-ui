@@ -122,6 +122,10 @@
           [timer]="f.timer"
           [writing]="f.writing"
           [breakouts]="f.breakouts"
+          [facilitator]="f.facilitator"
+          [meId]="meUser()?.id"
+          [isOwner]="isOwner()"
+          (bringEveryone)="bringEveryone()"
           [breakoutFrames]="breakoutFrames()"
           [framesSelected]="framesSelected()"
           [frames]="board()!.frames()"
@@ -158,6 +162,16 @@
           (closed)="chatOpen.set(false)"
           (show)="canvas()?.show($event)"
           (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
+        />
+      }
+      @if (panel() === 'outline' && board(); as b) {
+        <app-board-outline
+          [board]="b"
+          [peers]="connection()?.presence?.peers() ?? []"
+          [canEdit]="canEdit()"
+          (closed)="panel.set(null)"
+          (show)="canvas()?.show([$event])"
+          (present)="presentFrame($event)"
         />
       }
       @if (panel() === 'comments' && meta.hasValue()) {

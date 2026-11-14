@@ -81,4 +81,20 @@ describe('FacilitationFeed', () => {
     expect(feed.state().breakouts).toEqual({ open: true, groups });
     feed.destroy();
   });
+
+  it('shows who is facilitating and each time they bring everyone', () => {
+    const doc = new Y.Doc();
+    const feed = new FacilitationFeed(doc);
+    expect(feed.state().facilitator).toEqual({ userId: null, name: '' });
+    doc.transact(() => {
+      doc.getMap('facilitator').set('userId', 'u1');
+      doc.getMap('facilitator').set('name', 'Ada');
+      doc.getMap('spotlight').set('n', 2);
+      doc.getMap('spotlight').set('by', 'Ada');
+      doc.getMap('spotlight').set('view', { cx: 1, cy: 2, zoom: 0.5 });
+    });
+    expect(feed.state().facilitator).toEqual({ userId: 'u1', name: 'Ada' });
+    expect(feed.state().spotlight).toEqual({ n: 2, by: 'Ada', view: { cx: 1, cy: 2, zoom: 0.5 } });
+    feed.destroy();
+  });
 });

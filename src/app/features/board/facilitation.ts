@@ -76,6 +76,17 @@ export interface Breakouts {
   groups: BreakoutGroup[];
 }
 
+/** Who holds the facilitator's seat, and the last time they brought everyone to their view. */
+export interface Facilitator {
+  userId: string | null;
+  name: string;
+}
+export interface Spotlight {
+  n: number;
+  by: string;
+  view: { cx: number; cy: number; zoom: number } | null;
+}
+
 /** The board's dot voting, timer, hidden writing and breakouts, live from its document. Only the API writes them. */
 export class FacilitationFeed {
   readonly #voting: Y.Map<unknown>;
@@ -83,13 +94,25 @@ export class FacilitationFeed {
   readonly #timer: Y.Map<unknown>;
   readonly #writing: Y.Map<unknown>;
   readonly #breakouts: Y.Map<unknown>;
+  readonly #facilitator: Y.Map<unknown>;
+  readonly #spotlight: Y.Map<unknown>;
 
-  readonly #state = signal<{ voting: Voting; votes: ReadonlyMap<string, readonly string[]>; timer: Timer; writing: Writing; breakouts: Breakouts }>({
+  readonly #state = signal<{
+    voting: Voting;
+    votes: ReadonlyMap<string, readonly string[]>;
+    timer: Timer;
+    writing: Writing;
+    breakouts: Breakouts;
+    facilitator: Facilitator;
+    spotlight: Spotlight;
+  }>({
     voting: { open: false, votesEach: 0, round: 0 },
     votes: new Map(),
     timer: { endsAt: null, seconds: 0, label: '', by: '' },
     writing: { open: false, anonymous: false, round: null, frameId: null, startedBy: '', notes: 0, writers: 0 },
     breakouts: { open: false, groups: [] },
+    facilitator: { userId: null, name: '' },
+    spotlight: { n: 0, by: '', view: null },
   });
   readonly state = this.#state.asReadonly();
 
@@ -99,6 +122,8 @@ export class FacilitationFeed {
     this.#timer = doc.getMap('timer');
     this.#writing = doc.getMap('writing');
     this.#breakouts = doc.getMap('breakouts');
+    this.#facilitator = doc.getMap('facilitator');
+    this.#spotlight = doc.getMap('spotlight');
     for (const map of this.#maps()) map.observe(this.#update);
     this.#update();
   }
@@ -108,7 +133,7 @@ export class FacilitationFeed {
   }
 
   #maps(): Y.Map<unknown>[] {
-    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts];
+    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight];
   }
 
   readonly #update = () => {
@@ -134,6 +159,12 @@ export class FacilitationFeed {
       breakouts: {
         open: this.#breakouts.get('open') === true,
         groups: Array.isArray(this.#breakouts.get('groups')) ? (this.#breakouts.get('groups') as BreakoutGroup[]) : [],
+      },
+      facilitator: { userId: text(this.#facilitator.get('userId')) || null, name: text(this.#facilitator.get('name')) },
+      spotlight: {
+        n: Number(this.#spotlight.get('n') ?? 0),
+        by: text(this.#spotlight.get('by')),
+        view: (this.#spotlight.get('view') as Spotlight['view']) ?? null,
       },
     });
   };

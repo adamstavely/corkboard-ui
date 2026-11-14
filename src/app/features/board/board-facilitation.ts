@@ -11,7 +11,9 @@ import { writingControllerCancel } from '../../api/generated/fn/facilitation/wri
 import { writingControllerReveal } from '../../api/generated/fn/facilitation/writing-controller-reveal';
 import { writingControllerStart } from '../../api/generated/fn/facilitation/writing-controller-start';
 import { toast } from '@adamstavely/trenchcoat/toaster';
-import { formatRemaining, ranking, type Breakouts, type Timer, type Voting, type Writing } from './facilitation';
+import { facilitationControllerClaimFacilitator } from '../../api/generated/fn/facilitation/facilitation-controller-claim-facilitator';
+import { facilitationControllerReleaseFacilitator } from '../../api/generated/fn/facilitation/facilitation-controller-release-facilitator';
+import { formatRemaining, ranking, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
@@ -37,6 +39,12 @@ export class BoardFacilitation {
   readonly timer = input.required<Timer>();
   readonly writing = input.required<Writing>();
   readonly breakouts = input.required<Breakouts>();
+  /** Who holds the facilitator's seat; this person; and whether they own the board (owners can take the seat over). */
+  readonly facilitator = input<Facilitator>({ userId: null, name: '' });
+  readonly meId = input<string | undefined>();
+  readonly isOwner = input(false);
+  /** Bring everyone to what this person is looking at. */
+  readonly bringEveryone = output<void>();
   /** The frames breakouts would use: those selected, else every frame not inside another. */
   readonly breakoutFrames = input<readonly string[]>([]);
   /** Whether those are the selected frames, to say so. */
@@ -106,6 +114,7 @@ export class BoardFacilitation {
       this.voting().open ||
       this.writing().open ||
       this.breakouts().open ||
+      !!this.facilitator().userId ||
       this.results().length > 0 ||
       !!this.presenter() ||
       this.presenting(),
@@ -151,6 +160,16 @@ export class BoardFacilitation {
 
   protected async cancelWriting(): Promise<void> {
     await this.#run(() => this.#api.invoke(writingControllerCancel, { id: this.boardId() }));
+  }
+
+  protected readonly facilitating = computed(() => !!this.meId() && this.facilitator().userId === this.meId());
+
+  protected async claim(): Promise<void> {
+    await this.#run(() => this.#api.invoke(facilitationControllerClaimFacilitator, { id: this.boardId() }));
+  }
+
+  protected async release(): Promise<void> {
+    await this.#run(() => this.#api.invoke(facilitationControllerReleaseFacilitator, { id: this.boardId() }));
   }
 
   protected async startBreakouts(): Promise<void> {
