@@ -2,6 +2,7 @@ import { computed, inject, Injectable, resource, signal } from '@angular/core';
 import { Api } from '../api/generated/api';
 import { meControllerMe } from '../api/generated/fn/me/me-controller-me';
 import { membersControllerAccept } from '../api/generated/fn/members/members-controller-accept';
+import { membersControllerAcceptLink } from '../api/generated/fn/members/members-controller-accept-link';
 import { membersControllerDecline } from '../api/generated/fn/members/members-controller-decline';
 import { membersControllerMine } from '../api/generated/fn/members/members-controller-mine';
 import type { OrgDto } from '../api/generated/models/org-dto';
@@ -59,6 +60,14 @@ export class Session {
     this.selectOrg(org.id);
     this.me.reload();
     this.invites.reload();
+  }
+
+  /** Joins a workspace through an invite link, and switches to it. */
+  async acceptLink(token: string): Promise<OrgDto> {
+    const org = await this.#api.invoke(membersControllerAcceptLink, { body: { token } });
+    this.selectOrg(org.id);
+    this.me.reload();
+    return org;
   }
 
   async decline(inviteId: string): Promise<void> {
