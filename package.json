@@ -35,6 +35,7 @@
     "@tiptap/starter-kit": "3.33.1",
     "@tiptap/y-tiptap": "3.3.0",
     "lit": "3.3.3",
+    "lucide": "1.62.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "y-protocols": "1.0.7",

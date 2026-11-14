@@ -5,13 +5,13 @@
       <tc-menu-morph [open]="mainOpen()" (tc-open-change)="mainOpen.set($event.detail.open)">
         <button type="button" class="icon-btn" data-menu-trigger aria-label="Main menu" data-tip="Menu"><app-icon name="menu" /></button>
         <div data-menu class="app-menu" aria-label="Main menu">
-          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); back()"><span class="label">All boards</span></button>
-          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); openSearch()"><span class="label">Search</span><kbd>{{ modKey }}K</kbd></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); back()"><span class="label">All boards</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); openSearch()"><span class="label">Search</span><kbd>{{ modKey }}K</kbd></button>
           <hr />
-          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/models')"><span class="label">AI models</span></button>
-          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/members')"><span class="label">Members</span></button>
-          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/integrations')"><span class="label">Integrations</span></button>
-          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/account')"><span class="label">Settings</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/models')"><span class="label">AI models</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/members')"><span class="label">Members</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/integrations')"><span class="label">Integrations</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/account')"><span class="label">Settings</span></button>
         </div>
       </tc-menu-morph>
       <a class="brand" href="/" (click)="$event.preventDefault(); back()">Corkboard</a>
@@ -32,7 +32,7 @@
       />
       @if (previous.hasValue() && previous.value(); as prev) {
         <a class="continues" [href]="'/boards/' + prev.id" (click)="$event.preventDefault(); go('/boards/' + prev.id)" [title]="'This board carries on from ' + prev.title">
-          ← {{ prev.title }}
+          <app-icon name="arrowLeft" />{{ prev.title }}
         </a>
       }
       <!-- The board's views, the next session and deleting: one menu, so the panel stays short. -->
@@ -40,7 +40,7 @@
         <button type="button" class="icon-btn" data-menu-trigger aria-label="Board menu" data-tip="Board menu" [disabled]="!connection()"><app-icon name="more" /></button>
         <div data-menu class="app-menu" aria-label="Board menu">
           @for (view of views; track view.id) {
-            <button type="button" class="item" role="menuitemcheckbox" [attr.aria-checked]="panel() === view.id" (click)="openView(view.id)">
+            <button type="button" class="app-menu-item" role="menuitemcheckbox" [attr.aria-checked]="panel() === view.id" (click)="openView(view.id)">
               <span class="label">{{ view.label }}</span><span class="hint">{{ view.hint }}</span>
             </button>
           }
@@ -48,21 +48,21 @@
             <hr />
           }
           @if (canEdit()) {
-            <button type="button" class="item" role="menuitem" title="A new board with the same frames, carrying over the tasks and action items still open" (click)="viewsOpen.set(false); nextSession()">
+            <button type="button" class="app-menu-item" role="menuitem" title="A new board with the same frames, carrying over the tasks and action items still open" (click)="viewsOpen.set(false); nextSession()">
               <span class="label">{{ startingNext() ? 'Starting the next session…' : 'Start the next session' }}</span>
             </button>
           }
           @if (isOwner()) {
-            <button type="button" class="item danger" role="menuitem" (click)="viewsOpen.set(false); confirmDelete.set(true)"><span class="label">Delete board</span></button>
+            <button type="button" class="app-menu-item danger" role="menuitem" (click)="viewsOpen.set(false); confirmDelete.set(true)"><span class="label">Delete board</span></button>
           }
         </div>
       </tc-menu-morph>
       <tc-menu-morph [open]="exportOpen()" (tc-open-change)="exportOpen.set($event.detail.open)">
         <button type="button" class="icon-btn" data-menu-trigger aria-label="Export" data-tip="Export" [disabled]="!board()"><app-icon name="export" /></button>
         <div data-menu class="app-menu" aria-label="Export the board">
-          <button type="button" class="item" role="menuitem" (click)="exportPng()"><span class="label">Image (PNG)</span><span class="hint">The whole board</span></button>
-          <button type="button" class="item" role="menuitem" (click)="exportMarkdown()"><span class="label">Markdown</span><span class="hint">Frames and notes</span></button>
-          <button type="button" class="item" role="menuitem" (click)="exportPdf()"><span class="label">Print or PDF</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="exportPng()"><span class="label">Image (PNG)</span><span class="hint">The whole board</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="exportMarkdown()"><span class="label">Markdown</span><span class="hint">Frames and notes</span></button>
+          <button type="button" class="app-menu-item" role="menuitem" (click)="exportPdf()"><span class="label">Print or PDF</span></button>
         </div>
       </tc-menu-morph>
       <!-- Search folds to its icon; ⌘K or the icon opens it. -->
@@ -155,6 +155,8 @@
         (pinOpen)="openPin({ nodeId: $event })"
         (pinPlaced)="openPin($event)"
         (joinFrame)="joinBreakout($event)"
+        (openView)="panel.set($event)"
+        (assistant)="chatOpen.set(true)"
       />
       @if (fstate()?.writing; as w) {
         @if (w.open && canComment()) {

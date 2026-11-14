@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { Icon } from '../../shared/icon';
 import { Api } from '../../api/generated/api';
 import { writingControllerEdit } from '../../api/generated/fn/facilitation/writing-controller-edit';
 import { writingControllerMine } from '../../api/generated/fn/facilitation/writing-controller-mine';
@@ -16,7 +17,7 @@ import type { Writing } from './facilitation';
  */
 @Component({
   selector: 'app-writing-tray',
-  imports: [Button],
+  imports: [Button, Icon],
   template: `
     <aside class="tray" aria-labelledby="tray-heading">
       <h2 id="tray-heading">Your hidden notes</h2>
@@ -40,7 +41,7 @@ import type { Writing } from './facilitation';
               } @else {
                 <button type="button" class="text" [attr.aria-label]="'Edit: ' + d.text" (click)="editing.set(d.id)">{{ d.text }}</button>
               }
-              <button type="button" class="remove" [attr.aria-label]="'Delete: ' + d.text" (click)="remove(d)">×</button>
+              <button type="button" class="remove" [attr.aria-label]="'Delete: ' + d.text" (click)="remove(d)"><app-icon name="close" /></button>
             </li>
           }
         </ul>

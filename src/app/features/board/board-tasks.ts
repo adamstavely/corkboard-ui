@@ -11,6 +11,7 @@ import type { BoardDoc } from './board-doc';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { personNamed } from './recap';
 import { ACTION_LABEL, actionItemNotes, fromTask, ownerAndText, TASK_STATUSES, toTask, type TaskFeed } from './tasks';
+import { Icon } from '../../shared/icon';
 
 const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'var(--tc-chart-1)' }];
 
@@ -20,7 +21,7 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
  */
 @Component({
   selector: 'app-board-tasks',
-  imports: [TaskBoard, Button],
+  imports: [TaskBoard, Button, Icon],
   template: `
     <aside class="panel" aria-label="Tasks">
       <div class="head">
@@ -42,7 +43,7 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
         <p class="linked">
           Sent:
           @for (t of linked(); track t.id) {
-            <a [href]="t.url" target="_blank" rel="noopener noreferrer">{{ t.key }} → {{ t.issue }}</a>
+            <a [href]="t.url" target="_blank" rel="noopener noreferrer">{{ t.key }} <app-icon name="arrowRight" /> {{ t.issue }}</a>
           }
         </p>
       }

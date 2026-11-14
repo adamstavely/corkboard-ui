@@ -40,13 +40,13 @@
   <!-- All, starred, recent, and the workspace's folders. -->
   <div class="filters" role="group" aria-label="Show boards">
     <tc-button size="sm" [variant]="isFilter('all') ? 'secondary' : 'ghost'" label="All boards" (click)="filter.set({ kind: 'all' })"></tc-button>
-    <tc-button size="sm" [variant]="isFilter('starred') ? 'secondary' : 'ghost'" label="★ Starred" (click)="filter.set({ kind: 'starred' })"></tc-button>
+    <tc-button size="sm" [variant]="isFilter('starred') ? 'secondary' : 'ghost'" label="Starred" (click)="filter.set({ kind: 'starred' })"></tc-button>
     <tc-button size="sm" [variant]="isFilter('recent') ? 'secondary' : 'ghost'" label="Recent" (click)="filter.set({ kind: 'recent' })"></tc-button>
     @if (folderList().length) {
       <span class="divider" aria-hidden="true"></span>
     }
     @for (folder of folderList(); track folder.id) {
-      <tc-button size="sm" [variant]="isFilter('folder', folder.id) ? 'secondary' : 'ghost'" [label]="'▸ ' + folder.name" (click)="filter.set({ kind: 'folder', id: folder.id })"></tc-button>
+      <tc-button size="sm" [variant]="isFilter('folder', folder.id) ? 'secondary' : 'ghost'" [label]="folder.name" (click)="filter.set({ kind: 'folder', id: folder.id })"></tc-button>
     }
     @if (naming(); as n) {
       <input
@@ -61,7 +61,7 @@
       <tc-button size="sm" label="Save" (click)="saveFolder()"></tc-button>
       <tc-button size="sm" variant="ghost" label="Cancel" (click)="naming.set(null)"></tc-button>
     } @else if (canCreate()) {
-      <tc-button size="sm" variant="ghost" label="+ New folder" (click)="naming.set({ id: 'new', name: '' })"></tc-button>
+      <tc-button size="sm" variant="ghost" label="New folder" (click)="naming.set({ id: 'new', name: '' })"></tc-button>
       @if (currentFolder(); as f) {
         <span class="divider" aria-hidden="true"></span>
         <tc-button size="sm" variant="ghost" label="Rename folder" (click)="naming.set({ id: f.id, name: f.name })"></tc-button>
@@ -97,7 +97,7 @@
             (tc-open)="open($event, board.href)"
           ></tc-collection-card>
           <button type="button" class="star" [class.on]="board.starred" [attr.aria-pressed]="board.starred" [attr.aria-label]="(board.starred ? 'Unstar ' : 'Star ') + board.title" (click)="toggleStar(board.id, board.starred)">
-            {{ board.starred ? '★' : '☆' }}
+            <app-icon name="star" />
           </button>
           @if (board.canFile && folderList().length) {
             <div class="card-actions">

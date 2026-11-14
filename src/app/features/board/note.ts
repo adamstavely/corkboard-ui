@@ -3,7 +3,8 @@ import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { Editor } from '@tiptap/core';
 import type { Note } from './board-doc';
 import type { NoteVotes } from './facilitation';
-import type { NoteReaction } from './reactions';
+import { reactionLook, type NoteReaction } from './reactions';
+import { Icon } from '../../shared/icon';
 import { noteExtensions, renderNoteText } from './note-text';
 
 /**
@@ -13,6 +14,7 @@ import { noteExtensions, renderNoteText } from './note-text';
  */
 @Component({
   selector: 'app-note',
+  imports: [Icon],
   template: `
     <div class="text" #text></div>
     @if (note().authorName) {
@@ -37,26 +39,27 @@ import { noteExtensions, renderNoteText } from './note-text';
             [class.mine]="r.mine"
             [disabled]="!canReact()"
             [attr.aria-pressed]="r.mine"
-            [attr.aria-label]="r.emoji + ' ' + r.count + (r.mine ? ', including you' : '')"
+            [attr.aria-label]="look(r.emoji).label + ', ' + r.count + (r.mine ? ', including you' : '')"
+            [title]="look(r.emoji).label"
             (click)="react.emit(r.emoji)"
-          >{{ r.emoji }} {{ r.count }}</button>
+          ><app-icon [name]="look(r.emoji).icon" />{{ r.count }}</button>
         }
       </span>
     }
     @if (votes(); as v) {
       <span class="note-votes" [class.results]="v.total !== null">
         @if (voting()) {
-          <button type="button" class="vote-less" [disabled]="v.mine === 0" aria-label="Take back a vote" (click)="vote.emit(false)">−</button>
+          <button type="button" class="vote-less" [disabled]="v.mine === 0" aria-label="Take back a vote" (click)="vote.emit(false)"><app-icon name="minus" /></button>
           <span class="vote-count" [attr.aria-label]="'Your votes: ' + v.mine">{{ v.mine }}</span>
-          <button type="button" class="vote-more" [disabled]="!canVoteMore()" aria-label="Vote for this note" (click)="vote.emit(true)">+</button>
+          <button type="button" class="vote-more" [disabled]="!canVoteMore()" aria-label="Vote for this note" (click)="vote.emit(true)"><app-icon name="plus" /></button>
         } @else if (v.total !== null) {
-          <span class="vote-count" [attr.aria-label]="v.total + (v.total === 1 ? ' vote' : ' votes')">● {{ v.total }}</span>
+          <span class="vote-count" [attr.aria-label]="v.total + (v.total === 1 ? ' vote' : ' votes')"><app-icon name="thumbsUp" />{{ v.total }}</span>
         }
       </span>
     }
     @if (comments()) {
       <span class="note-comments" [attr.aria-label]="comments() + (comments() === 1 ? ' comment' : ' comments')">
-        <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v8H6l-3 3v-3H2z" /></svg>{{ comments() }}
+        <app-icon name="comments" />{{ comments() }}
       </span>
     }
   `,
@@ -77,6 +80,7 @@ import { noteExtensions, renderNoteText } from './note-text';
   },
 })
 export class NoteView {
+  protected readonly look = reactionLook;
   readonly note = input.required<Note>();
   readonly selected = input(false);
   readonly editing = input(false);

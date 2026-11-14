@@ -9,6 +9,7 @@
   [class.can-pan]="spaceHeld()"
   [class.panning]="panning()"
   [class.pen]="pen()"
+  [class.placing]="placing() || tool() === 'connect' || tool() === 'comment'"
   [class.pinning]="pinning()"
   [style.background-size.px]="gridSize()"
   [style.background-position]="viewport().x + 'px ' + viewport().y + 'px'"
@@ -59,7 +60,7 @@
         }
         @if (commentCounts().get(frame.id); as count) {
           <span class="frame-comments" [attr.aria-label]="count + (count === 1 ? ' comment' : ' comments')">
-            <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v8H6l-3 3v-3H2z" /></svg>{{ count }}
+            <app-icon name="comments" />{{ count }}
           </span>
         }
         @if (selection().has(frame.id) && selection().size === 1) {
@@ -114,7 +115,7 @@
     }
     @for (item of drawnItems(); track item.id) {
       <div
-        class="item"
+        class="app-menu-item"
         [class]="'item item-' + item.kind"
         [class.selected]="selection().has(item.id)"
         [class.dimmed]="dims(item.id)"
@@ -280,7 +281,7 @@
 
   @for (pointer of peerPointers(); track pointer.id) {
     <div class="peer-pointer" [style.transform]="'translate(' + pointer.x + 'px, ' + pointer.y + 'px)'" [style.--peer-color]="pointer.color" aria-hidden="true">
-      <svg width="16" height="20" viewBox="0 0 16 20"><path d="M1 1 L1 16 L5 12 L8 19 L11 18 L8 11 L14 11 Z" /></svg>
+      <app-icon name="cursor" />
       <span class="peer-name">{{ pointer.name }}</span>
     </div>
   }
@@ -329,7 +330,7 @@
     <div class="selection-bar" role="toolbar" aria-label="Selection" [style.left.px]="bar.left" [style.top.px]="bar.top" (pointerdown)="$event.stopPropagation()">
       @if (!readOnly() && bar.count > 1) {
         <tc-menu-morph class="insert" [open]="layoutOpen()" (tc-open-change)="layoutOpen.set($event.detail.open)">
-          <button type="button" class="menu-trigger" data-menu-trigger>Arrange ▾</button>
+          <button type="button" class="menu-trigger" data-menu-trigger>Arrange <app-icon name="chevron" /></button>
           <div data-menu class="menu-list" aria-label="Arrange">
             <button type="button" role="menuitem" (click)="arrange('tidy')"><strong>Tidy into a grid</strong><span>In reading order</span></button>
             <button type="button" role="menuitem" (click)="arrange('left')"><strong>Align left</strong></button>
@@ -347,7 +348,7 @@
       }
       @if (bar.notes && canReact()) {
         <tc-menu-morph class="insert" [open]="aiOpen()" (tc-open-change)="aiOpen.set($event.detail.open)">
-          <button type="button" class="menu-trigger" data-menu-trigger>✦ Ask AI ▾</button>
+          <button type="button" class="menu-trigger" data-menu-trigger><app-icon name="sparkles" /> Ask AI <app-icon name="chevron" /></button>
           <div data-menu class="menu-list" aria-label="Ask the model about the selection">
             @if (!readOnly()) {
               <button type="button" role="menuitem" (click)="ask('Group these notes into themes')"><strong>Group into themes</strong><span>Frames for what belongs together</span></button>
@@ -359,7 +360,71 @@
         </tc-menu-morph>
       }
       @if (!readOnly()) {
-        <button type="button" class="bar-button" [attr.aria-pressed]="allLocked()" (click)="toggleLock()">{{ allLocked() ? '🔓 Unlock' : '🔒 Lock' }}</button>
+        <button type="button" class="bar-button" [attr.aria-pressed]="allLocked()" (click)="toggleLock()"><app-icon [name]="allLocked() ? 'unlock' : 'lock'" />{{ allLocked() ? 'Unlock' : 'Lock' }}</button>
+      }
+      @if (!readOnly() && (selectedNoteIds().length || selectedShapes().length)) {
+        <div class="swatches" role="group" aria-label="Colour">
+          @for (color of colors; track color.id) {
+            <button type="button" class="swatch" [style.background]="'var(--note-' + color.id + ')'" [attr.aria-label]="color.label" [title]="color.label" (click)="setColor(color.id)"></button>
+          }
+        </div>
+      }
+      @if (!readOnly() && selectedShapes().length) {
+        <div class="item-tools" role="group" aria-label="Shape">
+          @for (shape of shapes; track shape) {
+            <tc-button size="sm" variant="ghost" [label]="shapeNames[shape]" (click)="board().setShape(selectedShapes(), shape)"></tc-button>
+          }
+        </div>
+      }
+      @if (!readOnly() && selectedTexts().length) {
+        <div class="item-tools" role="group" aria-label="Text size">
+          @for (size of textSizeNames; track size.id) {
+            <tc-button size="sm" variant="ghost" [label]="size.label" (click)="board().setTextSize(selectedTexts(), size.id)"></tc-button>
+          }
+        </div>
+      }
+      @if (!readOnly() && oneTable(); as t) {
+        <div class="item-tools" role="group" aria-label="Table">
+          <tc-button size="sm" variant="ghost" label="Add row" (click)="board().resizeTable(t.id, t.rows + 1, t.cols)"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Remove row" [disabled]="t.rows === 1" (click)="board().resizeTable(t.id, t.rows - 1, t.cols)"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Add column" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Remove column" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"></tc-button>
+        </div>
+      }
+      @if (canReact() && oneImage()) {
+        <tc-button
+          size="sm"
+          [variant]="pinning() ? 'primary' : 'ghost'"
+          [label]="pinning() ? 'Click the image…' : 'Pin a comment'"
+          title="Click a spot on the image to comment on it (Esc to stop)"
+          (click)="pinning.set(!pinning())"
+        ></tc-button>
+      }
+      @if (canReact() && oneNote(); as id) {
+        <div class="react-picker" role="group" aria-label="React to the selected note">
+          @for (emoji of reactionChoices; track emoji) {
+            <button type="button" class="icon-btn small" [attr.aria-label]="'React: ' + reactionLook(emoji).label" [attr.data-tip]="reactionLook(emoji).label" (click)="toggleReaction(id, emoji)"><app-icon [name]="reactionLook(emoji).icon" /></button>
+          }
+        </div>
+      }
+      @if (!readOnly() && selectedNoteIds().length) {
+        <form class="tag-tools" (submit)="$event.preventDefault(); addTag(tagInput)">
+          @for (tag of selectedTags(); track tag) {
+            <button type="button" class="tag-chip" [attr.aria-label]="'Remove tag ' + tag" (click)="board().removeTag(selectedNoteIds(), tag)">#{{ tag }} <app-icon name="close" /></button>
+          }
+          <input #tagInput class="tag-input" placeholder="Add tag" aria-label="Add a tag to the selected notes" maxlength="30" list="board-tags" />
+          <datalist id="board-tags">
+            @for (tag of tags(); track tag) {
+              <option [value]="tag"></option>
+            }
+          </datalist>
+        </form>
+      }
+      @if (!readOnly() && pair()) {
+        <tc-button size="sm" variant="ghost" label="Connect" title="An arrow from the first selected to the second" (click)="connect()"></tc-button>
+      }
+      @if (!readOnly()) {
+        <button type="button" class="icon-btn small" [attr.aria-label]="deleteLabel()" [attr.data-tip]="deleteLabel() + ' (Delete)'" (click)="deleteSelection()"><app-icon name="trash" /></button>
       }
       <span class="selection-count">{{ bar.count }} selected</span>
     </div>
@@ -394,8 +459,8 @@
         </select>
       }
       <span class="find-count" role="status">{{ foundLabel() }}</span>
-      <tc-button size="sm" variant="ghost" label="↑" aria-label="Previous match" [disabled]="!found()?.length" (click)="step(-1)"></tc-button>
-      <tc-button size="sm" variant="ghost" label="↓" aria-label="Next match" [disabled]="!found()?.length" (click)="step(1)"></tc-button>
+      <button type="button" class="icon-btn small" aria-label="Previous match" data-tip="Previous" [disabled]="!found()?.length" (click)="step(-1)"><app-icon name="up" /></button>
+      <button type="button" class="icon-btn small" aria-label="Next match" data-tip="Next" [disabled]="!found()?.length" (click)="step(1)"><app-icon name="chevron" /></button>
       <tc-button size="sm" variant="ghost" label="Close" (click)="toggleFind()"></tc-button>
     </div>
   }
@@ -404,117 +469,12 @@
     @if (readOnly()) {
       <span class="read-only">{{ readOnlyLabel() }}</span>
       <span class="divider" aria-hidden="true"></span>
-    } @else {
-      <tc-button size="sm" variant="secondary" label="Add note" (click)="addNote()"></tc-button>
-      <tc-button size="sm" variant="ghost" [label]="hasNotesSelected() ? 'Frame selection' : 'Add frame'" (click)="addFrame()"></tc-button>
-      <span class="divider" aria-hidden="true"></span>
-      <div class="swatches" role="group" aria-label="Colour of selected notes">
-        @for (color of colors; track color.id) {
-          <button
-            type="button"
-            class="swatch"
-            [style.background]="'var(--note-' + color.id + ')'"
-            [attr.aria-label]="color.label"
-            [title]="color.label"
-            [disabled]="selection().size === 0"
-            (click)="setColor(color.id)"
-          ></button>
-        }
-      </div>
-      <tc-menu-morph class="insert" side="top" [open]="insertOpen()" (tc-open-change)="insertOpen.set($event.detail.open)">
-        <button type="button" class="menu-trigger" data-menu-trigger>Insert ▾</button>
-        <div data-menu class="menu-list" aria-label="Insert">
-          <button type="button" role="menuitem" (click)="insert('text')"><strong>Text</strong><span>A heading or label</span></button>
-          <button type="button" role="menuitem" (click)="insert('rect')"><strong>Rectangle</strong><span>A shape with a label</span></button>
-          <button type="button" role="menuitem" (click)="insert('ellipse')"><strong>Ellipse</strong><span>A shape with a label</span></button>
-          <button type="button" role="menuitem" (click)="insert('diamond')"><strong>Diamond</strong><span>A decision in a flow</span></button>
-          <button type="button" role="menuitem" (click)="insert('triangle')"><strong>Triangle</strong><span>A shape with a label</span></button>
-          <button type="button" role="menuitem" (click)="insert('table')"><strong>Table</strong><span>Three by three, to fill in together</span></button>
-          <button type="button" role="menuitem" (click)="insert('link')"><strong>Link</strong><span>A web page as a card</span></button>
-          <button type="button" role="menuitem" (click)="insertOpen.set(false); addFiles.emit()"><strong>Images and files</strong><span>Or drop them on the board</span></button>
-          @for (t of noteTemplates; track t.id) {
-            <button type="button" role="menuitem" (click)="insertTemplate(t)"><strong>{{ t.name }} note</strong><span>{{ t.hint }}</span></button>
-          }
-        </div>
-      </tc-menu-morph>
-      <tc-button size="sm" [variant]="pen() ? 'primary' : 'ghost'" label="Pen" [attr.aria-pressed]="pen()" title="Draw on the board (Esc to stop)" (click)="pen.set(!pen())"></tc-button>
-      @if (oneImage(); as image) {
-        <tc-button size="sm" variant="ghost" label="Ask about image" (click)="askImage.emit(image)"></tc-button>
-      }
-      <tc-button size="sm" variant="ghost" label="Connect" [disabled]="!pair()" title="Draw an arrow from the first selected note or frame to the second" (click)="connect()"></tc-button>
-      <tc-button
-        size="sm"
-        variant="ghost"
-        label="Delete"
-        [attr.aria-label]="deleteLabel()"
-        [title]="deleteLabel() + ' (Delete key)'"
-        [disabled]="selection().size === 0"
-        (click)="deleteSelection()"
-      ></tc-button>
-      <span class="divider" aria-hidden="true"></span>
     }
     @if (linkPrompt()) {
       <form class="link-prompt" (submit)="$event.preventDefault(); addLink(linkInput.value)">
         <input #linkInput type="url" placeholder="https://…" aria-label="Link to add" required [attr.data-autofocus]="true" />
         <tc-button size="sm" type="submit" label="Add link"></tc-button>
         <tc-button size="sm" variant="ghost" label="Cancel" (click)="linkPrompt.set(false)"></tc-button>
-      </form>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    @if (!readOnly() && selectedShapes().length) {
-      <div class="item-tools" role="group" aria-label="Shape">
-        @for (shape of shapes; track shape) {
-          <tc-button size="sm" variant="ghost" [label]="shapeNames[shape]" (click)="board().setShape(selectedShapes(), shape)"></tc-button>
-        }
-      </div>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    @if (!readOnly() && selectedTexts().length) {
-      <div class="item-tools" role="group" aria-label="Text size">
-        @for (size of textSizeNames; track size.id) {
-          <tc-button size="sm" variant="ghost" [label]="size.label" (click)="board().setTextSize(selectedTexts(), size.id)"></tc-button>
-        }
-      </div>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    @if (!readOnly() && oneTable(); as t) {
-      <div class="item-tools" role="group" aria-label="Table">
-        <tc-button size="sm" variant="ghost" label="+ Row" (click)="board().resizeTable(t.id, t.rows + 1, t.cols)"></tc-button>
-        <tc-button size="sm" variant="ghost" label="− Row" [disabled]="t.rows === 1" (click)="board().resizeTable(t.id, t.rows - 1, t.cols)"></tc-button>
-        <tc-button size="sm" variant="ghost" label="+ Column" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"></tc-button>
-        <tc-button size="sm" variant="ghost" label="− Column" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"></tc-button>
-      </div>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    @if (canReact() && oneImage()) {
-      <tc-button
-        size="sm"
-        [variant]="pinning() ? 'primary' : 'ghost'"
-        [label]="pinning() ? 'Click the image…' : 'Pin a comment'"
-        title="Click a spot on the image to comment on it (Esc to stop)"
-        (click)="pinning.set(!pinning())"
-      ></tc-button>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    @if (canReact() && oneNote(); as id) {
-      <div class="react-picker" role="group" aria-label="React to the selected note">
-        @for (emoji of reactionChoices; track emoji) {
-          <button type="button" class="react" [attr.aria-label]="'React ' + emoji" (click)="toggleReaction(id, emoji)">{{ emoji }}</button>
-        }
-      </div>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    @if (!readOnly() && selectedNoteIds().length) {
-      <form class="tag-tools" (submit)="$event.preventDefault(); addTag(tagInput)">
-        @for (tag of selectedTags(); track tag) {
-          <button type="button" class="tag-chip" [attr.aria-label]="'Remove tag ' + tag" (click)="board().removeTag(selectedNoteIds(), tag)">#{{ tag }} ×</button>
-        }
-        <input #tagInput class="tag-input" placeholder="Add tag" aria-label="Add a tag to the selected notes" maxlength="30" list="board-tags" />
-        <datalist id="board-tags">
-          @for (tag of tags(); track tag) {
-            <option [value]="tag"></option>
-          }
-        </datalist>
       </form>
       <span class="divider" aria-hidden="true"></span>
     }
@@ -526,6 +486,72 @@
     <tc-button size="sm" [variant]="minimapOpen() ? 'secondary' : 'ghost'" label="Map" [attr.aria-pressed]="minimapOpen()" title="Show or hide the minimap" (click)="minimapOpen.set(!minimapOpen())"></tc-button>
   </div>
 </div>
+
+<!-- The tools, down the left: what a click on the board makes. The assistant sits apart above them, undo below. -->
+@if (!readOnly() || canReact()) {
+  <div class="rail-stack">
+    <button type="button" class="ai" aria-label="Assistant" data-tip="Assistant" data-tip-side="right" (click)="assistant.emit()"><app-icon name="sparkles" /></button>
+    <div class="app-island vertical rail" role="toolbar" aria-label="Tools" aria-orientation="vertical">
+      <button type="button" class="icon-btn" aria-label="Select" data-tip="Select  V" data-tip-side="right" [attr.aria-pressed]="tool() === 'select'" (click)="pickTool('select')"><app-icon name="cursor" /></button>
+      @if (!readOnly()) {
+        <tc-menu-morph [open]="createOpen()" (tc-open-change)="createOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Create" data-tip="Create" data-tip-side="right"><app-icon name="create" /></button>
+          <div data-menu class="app-menu" aria-label="Create">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="label">Table</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="label">Link</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="label">Images and files</span></button>
+            <hr />
+            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('tasks')"><app-icon name="kanban" /><span class="label">Kanban</span><span class="hint">Action items</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('gantt')"><app-icon name="timeline" /><span class="label">Timeline</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('matrix')"><app-icon name="matrix" /><span class="label">Matrix</span><span class="hint">Value and effort</span></button>
+          </div>
+        </tc-menu-morph>
+        <tc-menu-morph [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Note templates" data-tip="Note templates" data-tip-side="right"><app-icon name="template" /></button>
+          <div data-menu class="app-menu" aria-label="Note templates">
+            @for (t of noteTemplates; track t.id) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); insertTemplate(t)"><span class="label">{{ t.name }}</span><span class="hint">{{ t.hint }}</span></button>
+            }
+          </div>
+        </tc-menu-morph>
+        <button type="button" class="icon-btn" aria-label="Sticky note" data-tip="Sticky note  N" data-tip-side="right" [attr.aria-pressed]="tool() === 'note'" (click)="pickTool('note')"><app-icon name="sticky" /></button>
+        <button type="button" class="icon-btn" aria-label="Text" data-tip="Text  T" data-tip-side="right" [attr.aria-pressed]="tool() === 'text'" (click)="pickTool('text')"><app-icon name="text" /></button>
+        <tc-menu-morph [open]="shapesOpen()" (tc-open-change)="shapesOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Shapes and arrows" data-tip="Shapes and arrows" data-tip-side="right" [attr.aria-pressed]="shapeTool()"><app-icon name="shapes" /></button>
+          <div data-menu class="app-menu" aria-label="Shapes and arrows">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('connect')"><app-icon name="arrow" /><span class="label">Arrow</span><kbd>L</kbd></button>
+            <hr />
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('rect')"><app-icon name="rect" /><span class="label">Rectangle</span><kbd>R</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('ellipse')"><app-icon name="oval" /><span class="label">Oval</span><kbd>O</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('diamond')"><app-icon name="rhombus" /><span class="label">Rhombus</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('triangle')"><app-icon name="triangle" /><span class="label">Triangle</span></button>
+          </div>
+        </tc-menu-morph>
+        <button type="button" class="icon-btn" aria-label="Pen" data-tip="Pen  P" data-tip-side="right" [attr.aria-pressed]="tool() === 'pen'" (click)="pickTool('pen')"><app-icon name="pen" /></button>
+        <button
+          type="button"
+          class="icon-btn"
+          [attr.aria-label]="hasNotesSelected() ? 'Frame the selection' : 'Frame'"
+          [attr.data-tip]="(hasNotesSelected() ? 'Frame the selection' : 'Frame') + '  F'"
+          data-tip-side="right"
+          [attr.aria-pressed]="tool() === 'frame'"
+          (click)="pickTool('frame')"
+        >
+          <app-icon name="frame" />
+        </button>
+      }
+      @if (canReact()) {
+        <button type="button" class="icon-btn" aria-label="Comment" data-tip="Comment  C" data-tip-side="right" [attr.aria-pressed]="tool() === 'comment'" (click)="pickTool('comment')"><app-icon name="comment" /></button>
+      }
+    </div>
+    @if (!readOnly()) {
+      <div class="app-island vertical rail" role="group" aria-label="Undo and redo">
+        <button type="button" class="icon-btn" [attr.aria-label]="'Undo'" [attr.data-tip]="'Undo  ' + modKey + 'Z'" data-tip-side="right" (click)="undo()"><app-icon name="undo" /></button>
+        <button type="button" class="icon-btn" [attr.aria-label]="'Redo'" [attr.data-tip]="'Redo  ' + modKey + '⇧Z'" data-tip-side="right" (click)="redo()"><app-icon name="redo" /></button>
+      </div>
+    }
+  </div>
+}
 
 @if (formatAnchor(); as anchor) {
   <tc-selection-toolbar

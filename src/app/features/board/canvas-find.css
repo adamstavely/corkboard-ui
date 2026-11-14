@@ -138,3 +138,17 @@
 .bar-button:hover {
   background: var(--tc-fill-default, var(--tc-accent-subtle));
 }
+
+/* Icons in the selection bar's labelled buttons, at their text size. */
+.selection-bar .menu-trigger,
+.selection-bar .bar-button,
+.selection-bar .tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.selection-bar .menu-trigger app-icon,
+.selection-bar .bar-button app-icon,
+.selection-bar .tag-chip app-icon {
+  --icon-size: 14px;
+}

@@ -67,7 +67,7 @@ export function edgePoint(box: Box, toward: { x: number; y: number }): { x: numb
 
 /** Each arrow as a line from the edge of one box to the edge of the other, aimed at their centres. */
 export function arrowLines(board: BoardDoc): { id: string; start: { x: number; y: number }; end: { x: number; y: number } }[] {
-  const boxes = new Map<string, Box>([...board.notes(), ...board.frames()].map((n) => [n.id, n]));
+  const boxes = new Map<string, Box>([...board.notes(), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
   return board.connectors().flatMap((c) => {
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
