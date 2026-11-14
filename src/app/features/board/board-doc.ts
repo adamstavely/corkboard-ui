@@ -57,6 +57,65 @@ export interface Media {
   z: number;
 }
 
+export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle'] as const;
+export type ShapeKind = (typeof SHAPES)[number];
+/** Text label sizes, in px. */
+export const TEXT_SIZES = { sm: 14, md: 20, lg: 32, xl: 48 } as const;
+export type TextSize = keyof typeof TEXT_SIZES;
+/** The smallest a shape, label, table or link card can be resized to. */
+export const ITEM_MIN = 40;
+
+interface Placed {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+}
+/** A shape with a short label in it, in one of the note colours. */
+export interface ShapeItem extends Placed {
+  kind: 'shape';
+  shape: ShapeKind;
+  color: NoteColor;
+  label: string;
+}
+/** Free text on the board, a heading or a label. */
+export interface TextItem extends Placed {
+  kind: 'text';
+  text: string;
+  size: TextSize;
+}
+/** A pen stroke: points (x, y, x, y, …) in a box `vw` by `vh` drawn at the item's size, so it scales when resized. */
+export interface DrawingItem extends Placed {
+  kind: 'drawing';
+  points: readonly number[];
+  vw: number;
+  vh: number;
+  color: NoteColor | 'ink';
+  width: number;
+}
+/** A grid of text cells, each edited on its own, so two people can fill in different cells at once. */
+export interface TableItem extends Placed {
+  kind: 'table';
+  rows: number;
+  cols: number;
+  /** Cell text by "row:col". */
+  cells: ReadonlyMap<string, string>;
+}
+/** A web link as a card: its title, description and picture, fetched once when it's placed. */
+export interface LinkItem extends Placed {
+  kind: 'link';
+  url: string;
+  title: string;
+  description: string;
+  image: string | null;
+  site: string;
+}
+/** The board's other things: shapes, text, pen strokes, tables and link cards. */
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link']);
+
 /** A file's card on the board. */
 export const FILE_CARD = { w: 240, h: 72 } as const;
 
@@ -120,6 +179,9 @@ export class BoardDoc {
   readonly #media = signal<Media[]>([]);
   /** Images and files on the board, bottom to top. */
   readonly media = this.#media.asReadonly();
+  readonly #items = signal<Item[]>([]);
+  /** Shapes, text, drawings, tables and link cards, bottom to top. */
+  readonly items = this.#items.asReadonly();
   readonly #connectors = signal<Connector[]>([]);
   /** Every arrow between notes and frames. */
   readonly connectors = this.#connectors.asReadonly();
@@ -243,7 +305,8 @@ export class BoardDoc {
     this.doc.transact(() => {
       for (const id of ids) {
         const node = this.#nodes.get(id);
-        if (node?.get('kind') === 'note') node.set('color', color);
+        const kind = node?.get('kind');
+        if (kind === 'note' || kind === 'shape' || kind === 'drawing') node!.set('color', color);
       }
     }, this);
   }
@@ -269,7 +332,8 @@ export class BoardDoc {
 
   /** Puts notes above everything else, keeping their order among themselves. */
   bringToFront(ids: Iterable<string>): void {
-    const chosen = this.notes().filter((n) => [...ids].includes(n.id));
+    const wanted = new Set(ids);
+    const chosen = [...this.notes(), ...this.items(), ...this.media()].filter((n) => wanted.has(n.id)).sort((a, b) => a.z - b.z);
     const top = this.#topZ();
     if (chosen.length === 0 || chosen.every((n, i) => n.z === top - chosen.length + 1 + i)) return;
     this.doc.transact(() => chosen.forEach((n, i) => this.#nodes.get(n.id)?.set('z', top + 1 + i)), this);
@@ -304,6 +368,165 @@ export class BoardDoc {
       this.#nodes.set(id, node);
     }, this);
     return id;
+  }
+
+  #place(kind: Item['kind'], cx: number, cy: number, w: number, h: number, set: (node: Y.Map<unknown>) => void): string {
+    const id = crypto.randomUUID();
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      const node = new Y.Map<unknown>();
+      node.set('kind', kind);
+      node.set('x', Math.round(cx - w / 2));
+      node.set('y', Math.round(cy - h / 2));
+      node.set('w', Math.round(w));
+      node.set('h', Math.round(h));
+      node.set('z', this.#topZ() + 1);
+      this.#nodes.set(id, node);
+      set(node);
+    }, this);
+    return id;
+  }
+
+  addShape(cx: number, cy: number, shape: ShapeKind = 'rect', color: NoteColor = 'blue', label = ''): string {
+    return this.#place('shape', cx, cy, 200, shape === 'rect' ? 120 : 160, (n) => {
+      n.set('shape', shape);
+      n.set('color', color);
+      n.set('label', label);
+    });
+  }
+
+  addText(cx: number, cy: number, text = 'Text', size: TextSize = 'md'): string {
+    return this.#place('text', cx, cy, 240, TEXT_SIZES[size] * 1.6, (n) => {
+      n.set('text', text);
+      n.set('size', size);
+    });
+  }
+
+  /** A pen stroke through these board points (x, y, x, y, …); null if it's too short to keep. */
+  addDrawing(points: readonly number[], color: DrawingItem['color'] = 'ink', width = 3): string | null {
+    if (points.length < 4) return null;
+    const xs = points.filter((_, i) => i % 2 === 0);
+    const ys = points.filter((_, i) => i % 2 === 1);
+    const pad = width;
+    const x = Math.min(...xs) - pad;
+    const y = Math.min(...ys) - pad;
+    const w = Math.max(Math.max(...xs) - x + pad, 4);
+    const h = Math.max(Math.max(...ys) - y + pad, 4);
+    const local = points.map((v, i) => Math.round((i % 2 === 0 ? v - x : v - y) * 10) / 10);
+    return this.#place('drawing', x + w / 2, y + h / 2, w, h, (n) => {
+      n.set('points', local);
+      n.set('vw', w);
+      n.set('vh', h);
+      n.set('color', color);
+      n.set('width', width);
+    });
+  }
+
+  addTable(cx: number, cy: number, rows = 3, cols = 3): string {
+    return this.#place('table', cx, cy, cols * 140, rows * 40, (n) => {
+      n.set('rows', rows);
+      n.set('cols', cols);
+      n.set('cells', new Y.Map<string>());
+    });
+  }
+
+  addLink(cx: number, cy: number, url: string): string {
+    const host = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        return url;
+      }
+    })();
+    return this.#place('link', cx, cy, 320, 120, (n) => {
+      n.set('url', url);
+      n.set('title', host);
+      n.set('description', '');
+      n.set('image', null);
+      n.set('site', host);
+    });
+  }
+
+  /** Fills in a link card once its page's preview arrives; it's not undoable on its own. */
+  setLinkPreview(id: string, p: { title: string; description: string; image: string | null; site: string }): void {
+    const node = this.#nodes.get(id);
+    if (node?.get('kind') !== 'link') return;
+    this.doc.transact(() => {
+      node.set('title', p.title);
+      node.set('description', p.description);
+      node.set('image', p.image);
+      node.set('site', p.site);
+    }, REMOTE);
+  }
+
+  /** A shape's label, or a text item's text. */
+  setText(id: string, text: string): void {
+    const node = this.#nodes.get(id);
+    const key = node?.get('kind') === 'shape' ? 'label' : node?.get('kind') === 'text' ? 'text' : null;
+    if (!node || !key || node.get(key) === text) return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => node.set(key, text), this);
+  }
+
+  setShape(ids: Iterable<string>, shape: ShapeKind): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (node?.get('kind') === 'shape') node.set('shape', shape);
+      }
+    }, this);
+  }
+
+  setTextSize(ids: Iterable<string>, size: TextSize): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (node?.get('kind') === 'text') node.set('size', size);
+      }
+    }, this);
+  }
+
+  setCell(id: string, row: number, col: number, text: string): void {
+    const cells = this.#nodes.get(id)?.get('cells');
+    if (!(cells instanceof Y.Map)) return;
+    const key = `${row}:${col}`;
+    if ((cells.get(key) ?? '') === text) return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => (text ? cells.set(key, text) : cells.delete(key)), this);
+  }
+
+  /** Adds or removes a table's last row or column; it grows or shrinks to match. */
+  resizeTable(id: string, rows: number, cols: number): void {
+    const node = this.#nodes.get(id);
+    if (node?.get('kind') !== 'table') return;
+    const r = Math.min(50, Math.max(1, rows));
+    const c = Math.min(20, Math.max(1, cols));
+    const wasR = node.get('rows') as number;
+    const wasC = node.get('cols') as number;
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      node.set('rows', r);
+      node.set('cols', c);
+      node.set('w', Math.round(((node.get('w') as number) / wasC) * c));
+      node.set('h', Math.round(((node.get('h') as number) / wasR) * r));
+      const cells = node.get('cells');
+      if (cells instanceof Y.Map) for (const key of [...cells.keys()]) {
+        const [cr, cc] = key.split(':').map(Number);
+        if (cr >= r || cc >= c) cells.delete(key);
+      }
+    }, this);
+  }
+
+  /** Resizes a shape, label, drawing, table or link card from its bottom-right corner. */
+  resizeItem(id: string, w: number, h: number): void {
+    const node = this.#nodes.get(id);
+    if (!node || !ITEM_KINDS.has(String(node.get('kind')))) return;
+    this.doc.transact(() => {
+      node.set('w', Math.round(Math.max(ITEM_MIN, w)));
+      node.set('h', Math.round(Math.max(node.get('kind') === 'text' ? 20 : ITEM_MIN, h)));
+    }, this);
   }
 
   /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
@@ -349,6 +572,7 @@ export class BoardDoc {
     const frames: Frame[] = [];
     const connectors: Connector[] = [];
     const media: Media[] = [];
+    const items: Item[] = [];
     this.#nodes.forEach((node, id) => {
       const kind = node.get('kind');
       if (kind === 'image' || kind === 'file') {
@@ -365,6 +589,11 @@ export class BoardDoc {
           h: (node.get('h') as number) ?? FILE_CARD.h,
           z: (node.get('z') as number) ?? 0,
         });
+        return;
+      }
+      if (ITEM_KINDS.has(String(kind))) {
+        const item = itemOf(id, node);
+        if (item) items.push(item);
         return;
       }
       if (node.get('kind') === 'connector') {
@@ -407,5 +636,61 @@ export class BoardDoc {
     this.#frames.set(frames.sort(order));
     this.#connectors.set(connectors);
     this.#media.set(media.sort(order));
+    this.#items.set(items.sort(order));
+  }
+}
+
+const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+
+/** A shape, text, drawing, table or link card as the canvas draws it; null if its node is malformed. */
+function itemOf(id: string, node: Y.Map<unknown>): Item | null {
+  const box = { id, x: num(node.get('x')), y: num(node.get('y')), w: num(node.get('w'), 200), h: num(node.get('h'), 120), z: num(node.get('z')) };
+  const color = node.get('color') as NoteColor;
+  switch (node.get('kind')) {
+    case 'shape': {
+      const shape = node.get('shape') as ShapeKind;
+      return { ...box, kind: 'shape', shape: SHAPES.includes(shape) ? shape : 'rect', color: NOTE_COLORS.includes(color) ? color : 'blue', label: str(node.get('label')) };
+    }
+    case 'text': {
+      const size = node.get('size') as TextSize;
+      return { ...box, kind: 'text', text: str(node.get('text')), size: size in TEXT_SIZES ? size : 'md' };
+    }
+    case 'drawing': {
+      const points = node.get('points');
+      return {
+        ...box,
+        kind: 'drawing',
+        points: Array.isArray(points) ? points.filter((p): p is number => typeof p === 'number') : [],
+        vw: num(node.get('vw'), box.w),
+        vh: num(node.get('vh'), box.h),
+        color: NOTE_COLORS.includes(color) ? color : 'ink',
+        width: num(node.get('width'), 3),
+      };
+    }
+    case 'table': {
+      const cells = node.get('cells');
+      return {
+        ...box,
+        kind: 'table',
+        rows: Math.max(1, num(node.get('rows'), 1)),
+        cols: Math.max(1, num(node.get('cols'), 1)),
+        cells: cells instanceof Y.Map ? new Map([...cells.entries()].filter((e): e is [string, string] => typeof e[1] === 'string')) : new Map(),
+      };
+    }
+    case 'link': {
+      const image = node.get('image');
+      return {
+        ...box,
+        kind: 'link',
+        url: str(node.get('url')),
+        title: str(node.get('title')),
+        description: str(node.get('description')),
+        image: typeof image === 'string' && image.startsWith('https://') ? image : null,
+        site: str(node.get('site')),
+      };
+    }
+    default:
+      return null;
   }
 }

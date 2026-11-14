@@ -45,12 +45,18 @@
 
 .toolbar {
   position: absolute;
-  left: 50%;
+  /* Centred in the room right of the minimap, wrapping onto a second row rather than running under it. */
+  --clear: calc(200px + var(--tc-space-4) * 2);
+  left: calc(var(--clear) + (100% - var(--clear)) / 2);
   bottom: var(--tc-space-4);
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: var(--tc-space-2);
+  width: max-content;
+  max-width: calc(100% - var(--clear) - var(--tc-space-4));
   padding: var(--tc-space-2);
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-lg);
@@ -315,32 +321,4 @@
   font-weight: var(--tc-font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* A breakout group's tab above its frame: who's in it and their time; the person's own group stands out. */
-.frame-badge {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-2);
-  color: var(--tc-text-muted);
-  font-size: 12px;
-  font-weight: var(--tc-font-weight-regular);
-}
-.frame-badge.mine {
-  color: var(--tc-accent-text);
-  font-weight: var(--tc-font-weight-semibold);
-}
-.frame-join {
-  padding: 1px 8px;
-  border: 1px solid var(--tc-border-default);
-  border-radius: 999px;
-  background: var(--tc-surface-raised);
-  color: var(--tc-text-primary);
-  font: inherit;
-  cursor: pointer;
 }

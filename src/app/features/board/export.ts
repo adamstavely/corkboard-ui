@@ -1,4 +1,5 @@
-import { FILE_CARD, type BoardDoc, type Frame, type Media, type Note } from './board-doc';
+import { FILE_CARD, TEXT_SIZES, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
+import { shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
 
@@ -42,7 +43,7 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
 type Box = { x: number; y: number; w: number; h: number };
 
 /** Everything on the board that takes up room: frames, notes, images and file cards. Arrows run between them. */
-export const boardBoxes = (board: BoardDoc): (Box & { id: string })[] => [...board.frames(), ...board.notes(), ...board.media()];
+export const boardBoxes = (board: BoardDoc): (Box & { id: string })[] => [...board.frames(), ...board.notes(), ...board.media(), ...board.items()];
 
 /** The box around everything on the board, with a margin; null for an empty board. */
 export function boardBounds(board: BoardDoc, margin = 40): Box | null {
@@ -168,6 +169,7 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   }
   const muted = color('--tc-text-muted', '#6b6b6b');
   for (const m of [...board.media()].sort((a, b) => a.z - b.z)) drawMedia(ctx, m, images.get(m.fileId), { surface, border, text, muted, font });
+  for (const item of board.items()) drawItem(ctx, item, { surface, border, text, muted, font });
   // Arrows go under the notes, as on the board.
   const ink = color('--tc-text-secondary', '#555555');
   ctx.strokeStyle = ink;
@@ -203,6 +205,79 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
     }
   }
   return canvas;
+}
+
+/** A shape, text, pen stroke, table or link card as it is on the board. */
+function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: string; border: string; text: string; muted: string; font: string }): void {
+  ctx.save();
+  ctx.translate(item.x, item.y);
+  const centred = (line: string, size: number, weight = 500) => {
+    ctx.fillStyle = c.text;
+    ctx.font = `${weight} ${size}px ${c.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(line, item.w / 2, item.h / 2, item.w - 16);
+  };
+  switch (item.kind) {
+    case 'shape':
+      ctx.fillStyle = color(`--note-${item.color}`, '#cfe3ff');
+      ctx.fill(new Path2D(shapePath(item.shape, item.w, item.h)));
+      if (item.label) centred(item.label, 15);
+      break;
+    case 'text':
+      ctx.fillStyle = c.text;
+      ctx.font = `600 ${TEXT_SIZES[item.size]}px ${c.font}`;
+      ctx.textBaseline = 'top';
+      ctx.fillText(item.text, 0, 2, item.w);
+      break;
+    case 'drawing': {
+      ctx.scale(item.w / item.vw, item.h / item.vh);
+      ctx.strokeStyle = item.color === 'ink' ? c.text : color(`--note-${item.color}`, '#888');
+      ctx.lineWidth = item.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < item.points.length; i += 2) ctx[i ? 'lineTo' : 'moveTo'](item.points[i], item.points[i + 1]);
+      ctx.stroke();
+      break;
+    }
+    case 'table': {
+      const cw = item.w / item.cols;
+      const ch = item.h / item.rows;
+      ctx.fillStyle = c.surface;
+      ctx.fillRect(0, 0, item.w, item.h);
+      ctx.strokeStyle = c.border;
+      ctx.lineWidth = 1;
+      ctx.font = `400 13px ${c.font}`;
+      ctx.textBaseline = 'middle';
+      for (let r = 0; r < item.rows; r++) {
+        for (let col = 0; col < item.cols; col++) {
+          ctx.strokeRect(col * cw, r * ch, cw, ch);
+          const cell = item.cells.get(`${r}:${col}`);
+          if (cell) {
+            ctx.fillStyle = c.text;
+            ctx.fillText(cell, col * cw + 6, r * ch + ch / 2, cw - 12);
+          }
+        }
+      }
+      break;
+    }
+    case 'link':
+      ctx.fillStyle = c.surface;
+      ctx.strokeStyle = c.border;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, item.w, item.h, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = c.text;
+      ctx.font = `600 14px ${c.font}`;
+      ctx.fillText(item.title, 14, 28, item.w - 28);
+      ctx.fillStyle = c.muted;
+      ctx.font = `400 12px ${c.font}`;
+      ctx.fillText(item.site, 14, item.h - 16, item.w - 28);
+      break;
+  }
+  ctx.restore();
 }
 
 /** An image as it is on the board (its name in a box if it hasn't loaded), or a file's card with its name and size. */

@@ -1,4 +1,7 @@
-import { Component, computed, effect, ElementRef, HostListener, input, output, signal, untracked, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
+import { Api } from '../../api/generated/api';
+import { unfurlControllerPreview } from '../../api/generated/fn/boards/unfurl-controller-preview';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { SelectionToolbar } from '@adamstavely/trenchcoat/angular/selection-toolbar';
 import {
@@ -9,11 +12,12 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { NOTE_COLORS, NOTE_SIZE, type BoardDoc, type NoteColor } from './board-doc';
+import { NOTE_COLORS, NOTE_SIZE, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
 import { arrowLines, boardBounds, boardBoxes } from './export';
+import { safeUrl, shapePath } from './items';
 import type { NoteReaction } from './reactions';
 import type { Media } from './board-doc';
 import { fileSize } from './file-cache';
@@ -24,8 +28,19 @@ import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point,
 type Gesture =
   | { kind: 'pan'; last: Point }
   | { kind: 'drag'; last: Point; moved: boolean; ids: Set<string> }
-  | { kind: 'resize'; id: string; start: Point; size: { w: number; h: number } }
-  | { kind: 'marquee'; start: Point; base: Set<string> };
+  | { kind: 'resize'; id: string; start: Point; size: { w: number; h: number }; item?: boolean }
+  | { kind: 'marquee'; start: Point; base: Set<string> }
+  | { kind: 'draw'; points: number[] };
+
+const SHAPE_NAMES: Record<ShapeKind, string> = { rect: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', triangle: 'Triangle' };
+const TEXT_SIZE_NAMES: { id: TextSize; label: string }[] = [
+  { id: 'sm', label: 'S' },
+  { id: 'md', label: 'M' },
+  { id: 'lg', label: 'L' },
+  { id: 'xl', label: 'XL' },
+];
+
+
 
 /** The formats a note supports, from Trench Coat's bar; checklists wait for a task-list extension. */
 const pick = (id: string) => defaultSelectionToolbarItems.find((i) => i.type !== 'separator' && i.id === id)!;
@@ -64,9 +79,9 @@ const isEditable = (el: EventTarget | null) =>
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph],
   templateUrl: './canvas.html',
-  styleUrl: './canvas.css',
+  styleUrls: ['./canvas.css', './canvas-items.css'],
 })
 export class Canvas {
   readonly board = input.required<BoardDoc>();
@@ -120,6 +135,145 @@ export class Canvas {
   protected readonly panning = signal(false);
 
   protected readonly colors = NOTE_COLORS.map((c) => ({ id: c, label: COLOR_LABELS[c] }));
+
+  // ── Shapes, text, pen strokes, tables and link cards ──
+
+  readonly #api = inject(Api);
+  protected readonly textSizes = TEXT_SIZES;
+  protected readonly shapes = SHAPES;
+  protected readonly shapeNames = SHAPE_NAMES;
+  protected readonly textSizeNames = TEXT_SIZE_NAMES;
+  protected readonly shapePath = shapePath;
+  protected readonly safeUrl = safeUrl;
+  protected readonly insertOpen = signal(false);
+  /** Drawing with the pen: a drag on the board draws instead of selecting. */
+  protected readonly pen = signal(false);
+  /** The stroke being drawn, in board points. */
+  protected readonly draft = signal<number[] | null>(null);
+  protected readonly linkPrompt = signal(false);
+  /** The shape or text being written in, or the table cell. */
+  protected readonly itemEditing = signal<{ id: string; cell?: string } | null>(null);
+  protected readonly selectedShapes = computed(() => this.board().items().filter((i) => i.kind === 'shape' && this.selection().has(i.id)).map((i) => i.id));
+  protected readonly selectedTexts = computed(() => this.board().items().filter((i) => i.kind === 'text' && this.selection().has(i.id)).map((i) => i.id));
+  protected readonly oneTable = computed(() => {
+    if (this.selection().size !== 1) return null;
+    const [id] = this.selection();
+    return (this.board().items().find((i) => i.id === id && i.kind === 'table') as TableItem | undefined) ?? null;
+  });
+
+  protected itemLabel(item: Item): string {
+    switch (item.kind) {
+      case 'shape':
+        return `${SHAPE_NAMES[item.shape]}${item.label ? `: ${item.label}` : ''}`;
+      case 'text':
+        return `Text: ${item.text}`;
+      case 'drawing':
+        return 'Drawing';
+      case 'table':
+        return `Table, ${item.rows} by ${item.cols}`;
+      case 'link':
+        return `Link: ${item.title}`;
+    }
+  }
+
+  protected tableCells(t: TableItem): { key: string; row: number; col: number; text: string }[] {
+    const cells = [];
+    for (let row = 0; row < t.rows; row++) for (let col = 0; col < t.cols; col++) cells.push({ key: `${row}:${col}`, row, col, text: t.cells.get(`${row}:${col}`) ?? '' });
+    return cells;
+  }
+
+  /** Adds something from the Insert menu in the middle of the view, selected (and open to write in, for text). */
+  protected insert(what: ShapeKind | 'text' | 'table' | 'link'): void {
+    this.insertOpen.set(false);
+    if (what === 'link') {
+      this.linkPrompt.set(true);
+      this.#focusSoon();
+      return;
+    }
+    const at = this.#viewCentre();
+    const id = what === 'text' ? this.board().addText(at.x, at.y) : what === 'table' ? this.board().addTable(at.x, at.y) : this.board().addShape(at.x, at.y, what);
+    this.selection.set(new Set([id]));
+    if (what !== 'table') this.#editItem(id);
+  }
+
+  /** Puts a link card in the middle of the view, then fills in its title and picture from the page. */
+  protected async addLink(raw: string): Promise<void> {
+    const url = /^https?:\/\//i.test(raw.trim()) ? raw.trim() : `https://${raw.trim()}`;
+    this.linkPrompt.set(false);
+    const at = this.#viewCentre();
+    const id = this.board().addLink(at.x, at.y, url);
+    this.selection.set(new Set([id]));
+    try {
+      const preview = await this.#api.invoke(unfurlControllerPreview, { body: { url } });
+      this.board().setLinkPreview(id, preview);
+    } catch {
+      // The card keeps the site's name; the link still works.
+    }
+  }
+
+  protected onItemEditKey(id: string, e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.itemEditing.set(null);
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      this.finishItemEdit(id, (e.target as HTMLTextAreaElement).value);
+    }
+  }
+
+  /** In a cell, Enter and Tab move on (down, across), as in a spreadsheet; Escape leaves it as it was. */
+  protected onCellKey(t: TableItem, row: number, col: number, e: KeyboardEvent): void {
+    const value = (e.target as HTMLInputElement).value;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.itemEditing.set(null);
+      return;
+    }
+    if (e.key !== 'Enter' && e.key !== 'Tab') return;
+    e.preventDefault();
+    this.board().setCell(t.id, row, col, value);
+    const [nr, nc] = e.key === 'Tab' ? (col + 1 < t.cols ? [row, col + 1] : [row + 1, 0]) : [row + 1, col];
+    this.itemEditing.set(nr < t.rows ? { id: t.id, cell: `${nr}:${nc}` } : null);
+    this.#focusSoon();
+  }
+
+  /** Saves what was written and stops editing; a cell's blur only counts while that cell is still the one open. */
+  protected finishItemEdit(id: string, value: string, cell?: string): void {
+    const editing = this.itemEditing();
+    if (!editing || editing.id !== id || (cell !== undefined && editing.cell !== cell)) return;
+    if (editing.cell) {
+      const [row, col] = editing.cell.split(':').map(Number);
+      this.board().setCell(id, row, col, value);
+    } else this.board().setText(id, value.trim());
+    this.itemEditing.set(null);
+  }
+
+  #editItem(id: string, cell?: string): void {
+    if (this.readOnly()) return;
+    this.itemEditing.set({ id, ...(cell ? { cell } : {}) });
+    this.#focusSoon();
+  }
+
+  /** Focuses the editor that's just appeared (an item's text, a cell, the link box). */
+  #focusSoon(): void {
+    setTimeout(() => {
+      const el = this.surface().nativeElement.parentElement?.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-autofocus]');
+      el?.focus();
+      el?.select?.();
+    });
+  }
+
+  /** The middle of the view, stepped down and right past anything already placed there, so new things don't stack. */
+  #viewCentre(): Point {
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const at = toWorld(this.viewport(), { x: width / 2, y: height / 2 });
+    const centres = [...this.board().items(), ...this.board().notes()].map((i) => ({ x: i.x + i.w / 2, y: i.y + i.h / 2 }));
+    for (let step = 0; step < 20 && centres.some((c) => Math.abs(c.x - at.x) < 24 && Math.abs(c.y - at.y) < 24); step++) {
+      at.x += 40;
+      at.y += 40;
+    }
+    return at;
+  }
   protected readonly formatItems = FORMAT_ITEMS;
 
   private readonly surface = viewChild.required<ElementRef<HTMLElement>>('surface');
@@ -211,7 +365,7 @@ export class Canvas {
     // be selected counts: notes, frames, images, files and arrows.
     effect(() => {
       const board = this.board();
-      const ids = new Set([...board.notes(), ...board.frames(), ...board.media(), ...board.connectors()].map((n) => n.id));
+      const ids = new Set([...board.notes(), ...board.frames(), ...board.media(), ...board.items(), ...board.connectors()].map((n) => n.id));
       const editing = this.editing();
       if (editing && !ids.has(editing)) this.editing.set(null);
       const renaming = this.renaming();
@@ -246,12 +400,22 @@ export class Canvas {
 
   protected onPointerDown(e: PointerEvent): void {
     const target = e.target as HTMLElement;
-    const noteEl = target.closest<HTMLElement>('app-note, [data-media-id]');
+    if (target.closest('.toolbar') || target.closest('.item-editor, .cell-input')) return;
+    // With the pen, a drag on the board draws.
+    if (this.pen() && e.button === 0 && !this.spaceHeld() && !this.readOnly()) {
+      const p = toWorld(this.viewport(), this.#screenPoint(e));
+      this.#gesture = { kind: 'draw', points: [p.x, p.y] };
+      this.draft.set([p.x, p.y]);
+      return;
+    }
+    const noteEl = target.closest<HTMLElement>('app-note, [data-media-id], [data-item-id]');
     // A frame is grabbed anywhere on it (a note can cover its title). Shift-drag inside one boxes notes instead.
     const frameEl = noteEl ? null : target.closest<HTMLElement>('.frame');
     const onFrameBody = !!frameEl && !target.closest('.frame-title, .frame-resize');
     const frameId = frameEl && !(onFrameBody && e.shiftKey) ? frameEl.dataset['frameId'] : undefined;
-    const id = noteEl?.dataset['noteId'] ?? noteEl?.dataset['mediaId'] ?? frameId;
+    const id = noteEl?.dataset['noteId'] ?? noteEl?.dataset['mediaId'] ?? noteEl?.dataset['itemId'] ?? frameId;
+    const itemId = noteEl?.dataset['itemId'];
+    if (itemId && itemId === this.itemEditing()?.id) return;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
     if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
@@ -278,6 +442,12 @@ export class Canvas {
     if (e.button !== 0) return;
     this.editing.set(null);
 
+    if (itemId && target.closest('.item-resize') && !this.readOnly()) {
+      const item = this.board().items().find((i) => i.id === itemId)!;
+      this.board().undo.stopCapturing();
+      this.#gesture = { kind: 'resize', id: itemId, start: screen, size: { w: item.w, h: item.h }, item: true };
+      return;
+    }
     if (frameId && target.closest('.frame-resize') && !this.readOnly()) {
       const frame = this.board().frames().find((f) => f.id === frameId)!;
       this.board().undo.stopCapturing();
@@ -329,7 +499,17 @@ export class Canvas {
       g.moved = true;
     } else if (g.kind === 'resize') {
       const zoom = this.viewport().zoom;
-      this.board().resizeFrame(g.id, g.size.w + (screen.x - g.start.x) / zoom, g.size.h + (screen.y - g.start.y) / zoom);
+      const w = g.size.w + (screen.x - g.start.x) / zoom;
+      const h = g.size.h + (screen.y - g.start.y) / zoom;
+      if (g.item) this.board().resizeItem(g.id, w, h);
+      else this.board().resizeFrame(g.id, w, h);
+    } else if (g.kind === 'draw') {
+      const p = toWorld(this.viewport(), screen);
+      const [lx, ly] = g.points.slice(-2);
+      // A point every couple of pixels on screen is plenty.
+      if (Math.hypot(p.x - lx, p.y - ly) * this.viewport().zoom < 2) return;
+      g.points.push(Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10);
+      this.draft.set([...g.points]);
     } else {
       const rect = rectFrom(g.start, toWorld(this.viewport(), screen));
       this.marquee.set(rect);
@@ -343,10 +523,7 @@ export class Canvas {
           .frames()
           .filter((f) => contains(rect, f))
           .map((f) => f.id),
-        ...this.board()
-          .media()
-          .filter((m) => intersects(rect, m))
-          .map((m) => m.id),
+        ...[...this.board().media(), ...this.board().items()].filter((m) => intersects(rect, m)).map((m) => m.id),
       ];
       this.selection.set(new Set([...g.base, ...hit]));
     }
@@ -355,6 +532,11 @@ export class Canvas {
   @HostListener('window:pointerup')
   @HostListener('window:pointercancel')
   protected onPointerUp(): void {
+    if (this.#gesture?.kind === 'draw') {
+      const id = this.board().addDrawing(this.#gesture.points);
+      this.draft.set(null);
+      if (id) this.board().undo.stopCapturing();
+    }
     if ((this.#gesture?.kind === 'drag' && this.#gesture.moved) || this.#gesture?.kind === 'resize') this.board().undo.stopCapturing();
     this.#gesture = undefined;
     this.marquee.set(null);
@@ -362,6 +544,18 @@ export class Canvas {
   }
 
   protected onDoubleClick(e: MouseEvent): void {
+    // A link card opens its page, for anyone; a shape, text or cell opens to write in.
+    const itemEl = (e.target as HTMLElement).closest<HTMLElement>('[data-item-id]');
+    if (itemEl) {
+      const item = this.board().items().find((i) => i.id === itemEl.dataset['itemId']);
+      if (item?.kind === 'link' && safeUrl(item.url) !== '#') window.open(item.url, '_blank', 'noopener,noreferrer');
+      else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(item.id);
+      else if (item?.kind === 'table') {
+        const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]')?.dataset['cell'];
+        if (cell) this.#editItem(item.id, cell);
+      }
+      return;
+    }
     // An image or file opens on double-click; see the media element's own handler.
     if (this.readOnly() || (e.target as HTMLElement).closest('[data-media-id]')) return;
     const frameId = (e.target as HTMLElement).closest('.frame-title')?.closest<HTMLElement>('.frame')?.dataset['frameId'];
@@ -400,6 +594,10 @@ export class Canvas {
       this.editing.set(null);
       return;
     }
+    if (e.key === 'Escape' && this.pen() && !isEditable(e.target)) {
+      this.pen.set(false);
+      return;
+    }
     if (isEditable(e.target)) return;
     const mod = e.metaKey || e.ctrlKey;
     // Of the shortcuts, only selecting and panning are for people who can't edit.
@@ -416,8 +614,11 @@ export class Canvas {
     } else if (e.key === 'Enter' && this.selection().size === 1) {
       e.preventDefault();
       const [id] = this.selection();
+      const item = this.board().items().find((i) => i.id === id);
       if (this.board().frames().some((f) => f.id === id)) this.#rename(id);
-      else this.#edit(id);
+      else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(id);
+      else if (item?.kind === 'table') this.#editItem(id, '0:0');
+      else if (!item) this.#edit(id);
     } else if (mod && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       if (e.shiftKey) this.board().undo.redo();
@@ -654,6 +855,7 @@ export class Canvas {
       stroke: (box.r - box.x) / 200,
       frames: board.frames(),
       media: board.media(),
+      items: board.items(),
       notes: board.notes(),
       view,
     };
