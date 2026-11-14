@@ -158,6 +158,9 @@
         (openView)="panel.set($event)"
         (assistant)="chatOpen.set(true)"
       />
+      @if (showStart()) {
+        <app-board-start (ask)="askInChat($event)" (dismissed)="startDismissed.set(true)" />
+      }
       @if (fstate()?.writing; as w) {
         @if (w.open && canComment()) {
           <app-writing-tray [boardId]="id()" [writing]="w" />

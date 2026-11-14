@@ -127,6 +127,18 @@ export type IconName = keyof typeof ICONS;
 
 const SVG = 'http://www.w3.org/2000/svg';
 
+/** An icon as an SVG element, for Trench Coat components that take an icon element. */
+export function iconElement(name: IconName): SVGSVGElement {
+  const svg = document.createElementNS(SVG, 'svg');
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.75', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, v);
+  for (const [tag, attrs] of ICONS[name]) {
+    const el = document.createElementNS(SVG, tag);
+    for (const [key, value] of Object.entries(attrs)) if (value !== undefined) el.setAttribute(key, String(value));
+    svg.append(el);
+  }
+  return svg;
+}
+
 /** An icon as SVG markup, for places that aren't Angular templates (Lit templates in dialogs). */
 export function iconMarkup(name: IconName, size = 20): string {
   const parts = ICONS[name].map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ')}/>`);
