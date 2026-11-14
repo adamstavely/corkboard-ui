@@ -11,6 +11,17 @@
   --note-green: light-dark(#d4f2cf, #2c4a2a);
   --note-purple: light-dark(#e6dbff, #3f3360);
   --note-gray: light-dark(#ececec, #3a3a3a);
+
+  /* Pen colours: strong enough to read as lines on the board and on notes, lighter in dark mode. */
+  --pen-ink: var(--tc-text-strong);
+  --pen-gray: light-dark(#868e96, #adb5bd);
+  --pen-red: light-dark(#e03131, #ff6b6b);
+  --pen-orange: light-dark(#e8590c, #ffa94d);
+  --pen-yellow: light-dark(#f2b705, #ffd43b);
+  --pen-green: light-dark(#2f9e44, #69db7c);
+  --pen-blue: light-dark(#1971c2, #4dabf7);
+  --pen-purple: light-dark(#7048e8, #b197fc);
+  --pen-pink: light-dark(#d6336c, #f783ac);
 }
 
 html,

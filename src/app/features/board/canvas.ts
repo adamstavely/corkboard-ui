@@ -13,7 +13,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -23,6 +23,7 @@ import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
 import { arrowLines, boardBounds, boardBoxes, dashPattern } from './export';
 import { ArrowStyleBar } from './arrow-style';
+import { PenStyleBar } from './pen-style';
 import { safeUrl, shapePath } from './items';
 import type { NoteReaction } from './reactions';
 import type { Media } from './board-doc';
@@ -101,7 +102,7 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -278,6 +279,21 @@ export class Canvas {
   }
   /** The stroke being drawn, in board points. */
   protected readonly draft = signal<number[] | null>(null);
+  /** The colour and thickness the pen draws in: the ones last picked. */
+  protected readonly penStyle = signal<PenStyle>(DEFAULT_PEN);
+  protected readonly penOpen = signal(false);
+  protected readonly selectedDrawings = computed(() => this.board().items().filter((i) => i.kind === 'drawing' && this.selection().has(i.id)));
+  /** The first selected stroke's style, for the selection bar's swatch and the menu's ticks. */
+  protected readonly drawingStyle = computed<PenStyle>(() => {
+    const [d] = this.selectedDrawings();
+    return d && d.kind === 'drawing' ? { color: d.color, width: d.width } : this.penStyle();
+  });
+
+  /** Restyles the selected strokes, and the pen with them, so the next stroke matches. */
+  protected restyleDrawings(change: Partial<PenStyle>): void {
+    this.board().setPenStyle(this.selectedDrawings().map((d) => d.id), change);
+    this.penStyle.update((s) => ({ ...s, ...change }));
+  }
   protected readonly linkPrompt = signal(false);
   /** The shape or text being written in, or the table cell. */
   protected readonly itemEditing = signal<{ id: string; cell?: string } | null>(null);
@@ -1003,7 +1019,7 @@ export class Canvas {
   @HostListener('window:pointercancel')
   protected onPointerUp(): void {
     if (this.#gesture?.kind === 'draw') {
-      const id = this.board().addDrawing(this.#gesture.points);
+      const id = this.board().addDrawing(this.#gesture.points, this.penStyle());
       this.draft.set(null);
       if (id) this.board().undo.stopCapturing();
     }

@@ -104,13 +104,24 @@ export interface TextItem extends Placed {
   text: string;
   size: TextSize;
 }
+/** Pen colours (see --pen-* in styles.css). Strokes from before these were kept used note colours, which are all here. */
+export const PEN_COLORS = ['ink', 'gray', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'] as const;
+export type PenColor = (typeof PEN_COLORS)[number];
+/** Pen thicknesses, in board pixels: fine, medium, bold and marker. */
+export const PEN_WIDTHS = [2, 4, 8, 16] as const;
+export interface PenStyle {
+  color: PenColor;
+  width: number;
+}
+export const DEFAULT_PEN: PenStyle = { color: 'ink', width: 4 };
+
 /** A pen stroke: points (x, y, x, y, …) in a box `vw` by `vh` drawn at the item's size, so it scales when resized. */
 export interface DrawingItem extends Placed {
   kind: 'drawing';
   points: readonly number[];
   vw: number;
   vh: number;
-  color: NoteColor | 'ink';
+  color: PenColor;
   width: number;
 }
 /** A grid of text cells, each edited on its own, so two people can fill in different cells at once. */
@@ -481,6 +492,19 @@ export class BoardDoc {
     chosen.forEach((n, i) => setZ(n.id, base + i));
   }
 
+  /** Changes pen strokes' colour or thickness. */
+  setPenStyle(ids: Iterable<string>, change: Partial<PenStyle>): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (node?.get('kind') !== 'drawing') continue;
+        if (change.color && PEN_COLORS.includes(change.color)) node.set('color', change.color);
+        if (change.width && (PEN_WIDTHS as readonly number[]).includes(change.width)) node.set('width', change.width);
+      }
+    }, this);
+  }
+
   /** Changes frames' fill or border. */
   setFrameStyle(ids: Iterable<string>, change: Partial<FrameStyle>): void {
     this.undo.stopCapturing();
@@ -558,7 +582,7 @@ export class BoardDoc {
   }
 
   /** A pen stroke through these board points (x, y, x, y, …); null if it's too short to keep. */
-  addDrawing(points: readonly number[], color: DrawingItem['color'] = 'ink', width = 3): string | null {
+  addDrawing(points: readonly number[], { color, width }: PenStyle = DEFAULT_PEN): string | null {
     if (points.length < 4) return null;
     const xs = points.filter((_, i) => i % 2 === 0);
     const ys = points.filter((_, i) => i % 2 === 1);
@@ -982,7 +1006,7 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
         points: Array.isArray(points) ? points.filter((p): p is number => typeof p === 'number') : [],
         vw: num(node.get('vw'), box.w),
         vh: num(node.get('vh'), box.h),
-        color: NOTE_COLORS.includes(color) ? color : 'ink',
+        color: PEN_COLORS.includes(color) ? color : 'ink',
         width: num(node.get('width'), 3),
       };
     }
