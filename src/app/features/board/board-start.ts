@@ -2,6 +2,7 @@ import { Component, inject, output, signal, DestroyRef } from '@angular/core';
 import { PromptStarters } from '@adamstavely/trenchcoat/angular/prompt-starters';
 import type { PromptStarter } from '@adamstavely/trenchcoat/prompt-starters';
 import { Icon, iconElement } from '../../shared/icon';
+import { canDictate, listen } from '../../shared/speech';
 
 /** What starts each kind of board: notes the assistant writes, then frames it sorts them into. */
 export const starters = (): PromptStarter[] => [
@@ -27,18 +28,6 @@ export const starters = (): PromptStarter[] => [
     text: 'Set this board up for a workshop: add a prompt note each for Agenda, Warm-up, Ideas, Vote and Next steps, then put each in its own frame with that title.',
   },
 ];
-
-/** The browser's speech recognition, where it has one (Chrome and Safari prefix it). */
-type Recognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-};
-const SpeechRecognition = (globalThis as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }).SpeechRecognition ??
-  (globalThis as unknown as { webkitSpeechRecognition?: new () => Recognition }).webkitSpeechRecognition;
 
 /**
  * On an empty board: a prompt bar asking where to start, and starters above it. What's sent goes to the assistant,
@@ -126,43 +115,36 @@ export class BoardStart {
 
   protected readonly text = signal('');
   protected readonly listening = signal(false);
-  protected readonly canDictate = !!SpeechRecognition;
+  protected readonly canDictate = canDictate;
   protected readonly starters = starters();
-  #recognition: Recognition | undefined;
+  #stop: (() => void) | undefined;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.#recognition?.stop());
+    inject(DestroyRef).onDestroy(() => this.#stop?.());
   }
 
   protected send(): void {
     const text = this.text().trim();
     if (!text) return;
-    this.#recognition?.stop();
+    this.#stop?.();
     this.ask.emit(text);
     this.text.set('');
   }
 
   /** Speaks into the field: what's heard so far replaces what was said this time, after what was typed before. */
   protected toggleDictation(): void {
-    if (this.#recognition) {
-      this.#recognition.stop();
+    if (this.#stop) {
+      this.#stop();
       return;
     }
-    if (!SpeechRecognition) return;
     const before = this.text().trim();
-    const r = new SpeechRecognition();
-    r.continuous = true;
-    r.interimResults = true;
-    r.onresult = (e) => {
-      const heard = Array.from(e.results, (result) => result[0].transcript).join('');
-      this.text.set([before, heard.trim()].filter(Boolean).join(' '));
-    };
-    r.onend = () => {
-      this.#recognition = undefined;
-      this.listening.set(false);
-    };
-    this.#recognition = r;
+    this.#stop = listen(
+      (heard) => this.text.set([before, heard].filter(Boolean).join(' ')),
+      () => {
+        this.#stop = undefined;
+        this.listening.set(false);
+      },
+    );
     this.listening.set(true);
-    r.start();
   }
 }
