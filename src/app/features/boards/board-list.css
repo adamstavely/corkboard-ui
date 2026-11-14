@@ -1,3 +1,22 @@
+/*
+ * The home page's backdrop: the board's dot grid, under soft washes of the note colours across the top, so the page
+ * reads as a corkboard before anything is on it. Fixed, so it stays put while the list scrolls.
+ */
+:host {
+  display: block;
+  min-height: 100%;
+  background-color: var(--app-canvas);
+  background-image:
+    radial-gradient(ellipse 50% 60% at 6% -5%, color-mix(in srgb, var(--pen-yellow) 32%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 50% -15%, color-mix(in srgb, var(--pen-pink) 20%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 60% at 98% 0%, color-mix(in srgb, var(--pen-blue) 26%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 45% at 90% 60%, color-mix(in srgb, var(--pen-green) 16%, transparent), transparent 70%),
+    radial-gradient(ellipse 40% 45% at 0% 85%, color-mix(in srgb, var(--pen-purple) 14%, transparent), transparent 70%),
+    radial-gradient(color-mix(in srgb, var(--tc-text-primary) 12%, transparent) 1px, transparent 1.2px);
+  background-size: auto, auto, auto, auto, auto, 24px 24px;
+  background-attachment: fixed;
+}
+
 .page {
   max-width: 1120px;
   margin: 0 auto;
@@ -15,14 +34,6 @@
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-lg);
   background: var(--tc-surface-raised);
-}
-.eyebrow {
-  margin: 0 0 var(--tc-space-2);
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--tc-accent-text);
 }
 .intro h2 {
   margin: 0;

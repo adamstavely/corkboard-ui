@@ -35,7 +35,7 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/account')"><span class="app-menu-label">Settings</span></button>
           </div>
         </tc-menu-morph>
-        <a class="brand" href="/" (click)="$event.preventDefault(); back()">Corkboard</a>
+        <a class="brand" href="/" (click)="$event.preventDefault(); back()"><app-logo />Corkboard</a>
         <span class="sep" aria-hidden="true"></span>
         <span class="sync" [class.offline]="status() === 'offline' || status() === 'stuck'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
           <app-icon [name]="status() === 'offline' || status() === 'stuck' ? 'cloudOff' : 'cloud'" />
