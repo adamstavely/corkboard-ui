@@ -4,7 +4,8 @@ import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { Api } from '../../api/generated/api';
 import { linksControllerOpen } from '../../api/generated/fn/links/links-controller-open';
 import { BoardConnection } from '../board/board-connection';
-import { BoardDoc } from '../board/board-doc';
+import { BoardDoc, type Media } from '../board/board-doc';
+import { FileCache, openFile } from '../board/file-cache';
 import { Canvas } from '../board/canvas';
 import { colorFor } from '../board/presence';
 
@@ -26,7 +27,15 @@ import { colorFor } from '../board/presence';
         @if (problem()) {
           <p class="problem" role="alert">{{ problem() }}</p>
         } @else if (board() && connection() && connection()!.status() !== 'connecting') {
-          <app-canvas [board]="board()!" [presence]="connection()!.presence" [provider]="connection()!.provider" [readOnly]="true" readOnlyLabel="View only" />
+          <app-canvas
+            [board]="board()!"
+            [presence]="connection()!.presence"
+            [provider]="connection()!.provider"
+            [readOnly]="true"
+            readOnlyLabel="View only"
+            [fileUrls]="files()?.urls() ?? emptyUrls"
+            (openFile)="open($event)"
+          />
         } @else {
           <tc-skeleton aria-label="Loading board"></tc-skeleton>
         }
@@ -81,6 +90,9 @@ export class SharedBoard {
   protected readonly meta = resource({ params: () => this.token(), loader: ({ params }) => this.#api.invoke(linksControllerOpen, { token: params }) });
   protected readonly board = signal<BoardDoc | undefined>(undefined);
   protected readonly connection = signal<BoardConnection | undefined>(undefined);
+  /** The board's images and files, fetched with the link. */
+  protected readonly files = signal<FileCache | undefined>(undefined);
+  protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
 
   protected readonly problem = computed(() => {
     const err = this.meta.error();
@@ -98,15 +110,30 @@ export class SharedBoard {
         const guestId = `guest-${crypto.randomUUID()}`;
         const board = new BoardDoc();
         const connection = new BoardConnection(boardId, board, () => `link:${token}`, { id: guestId, name: 'Guest', color: colorFor(guestId) });
+        const files = FileCache.forLink(boardId, token);
         this.board.set(board);
         this.connection.set(connection);
+        this.files.set(files);
         onCleanup(() => {
           this.board.set(undefined);
           this.connection.set(undefined);
+          this.files.set(undefined);
           connection.destroy();
           board.destroy();
+          files.destroy();
         });
       });
     });
+
+    // Fetch the board's images and files as they appear on it.
+    effect(() => {
+      const ids = this.board()?.media().map((m) => m.fileId) ?? [];
+      untracked(() => this.files()?.load(ids));
+    });
+  }
+
+  protected open(media: Media): void {
+    const url = this.files()?.urls().get(media.fileId);
+    if (url) openFile(url, media);
   }
 }

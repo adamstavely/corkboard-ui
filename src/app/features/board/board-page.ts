@@ -25,7 +25,7 @@ import { SummaryFeed } from './summary';
 import { BoardClusters, BoardHistory } from './board-insights';
 import { LedgerFeed } from './ledger';
 import { ReactionsFeed, reactionsFor } from './reactions';
-import { FileCache, imageSize } from './file-cache';
+import { FileCache, imageSize, openFile } from './file-cache';
 import { BoardFiles, ImageAsk } from './board-files';
 import { BoardActivity } from './board-activity';
 import { AwaySummary } from '@adamstavely/trenchcoat/angular/away-summary';
@@ -329,13 +329,7 @@ export class BoardPage {
   /** Opens a file in a new tab (images and PDFs show; others download). */
   protected open(media: Media): void {
     const url = this.files()?.urls().get(media.fileId);
-    if (!url) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    if (!media.mime.startsWith('image/') && media.mime !== 'application/pdf') a.download = media.name;
-    a.click();
+    if (url) openFile(url, media);
   }
 
   // ── While you were away ──
@@ -450,7 +444,7 @@ export class BoardPage {
         const chat = new ChatFeed(board.doc);
         const facilitation = new FacilitationFeed(board.doc);
         this.facilitation.set(facilitation);
-        const tasks = new TaskFeed(board.doc);
+        const tasks = new TaskFeed(board.doc, () => this.canEdit());
         this.tasks.set(tasks);
         const summary = new SummaryFeed(board.doc);
         this.summaryFeed.set(summary);

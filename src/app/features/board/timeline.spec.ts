@@ -17,7 +17,12 @@ describe('timelines', () => {
 
   it('dates each column from a start and a period', () => {
     expect(columnDates({ start: '2026-11-16', every: 'week' }, 1)).toEqual({ start: '2026-11-23', end: '2026-11-29' });
-    expect(columnDates({ start: '2026-01-31', every: 'month' }, 0)).toEqual({ start: '2026-01-31', end: '2026-03-02' });
+    // Month periods keep the start's day, or the month's last day when it's shorter: never spilling into the next.
+    expect(columnDates({ start: '2026-01-31', every: 'month' }, 0)).toEqual({ start: '2026-01-31', end: '2026-02-27' });
+    expect(columnDates({ start: '2026-01-31', every: 'month' }, 1)).toEqual({ start: '2026-02-28', end: '2026-03-30' });
+    expect(columnDates({ start: '2026-01-31', every: 'month' }, 2)).toEqual({ start: '2026-03-31', end: '2026-04-29' });
+    expect(columnDates({ start: '2028-01-30', every: 'month' }, 1)).toEqual({ start: '2028-02-29', end: '2028-03-29' });
+    expect(columnDates({ start: '2026-11-30', every: 'quarter' }, 1)).toEqual({ start: '2027-02-28', end: '2027-05-29' });
     expect(columnDates({ start: '2026-01-01', every: 'quarter' }, 1)).toEqual({ start: '2026-04-01', end: '2026-06-30' });
   });
 
