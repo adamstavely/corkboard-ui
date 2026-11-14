@@ -1090,6 +1090,11 @@ export class Canvas {
       return;
     }
     if (isEditable(e.target)) return;
+    if (e.shiftKey && e.code === 'Digit1' && !mod) {
+      e.preventDefault();
+      this.fitAll();
+      return;
+    }
     // V, T, R, O, F, P, L and C pick a tool, as the rail's tooltips say.
     const toolKey = !mod && !e.altKey && !e.shiftKey ? TOOL_KEYS[e.key.toLowerCase()] : undefined;
     if (toolKey && (!this.readOnly() || (toolKey === 'comment' && this.canReact()) || toolKey === 'select')) {
@@ -1338,7 +1343,28 @@ export class Canvas {
 
   /** The surface's size, kept current, for the minimap's view box. */
   readonly #size = signal({ width: 0, height: 0 });
-  protected readonly minimapOpen = signal(true);
+  protected readonly minimapOpen = signal(false);
+  protected readonly keysOpen = signal(false);
+  /** The keyboard shortcuts, as the bottom-right panel lists them. */
+  protected readonly shortcuts = [
+    { label: 'Select', keys: 'V' },
+    { label: 'Sticky note', keys: 'N' },
+    { label: 'Text', keys: 'T' },
+    { label: 'Rectangle', keys: 'R' },
+    { label: 'Oval', keys: 'O' },
+    { label: 'Arrow', keys: 'L' },
+    { label: 'Pen', keys: 'P' },
+    { label: 'Frame', keys: 'F' },
+    { label: 'Comment', keys: 'C' },
+    { label: 'Put the tool down', keys: 'Esc' },
+    { label: 'Search and commands', keys: `${this.modKey}K` },
+    { label: 'Find on this board', keys: `${this.modKey}F` },
+    { label: 'Undo', keys: `${this.modKey}Z` },
+    { label: 'Redo', keys: `⇧${this.modKey}Z` },
+    { label: 'Duplicate', keys: `${this.modKey}D` },
+    { label: 'Fit everything', keys: '⇧1' },
+    { label: 'Pan', keys: 'Space + drag' },
+  ];
   /** Everything on the board and what's in view, in a small box: frames as outlines, notes as dots of their colour. */
   protected readonly minimap = computed(() => {
     const board = this.board();

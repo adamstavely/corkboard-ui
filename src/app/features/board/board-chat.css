@@ -1,8 +1,8 @@
-/* Docked at the board's lower right, above the toolbar's row. */
+/* Docked at the board's lower right, above the zoom panel. */
 .chat {
   position: absolute;
   right: var(--tc-space-4);
-  /* Above the board's toolbar, which runs along the bottom. */
+  /* Above the zoom panel in the corner. */
   bottom: calc(var(--tc-space-4) + 56px);
   z-index: 3;
   display: flex;
@@ -14,7 +14,8 @@
 /* With a panel docked on the right, the chat moves to the left so both stay usable. */
 :host(.beside-panel) .chat {
   right: auto;
-  left: var(--tc-space-4);
+  /* Clear of the tool rail. */
+  left: calc(var(--tc-space-3) + 64px);
 }
 
 .head {

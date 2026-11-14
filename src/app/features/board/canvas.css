@@ -43,12 +43,12 @@
   pointer-events: none;
 }
 
+/* Bottom centre, only for the read-only label and the link prompt. */
 .toolbar {
   position: absolute;
-  /* Centred in the room right of the minimap, wrapping onto a second row rather than running under it. */
-  --clear: calc(200px + var(--tc-space-4) * 2);
-  left: calc(var(--clear) + (100% - var(--clear)) / 2);
-  bottom: var(--tc-space-4);
+  --clear: calc(260px + var(--tc-space-4) * 2);
+  left: 50%;
+  bottom: var(--tc-space-3);
   transform: translateX(-50%);
   display: flex;
   flex-wrap: wrap;
@@ -198,10 +198,11 @@
 }
 
 /* Everything on the board in a small box at the lower left; the outlined box is what's in view. */
+/* Above the zoom panel, bottom right, when the map is on. */
 .minimap {
   position: absolute;
-  left: var(--tc-space-4);
-  bottom: var(--tc-space-4);
+  right: var(--tc-space-3);
+  bottom: calc(var(--tc-space-3) + 52px);
   z-index: 2;
   width: 200px;
   height: 140px;

@@ -465,25 +465,38 @@
     </div>
   }
 
-  <div class="toolbar" role="toolbar" aria-label="Board">
-    @if (readOnly()) {
-      <span class="read-only">{{ readOnlyLabel() }}</span>
-      <span class="divider" aria-hidden="true"></span>
-    }
+  @if (readOnly() || linkPrompt()) {
+    <div class="toolbar" role="toolbar" aria-label="Board">
+      @if (readOnly()) {
+        <span class="read-only">{{ readOnlyLabel() }}</span>
+      }
     @if (linkPrompt()) {
-      <form class="link-prompt" (submit)="$event.preventDefault(); addLink(linkInput.value)">
-        <input #linkInput type="url" placeholder="https://…" aria-label="Link to add" required [attr.data-autofocus]="true" />
-        <tc-button size="sm" type="submit" label="Add link"></tc-button>
-        <tc-button size="sm" variant="ghost" label="Cancel" (click)="linkPrompt.set(false)"></tc-button>
-      </form>
-      <span class="divider" aria-hidden="true"></span>
-    }
-    <tc-button size="sm" [variant]="finding() ? 'secondary' : 'ghost'" label="Find" title="Find and filter (Ctrl/⌘ F)" (click)="toggleFind()"></tc-button>
-    <tc-button size="sm" variant="ghost" label="−" aria-label="Zoom out" (click)="zoomBy(1 / 1.25)"></tc-button>
-    <tc-button size="sm" variant="ghost" [label]="zoomPercent()" aria-label="Reset zoom to 100%" (click)="resetZoom()"></tc-button>
-    <tc-button size="sm" variant="ghost" label="+" aria-label="Zoom in" (click)="zoomBy(1.25)"></tc-button>
-    <tc-button size="sm" variant="ghost" label="Fit" title="Show everything on the board" (click)="fitAll()"></tc-button>
-    <tc-button size="sm" [variant]="minimapOpen() ? 'secondary' : 'ghost'" label="Map" [attr.aria-pressed]="minimapOpen()" title="Show or hide the minimap" (click)="minimapOpen.set(!minimapOpen())"></tc-button>
+        <form class="link-prompt" (submit)="$event.preventDefault(); addLink(linkInput.value)">
+          <input #linkInput type="url" placeholder="https://…" aria-label="Link to add" required [attr.data-autofocus]="true" />
+          <tc-button size="sm" type="submit" label="Add link"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Cancel" (click)="linkPrompt.set(false)"></tc-button>
+        </form>
+        }
+    </div>
+  }
+
+  <!-- Bottom right: the map, fitting everything in, zoom, and the keyboard shortcuts. -->
+  <div class="app-island zoom-panel" role="toolbar" aria-label="View">
+    <button type="button" class="icon-btn" aria-label="Map" data-tip="Map" data-tip-side="top" [attr.aria-pressed]="minimapOpen()" (click)="minimapOpen.set(!minimapOpen())"><app-icon name="map" /></button>
+    <button type="button" class="icon-btn" aria-label="Fit everything" data-tip="Fit everything  ⇧1" data-tip-side="top" (click)="fitAll()"><app-icon name="fit" /></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button type="button" class="icon-btn" aria-label="Zoom out" data-tip="Zoom out" data-tip-side="top" (click)="zoomBy(1 / 1.25)"><app-icon name="minus" /></button>
+    <button type="button" class="zoom-level" aria-label="Reset zoom to 100%" data-tip="Reset to 100%" data-tip-side="top" (click)="resetZoom()">{{ zoomPercent() }}</button>
+    <button type="button" class="icon-btn" aria-label="Zoom in" data-tip="Zoom in" data-tip-side="top" (click)="zoomBy(1.25)"><app-icon name="plus" /></button>
+    <span class="sep" aria-hidden="true"></span>
+    <tc-menu-morph side="top" align="end" [open]="keysOpen()" (tc-open-change)="keysOpen.set($event.detail.open)">
+      <button type="button" class="icon-btn" data-menu-trigger aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts" data-tip-side="top"><app-icon name="help" /></button>
+      <div data-menu class="app-menu" aria-label="Keyboard shortcuts">
+        @for (k of shortcuts; track k.label) {
+          <div class="app-menu-item" role="menuitem" tabindex="-1"><span class="label">{{ k.label }}</span><kbd>{{ k.keys }}</kbd></div>
+        }
+      </div>
+    </tc-menu-morph>
   </div>
 </div>
 
