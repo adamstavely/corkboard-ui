@@ -199,8 +199,8 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number, max: n
 }
 
 /**
- * Draws the whole board onto a canvas, at `scale` (2 for crisp images), in the page's current colours: frames, images
- * and file cards, arrows, then notes. Pass the images from `loadImages` to draw them.
+ * Draws the whole board onto a canvas, at `scale` (2 for crisp images), in the page's current colours: frames, arrows,
+ * then notes, shapes, images and file cards in their stack order. Pass the images from `loadImages` to draw them.
  */
 export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLImageElement> = new Map(), scale = 2): HTMLCanvasElement {
   const bounds = boardBounds(board) ?? { x: 0, y: 0, w: 400, h: 300 };
@@ -224,15 +224,23 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
     ctx.beginPath();
     ctx.roundRect(f.x, f.y, f.w, f.h, 12);
     ctx.fill();
-    ctx.stroke();
+    // A tinted frame: its note colour at 45% over the surface, as the board mixes it.
+    if (f.fill !== 'clear' && f.fill !== 'solid') {
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = color(`--note-${f.fill}`, '#fff3a8');
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (f.border !== 'none') {
+      ctx.setLineDash(f.border === 'dashed' ? [8, 6] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     ctx.fillStyle = text;
     ctx.font = `600 18px ${font}`;
     ctx.fillText(f.title || 'Untitled frame', f.x + 16, f.y + 30, f.w - 32);
   }
-  const muted = color('--tc-text-muted', '#6b6b6b');
-  for (const m of [...board.media()].sort((a, b) => a.z - b.z)) drawMedia(ctx, m, images.get(m.fileId), { surface, border, text, muted, font });
-  for (const item of board.items()) drawItem(ctx, item, { surface, border, text, muted, font });
-  // Arrows go under the notes, as on the board.
+  // Arrows go over frames and under everything else, as on the board.
   const ink = color('--tc-text-secondary', '#555555');
   ctx.strokeStyle = ink;
   ctx.fillStyle = ink;
@@ -251,23 +259,35 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
     ctx.fill();
   }
   ctx.lineCap = 'butt';
-  for (const n of board.notes()) {
-    ctx.fillStyle = color(`--note-${n.color}`, '#fff3a8');
-    ctx.beginPath();
-    ctx.roundRect(n.x, n.y, n.w, n.h, 6);
-    ctx.fill();
-    ctx.fillStyle = text;
-    let y = n.y + 26;
-    for (const l of noteLines(n.text)) {
-      ctx.font = `${l.bold ? 600 : 400} 15px ${font}`;
-      for (const line of wrap(ctx, l.text, n.w - 24, Math.max(1, Math.floor((n.y + n.h - y) / 21)))) {
-        if (y > n.y + n.h - 8) break;
-        ctx.fillText(line, n.x + 12, y);
-        y += 21;
-      }
+  // Notes, shapes and images in the board's stack order (see BoardDoc.restack).
+  const muted = color('--tc-text-muted', '#6b6b6b');
+  const colours = { surface, border, text, muted, font };
+  const stack = board.stack();
+  const content = [
+    ...board.media().map((m) => ({ id: m.id, draw: () => drawMedia(ctx, m, images.get(m.fileId), colours) })),
+    ...board.items().map((item) => ({ id: item.id, draw: () => drawItem(ctx, item, colours) })),
+    ...board.notes().map((n) => ({ id: n.id, draw: () => drawNote(ctx, n, colours) })),
+  ];
+  for (const c of content.sort((a, b) => (stack.get(a.id) ?? 0) - (stack.get(b.id) ?? 0))) c.draw();
+  return canvas;
+}
+
+/** A sticky note, its lines wrapped to fit. */
+function drawNote(ctx: CanvasRenderingContext2D, n: Note, c: { text: string; font: string }): void {
+  ctx.fillStyle = color(`--note-${n.color}`, '#fff3a8');
+  ctx.beginPath();
+  ctx.roundRect(n.x, n.y, n.w, n.h, 6);
+  ctx.fill();
+  ctx.fillStyle = c.text;
+  let y = n.y + 26;
+  for (const l of noteLines(n.text)) {
+    ctx.font = `${l.bold ? 600 : 400} 15px ${c.font}`;
+    for (const line of wrap(ctx, l.text, n.w - 24, Math.max(1, Math.floor((n.y + n.h - y) / 21)))) {
+      if (y > n.y + n.h - 8) break;
+      ctx.fillText(line, n.x + 12, y);
+      y += 21;
     }
   }
-  return canvas;
 }
 
 /** A shape, text, pen stroke, table or link card as it is on the board. */

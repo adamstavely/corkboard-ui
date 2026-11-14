@@ -141,6 +141,38 @@
   transform: scale(1.08);
 }
 
+/* The frame style picker: fills as small frames (square, not round), four to a row, then the borders. */
+.frame-menu {
+  min-width: 176px !important;
+}
+.frame-menu .colour-grid {
+  grid-template-columns: repeat(4, 32px);
+}
+.current-colour.frame-swatch,
+[data-ui='mmo'] > [data-menu] .colour-grid .swatch-item.frame-swatch {
+  border-radius: var(--tc-radius-sm);
+}
+.current-colour.frame-swatch[data-border='dashed'] {
+  border: 1.5px dashed var(--tc-text-secondary);
+}
+.border-sample {
+  flex: none;
+  width: 18px;
+  height: 14px;
+  border: 1.5px solid var(--tc-text-secondary);
+  border-radius: 3px;
+}
+.border-sample[data-border='dashed'] {
+  border-style: dashed;
+}
+.border-sample[data-border='none'] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--tc-text-primary) 12%, transparent);
+}
+.frame-menu .app-menu-item[aria-checked='true'] {
+  color: var(--tc-accent-text);
+}
+
 .tag-menu .tag-tools {
   padding: 4px;
 }

@@ -106,10 +106,50 @@ describe('BoardDoc', () => {
     expect([na.color, nb.color]).toEqual(['yellow', 'green']);
   });
 
-  it('brings notes to the front, keeping their order among themselves', () => {
+  it('brings things to the front or sends them to the back, keeping their order among themselves', () => {
     const [a, b, c] = [board.addNote(0, 0), board.addNote(0, 0), board.addNote(0, 0)];
-    board.bringToFront([a, b]);
+    board.restack([a, b], 'front');
     expect(board.notes().map((n) => n.id)).toEqual([c, a, b]);
+    board.restack([b, a], 'back');
+    expect(board.notes().map((n) => n.id)).toEqual([a, b, c]);
+    expect([...board.stack().values()]).toEqual([1, 2, 3]);
+  });
+
+  it('steps forward and backward past the next thing overlapped, not past things elsewhere', () => {
+    const a = board.addNote(0, 0);
+    const far = board.addNote(5000, 5000);
+    const b = board.addShape(20, 20);
+    const c = board.addNote(40, 40);
+    const order = () => [...board.stack()].sort((x, y) => x[1] - y[1]).map(([id]) => id);
+    board.restack([a], 'forward');
+    expect(order()).toEqual([far, b, a, c]);
+    board.restack([a], 'forward');
+    expect(order()).toEqual([far, b, c, a]);
+    board.restack([a], 'forward');
+    expect(order()).toEqual([far, b, c, a]);
+    board.restack([c], 'backward');
+    expect(order()).toEqual([far, c, b, a]);
+  });
+
+  it('stacks frames among frames, always under notes, and undoes a restack in one step', () => {
+    const note = board.addNote(0, 0);
+    const [f1, f2] = [board.addFrame(0, 0), board.addFrame(0, 0)];
+    board.restack([f2, note], 'back');
+    expect(board.frames().map((f) => f.id)).toEqual([f2, f1]);
+    expect(board.stack().get(note)).toBe(1);
+    expect(board.stack().has(f1)).toBe(false);
+    board.undo.undo();
+    expect(board.frames().map((f) => f.id)).toEqual([f1, f2]);
+  });
+
+  it('styles frames, and reads a frame with an unknown style as the default', () => {
+    const f = board.addFrame(0, 0);
+    expect(board.frames()[0]).toEqual(expect.objectContaining({ fill: 'clear', border: 'solid' }));
+    board.setFrameStyle([f], { fill: 'green' });
+    board.setFrameStyle([f], { border: 'dashed' });
+    expect(board.frames()[0]).toEqual(expect.objectContaining({ fill: 'green', border: 'dashed' }));
+    board.doc.getMap<Y.Map<unknown>>('nodes').get(f)!.set('fill', 'chartreuse');
+    expect(board.frames()[0].fill).toBe('clear');
   });
 
   it("doesn't rebuild the list when only a note's text changes", () => {

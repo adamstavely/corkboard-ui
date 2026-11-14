@@ -27,6 +27,9 @@
         [class.found-current]="current() === frame.id"
         [class.locked]="board().locked().has(frame.id)"
         [attr.data-frame-id]="frame.id"
+        [attr.data-fill]="frame.fill"
+        [attr.data-border]="frame.border"
+        [style.--frame-tint]="frame.fill === 'clear' || frame.fill === 'solid' ? null : 'var(--note-' + frame.fill + ')'"
         [class.selected]="selection().has(frame.id)"
         [style.left.px]="frame.x"
         [style.top.px]="frame.y"
@@ -82,7 +85,7 @@
         [style.top.px]="m.y"
         [style.width.px]="m.w"
         [style.height.px]="m.h"
-        [style.z-index]="m.z"
+        [style.z-index]="board().stack().get(m.id)"
         (dblclick)="m.kind === 'image' ? askImage.emit(m) : openFile.emit(m)"
       >
         @if (m.kind === 'image') {
@@ -127,7 +130,7 @@
         [style.top.px]="item.y"
         [style.width.px]="item.w"
         [style.height.px]="item.h"
-        [style.z-index]="item.z"
+        [style.z-index]="board().stack().get(item.id)"
         [attr.aria-label]="itemLabel(item)"
         role="img"
       >
@@ -259,6 +262,7 @@
     }
     @for (note of drawnNotes(); track note.id) {
       <app-note
+        [style.z-index]="board().stack().get(note.id)"
         [class.dimmed]="dims(note.id)"
         [class.found]="isFound(note.id)"
         [class.found-current]="current() === note.id"
@@ -351,6 +355,35 @@
                 ></button>
               }
             </div>
+          </div>
+        </tc-menu-morph>
+      }
+      @if (!readOnly() && selectedFrames().length) {
+        <tc-menu-morph [open]="frameStyleOpen()" (tc-open-change)="frameStyleOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Frame style" data-tip="Frame style">
+            <span class="frame-swatch current-colour" [attr.data-border]="frameStyle().border" [style.background]="fillLook(frameStyle().fill)"></span>
+          </button>
+          <div data-menu class="app-menu frame-menu" aria-label="Frame style">
+            <div class="colour-grid" role="group" aria-label="Fill">
+              @for (fill of frameFills; track fill.id) {
+                <button
+                  type="button"
+                  class="swatch-item frame-swatch"
+                  role="menuitemradio"
+                  [style.background]="fillLook(fill.id)"
+                  [attr.aria-checked]="frameStyle().fill === fill.id"
+                  [attr.aria-label]="fill.label + ' fill'"
+                  [title]="fill.label"
+                  (click)="restyleFrames({ fill: fill.id })"
+                ></button>
+              }
+            </div>
+            <hr />
+            @for (border of frameBorders; track border.id) {
+              <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="frameStyle().border === border.id" (click)="restyleFrames({ border: border.id })">
+                <span class="border-sample" [attr.data-border]="border.id" aria-hidden="true"></span><span class="app-menu-label">{{ border.label }}</span>
+              </button>
+            }
           </div>
         </tc-menu-morph>
       }
@@ -453,6 +486,18 @@
         >
           <app-icon name="comment" />
         </button>
+      }
+      @if (!readOnly() && !allLocked()) {
+        <tc-menu-morph [open]="layerOpen()" (tc-open-change)="layerOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Layer" data-tip="Layer"><app-icon name="layers" /></button>
+          <div data-menu class="app-menu" aria-label="Layer">
+            @for (choice of layerChoices; track choice.how) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="restack(choice.how)">
+                <app-icon [name]="choice.icon" /><span class="app-menu-label">{{ choice.label }}</span><kbd>{{ choice.keys }}</kbd>
+              </button>
+            }
+          </div>
+        </tc-menu-morph>
       }
       @if (!readOnly()) {
         <button type="button" class="icon-btn" [attr.aria-label]="allLocked() ? 'Unlock' : 'Lock'" [attr.data-tip]="allLocked() ? 'Unlock' : 'Lock'" [attr.aria-pressed]="allLocked()" (click)="toggleLock()">
