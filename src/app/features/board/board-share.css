@@ -34,3 +34,10 @@
 .note {
   color: var(--tc-text-muted);
 }
+
+.link-edit {
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}

@@ -10,7 +10,8 @@ import { Canvas } from '../board/canvas';
 import { colorFor } from '../board/presence';
 
 /**
- * A board opened from a share link: live and read-only, as a guest, with no need to pick who you are. The link's
+ * A board opened from a share link: live, as a guest, with no need to pick who you are; read-only unless the link lets
+ * people edit. The link's
  * token is the connection's credential, so turning the link off ends the view.
  */
 @Component({
@@ -20,7 +21,7 @@ import { colorFor } from '../board/presence';
     <div class="page">
       <div class="bar">
         <strong class="title">{{ meta.hasValue() ? meta.value().title : 'Shared board' }}</strong>
-        <span class="badge">View only</span>
+        <span class="badge">{{ canEdit() ? 'Can edit' : 'View only' }}</span>
         <span class="status" role="status">{{ statusText() }}</span>
       </div>
       <div class="stage">
@@ -31,7 +32,7 @@ import { colorFor } from '../board/presence';
             [board]="board()!"
             [presence]="connection()!.presence"
             [provider]="connection()!.provider"
-            [readOnly]="true"
+            [readOnly]="!canEdit()"
             readOnlyLabel="View only"
             [fileUrls]="files()?.urls() ?? emptyUrls"
             (openFile)="open($event)"
@@ -94,6 +95,8 @@ export class SharedBoard {
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
 
+  /** Whether the link lets guests edit the board. */
+  protected readonly canEdit = computed(() => this.meta.hasValue() && this.meta.value().canEdit);
   protected readonly problem = computed(() => {
     const err = this.meta.error();
     if (err) return err instanceof HttpErrorResponse && err.status === 410 ? 'This link has been turned off or has expired.' : "This link doesn't open a board.";
