@@ -92,6 +92,9 @@
         (askImage)="askAbout($event)"
         (openFile)="open($event)"
         [frameBadges]="frameBadges()"
+        [pins]="pins()"
+        (pinOpen)="openPin({ nodeId: $event })"
+        (pinPlaced)="openPin($event)"
         (joinFrame)="joinBreakout($event)"
       />
       @if (fstate()?.writing; as w) {
@@ -164,6 +167,7 @@
           [selection]="selectionIds()"
           [canComment]="canComment()"
           [me]="meUser()"
+          [target]="pinTarget()"
           (closed)="panel.set(null)"
           (show)="showNode($event)"
           (changed)="comments.reload()"
