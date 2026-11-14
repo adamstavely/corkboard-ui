@@ -10,9 +10,55 @@
     </div>
   }
 
+  @if (introOpen()) {
+    <section class="intro" aria-labelledby="intro-title">
+      <div class="intro-text">
+        <p class="eyebrow">Corkboard</p>
+        <h2 id="intro-title">Think it through together, on one board.</h2>
+        <p class="lede">
+          An endless whiteboard for your team's retros, plans and brainstorms. Put ideas on notes, sort them into frames,
+          and decide together in real time, with an assistant that can read the board and help.
+        </p>
+        <ul class="points">
+          <li>
+            <app-icon name="sticky" />
+            <span><strong>Notes, frames and arrows.</strong> Sketch, group and connect ideas, then share the outcome as a doc, tasks or an image.</span>
+          </li>
+          <li>
+            <app-icon name="users" />
+            <span><strong>Live, together.</strong> See everyone's cursor, and run the session with a timer, votes and hidden writing.</span>
+          </li>
+          <li>
+            <app-icon name="sparkles" />
+            <span><strong>An assistant on the board.</strong> Group notes into themes, summarise and draft action items with your own model.</span>
+          </li>
+        </ul>
+        <div class="intro-actions">
+          @if (canCreate()) {
+            <tc-button label="Start a board" [disabled]="!session.org()" (click)="picking.set(true)"></tc-button>
+          }
+          <tc-button variant="ghost" label="Hide this intro" (click)="setIntro(false)"></tc-button>
+        </div>
+      </div>
+      <!-- A small board, drawn: a frame of notes, an arrow and a cursor. Decorative. -->
+      <div class="intro-art" aria-hidden="true">
+        <div class="art-frame"><span>Ideas</span></div>
+        <div class="art-note n1">Ship the beta</div>
+        <div class="art-note n2">Ask early users</div>
+        <div class="art-note n3">Fix onboarding</div>
+        <div class="art-note n4">Vote by Friday</div>
+        <svg class="art-arrow" viewBox="0 0 120 60"><path d="M4 50 C 40 50, 70 10, 112 10" /><path d="M102 4 L 113 10 L 103 17" /></svg>
+        <div class="art-cursor"><app-icon name="cursor" /><span>Grace</span></div>
+      </div>
+    </section>
+  }
+
   <div class="heading">
     <div>
       <h1>Boards</h1>
+      @if (!introOpen()) {
+        <button type="button" class="link" (click)="setIntro(true)">What's Corkboard?</button>
+      }
       @if (orgOptions().length > 1) {
         <tc-select
           label="Workspace"
