@@ -14,6 +14,7 @@ import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
 import { NOTE_COLORS, NOTE_SIZE, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
+import { describeBoard, describeThing } from './describe';
 import type { ImagePin } from './comments';
 import { NoteView } from './note';
 import type { Presence } from './presence';
@@ -251,6 +252,67 @@ export class Canvas {
     }
   }
 
+  // ── Keyboard and screen readers ──
+
+  /** What a screen reader hears when the board gets focus: what's on it, in a sentence. */
+  protected readonly summary = computed(() => describeBoard(this.board()));
+  /** Said once, politely, by screen readers: what was selected or moved. */
+  protected readonly announcement = signal('');
+  #announceSelection = effect(() => {
+    const ids = [...this.selection()];
+    untracked(() => {
+      if (!ids.length) return;
+      const board = this.board();
+      this.announcement.set(ids.length === 1 ? `Selected ${describeThing(board, ids[0])}` : `${ids.length} things selected`);
+    });
+  });
+
+  /** Everything that can be selected, in reading order (top to bottom, then left to right), for Tab. */
+  #readingOrder(): string[] {
+    return boardBoxes(this.board())
+      .slice()
+      .sort((a, b) => Math.round(a.y / 40) - Math.round(b.y / 40) || a.x - b.x)
+      .map((b) => b.id);
+  }
+
+  /** Selects the next (or previous) thing on the board and brings it into view, without zooming in past 100%. */
+  #tabTo(by: 1 | -1): void {
+    const order = this.#readingOrder();
+    if (!order.length) return;
+    const [current] = this.selection();
+    const at = current ? order.indexOf(current) : -1;
+    const next = order[(at + by + order.length) % order.length];
+    this.selection.set(new Set([next]));
+    this.#reveal(next);
+  }
+
+  /** Pans just enough to bring something into view, keeping the zoom. */
+  #reveal(id: string): void {
+    const box = boardBoxes(this.board()).find((b) => b.id === id);
+    if (!box) return;
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const { x, y, zoom } = this.viewport();
+    const left = box.x * zoom + x;
+    const top = box.y * zoom + y;
+    const margin = 80;
+    let dx = 0;
+    let dy = 0;
+    if (left < margin) dx = margin - left;
+    else if (left + box.w * zoom > width - margin) dx = width - margin - (left + box.w * zoom);
+    if (top < margin) dy = margin - top;
+    else if (top + box.h * zoom > height - 140) dy = height - 140 - (top + box.h * zoom);
+    if (dx || dy) this.viewport.set({ x: x + dx, y: y + dy, zoom });
+  }
+
+  /** Moves what's selected by the arrow keys; frames carry what's in them, as when dragged. */
+  #nudge(dx: number, dy: number): void {
+    const frames = this.board().withInnerFrames(this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id));
+    const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
+    this.board().move(ids, dx, dy);
+    const [first] = this.selection();
+    if (first) this.#reveal(first);
+  }
+
   protected itemLabel(item: Item): string {
     switch (item.kind) {
       case 'shape':
@@ -305,6 +367,7 @@ export class Canvas {
     if (e.key === 'Escape') {
       e.preventDefault();
       this.itemEditing.set(null);
+      this.surface().nativeElement.focus({ preventScroll: true });
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this.finishItemEdit(id, (e.target as HTMLTextAreaElement).value);
@@ -690,8 +753,11 @@ export class Canvas {
 
   @HostListener('document:keydown', ['$event'])
   protected onKeyDown(e: KeyboardEvent): void {
+    const mod = e.metaKey || e.ctrlKey;
     if (e.key === 'Escape' && this.editing()) {
       this.editing.set(null);
+      // Back to the board, so the keyboard carries on from here.
+      this.surface().nativeElement.focus({ preventScroll: true });
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
@@ -699,6 +765,26 @@ export class Canvas {
       if (!this.finding()) this.toggleFind();
       else this.surface().nativeElement.parentElement?.querySelector<HTMLInputElement>('[data-find-autofocus]')?.focus();
       return;
+    }
+    // Keys on the board itself (it has focus): adding, stepping through and moving things without a mouse.
+    if (e.target === this.surface().nativeElement && !mod) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        this.#tabTo(e.shiftKey ? -1 : 1);
+        return;
+      }
+      if (e.key.startsWith('Arrow') && this.selection().size && !this.readOnly()) {
+        e.preventDefault();
+        const step = e.shiftKey ? 50 : 10;
+        const [dx, dy] = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key] ?? [0, 0];
+        this.#nudge(dx, dy);
+        return;
+      }
+      if (e.key.toLowerCase() === 'n' && !this.readOnly()) {
+        e.preventDefault();
+        this.addNote();
+        return;
+      }
     }
     if (e.key === 'Escape' && this.pinning()) {
       this.pinning.set(false);
@@ -709,7 +795,6 @@ export class Canvas {
       return;
     }
     if (isEditable(e.target)) return;
-    const mod = e.metaKey || e.ctrlKey;
     // Of the shortcuts, only selecting and panning are for people who can't edit.
     const editing = (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'Enter' || (mod && ['z', 'y'].includes(e.key.toLowerCase())));
     if (this.readOnly() && editing) return;

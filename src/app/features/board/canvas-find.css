@@ -53,3 +53,9 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+/* The board shows it has keyboard focus with a ring inside its edge. */
+.surface:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: -2px;
+}
