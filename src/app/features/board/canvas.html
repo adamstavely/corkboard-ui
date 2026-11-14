@@ -243,14 +243,16 @@
     @if (arrows().length) {
       <svg class="arrows" aria-hidden="true">
         <defs>
-          <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" />
-          </marker>
+          @for (w of arrowWeights; track w) {
+            <marker [attr.id]="'arrowhead-' + w" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" [attr.markerWidth]="8 + w * 2" [attr.markerHeight]="8 + w * 2" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" />
+            </marker>
+          }
         </defs>
         @for (arrow of arrows(); track arrow.id) {
           <g class="arrow" [class.selected]="selection().has(arrow.id)" [attr.data-connector-id]="arrow.id">
             <path class="arrow-hit" [attr.d]="arrow.d" />
-            <path class="arrow-line" [attr.d]="arrow.d" marker-end="url(#arrowhead)" />
+            <path class="arrow-line" [attr.d]="arrow.d" [attr.stroke-width]="arrow.weight" [attr.stroke-dasharray]="arrow.dashes" [attr.marker-end]="'url(#arrowhead-' + arrow.weight + ')'" />
           </g>
         }
       </svg>
@@ -552,6 +554,19 @@
   </div>
 </div>
 
+@if (arrowBar(); as bar) {
+  <app-arrow-style
+    class="arrow-bar"
+    label="Arrow"
+    [style.left.px]="bar.left"
+    [style.top.px]="bar.top"
+    [value]="bar.style"
+    [removable]="true"
+    (changed)="restyleArrows($event)"
+    (removed)="deleteSelection()"
+  />
+}
+
 <!-- The tools, down the left: what a click on the board makes, with undo below. The assistant is Trench Coat's side
      pane, with its own launcher (see board-page). -->
 @if (!readOnly() || canReact()) {
@@ -584,7 +599,9 @@
         <tc-menu-morph [open]="shapesOpen()" (tc-open-change)="shapesOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Shapes and arrows" data-tip="Shapes and arrows" data-tip-side="right" [attr.aria-pressed]="shapeTool()"><app-icon name="shapes" /></button>
           <div data-menu class="app-menu" aria-label="Shapes and arrows">
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('connect')"><app-icon name="arrow" /><span class="app-menu-label">Arrow</span><kbd>L</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickArrow('straight')"><app-icon name="arrow" /><span class="app-menu-label">Arrow</span><kbd>L</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickArrow('elbow')"><app-icon name="elbow" /><span class="app-menu-label">Right-angle arrow</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickArrow('curve')"><app-icon name="curve" /><span class="app-menu-label">Curved arrow</span></button>
             <hr />
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('rect')"><app-icon name="rect" /><span class="app-menu-label">Rectangle</span><kbd>R</kbd></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('ellipse')"><app-icon name="oval" /><span class="app-menu-label">Oval</span><kbd>O</kbd></button>
@@ -609,6 +626,9 @@
         <button type="button" class="icon-btn" aria-label="Comment" data-tip="Comment  C" data-tip-side="right" [attr.aria-pressed]="tool() === 'comment'" (click)="pickTool('comment')"><app-icon name="comment" /></button>
       }
     </div>
+    @if (tool() === 'connect' && !readOnly()) {
+      <app-arrow-style class="arrow-defaults" label="Next arrows" [value]="arrowStyle()" (changed)="arrowStyle.update((s) => ({ ...s, ...$event }))" />
+    }
     @if (!readOnly()) {
       <div class="app-island vertical rail" role="group" aria-label="Undo and redo">
         <button type="button" class="icon-btn" [attr.aria-label]="'Undo'" [attr.data-tip]="'Undo  ' + modKey + 'Z'" data-tip-side="right" (click)="undo()"><app-icon name="undo" /></button>

@@ -13,7 +13,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { NOTE_COLORS, NOTE_SIZE, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { ARROW_WEIGHTS, DEFAULT_ARROW, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -21,7 +21,8 @@ import type { ImagePin } from './comments';
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
-import { arrowLines, boardBounds, boardBoxes } from './export';
+import { arrowLines, boardBounds, boardBoxes, dashPattern } from './export';
+import { ArrowStyleBar } from './arrow-style';
 import { safeUrl, shapePath } from './items';
 import type { NoteReaction } from './reactions';
 import type { Media } from './board-doc';
@@ -100,7 +101,7 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -833,7 +834,7 @@ export class Canvas {
         this.selection.set(new Set([id]));
         return;
       }
-      const arrow = this.board().connect(from, id);
+      const arrow = this.board().connect(from, id, this.arrowStyle());
       this.#connectFrom.set(null);
       this.tool.set('select');
       if (arrow) this.selection.set(new Set([arrow]));
@@ -1272,13 +1273,47 @@ export class Canvas {
   });
 
   /** Arrows as lines from the edge of one box to the edge of the other, aimed at their centres. */
-  protected readonly arrows = computed(() => arrowLines(this.board()).map(({ id, start, end }) => ({ id, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}` })));
+  protected readonly arrows = computed(() =>
+    arrowLines(this.board()).map(({ id, d, style }) => ({ id, d, weight: style.weight, dashes: dashPattern(style).join(' ') || null })),
+  );
+  /** One arrowhead per line weight, sized to it. */
+  protected readonly arrowWeights = ARROW_WEIGHTS;
+
+  /** The style the next arrows get: what was picked last, for the tool or a selected arrow. */
+  readonly arrowStyle = signal<ArrowStyle>(DEFAULT_ARROW);
+
+  /** Picks the arrow tool with a route, from the shapes menu. */
+  protected pickArrow(route: ArrowRoute): void {
+    this.arrowStyle.update((s) => ({ ...s, route }));
+    this.pickTool('connect');
+  }
+
+  protected restyleArrows(change: Partial<ArrowStyle>): void {
+    this.board().setArrowStyle(this.selectedArrows(), change);
+    this.arrowStyle.update((s) => ({ ...s, ...change }));
+  }
+
+  /** The arrows selected, for their style bar. */
+  protected readonly selectedArrows = computed(() => this.board().connectors().filter((c) => this.selection().has(c.id)).map((c) => c.id));
+  /** The style bar over a selected arrow: at the middle of the first one, in screen space, with its style. */
+  protected readonly arrowBar = computed(() => {
+    const [id] = this.selectedArrows();
+    if (!id || this.readOnly() || this.marquee()) return null;
+    const line = arrowLines(this.board()).find((a) => a.id === id);
+    if (!line) return null;
+    const { x, y, zoom } = this.viewport();
+    return {
+      left: ((line.start.x + line.end.x) / 2) * zoom + x,
+      top: Math.max(8, Math.min(line.start.y, line.end.y) * zoom + y - 56),
+      style: line.style,
+    };
+  });
 
   /** Draws an arrow from the first selected note or frame to the second. */
   protected connect(): void {
     const pair = this.pair();
     if (!pair) return;
-    const id = this.board().connect(pair[0], pair[1]);
+    const id = this.board().connect(pair[0], pair[1], this.arrowStyle());
     if (id) this.selection.set(new Set([id]));
   }
 

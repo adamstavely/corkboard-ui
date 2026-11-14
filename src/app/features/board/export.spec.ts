@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
-import { arrowLines, boardBounds, boardBoxes, boardMarkdown, fileName } from './export';
+import { arrowLines, boardBounds, boardBoxes, boardMarkdown, dashPattern, fileName } from './export';
 
 describe('export', () => {
   it('writes the board as Markdown: frames as headings, notes as bullets, bold kept', () => {
@@ -48,6 +48,35 @@ describe('export', () => {
     const image = board.addMedia({ id: 'f1', name: 'photo.png', mime: 'image/png', size: 10 }, 600, 100, { w: 200, h: 100 });
     board.connect(shape, image);
     expect(arrowLines(board)).toHaveLength(1);
+    board.destroy();
+  });
+
+  it('runs arrows straight, at right angles or curved, keeping their weight and dashes', () => {
+    const board = new BoardDoc();
+    const a = board.addNote(100, 100);
+    const b = board.addNote(600, 300);
+    const arrow = board.connect(a, b, { route: 'elbow', dash: 'dashed', weight: 4 })!;
+    let [line] = arrowLines(board);
+    // Out of the right side, across, down, across into the left side.
+    expect(line.d).toMatch(/^M 200 100 H 350 V 300 H 500$/);
+    expect(line.angle).toBe(0);
+    expect(line.style).toEqual({ route: 'elbow', dash: 'dashed', weight: 4 });
+    expect(dashPattern(line.style)).toEqual([16, 12]);
+
+    board.setArrowStyle([arrow], { route: 'curve', dash: 'dotted' });
+    [line] = arrowLines(board);
+    expect(line.d).toMatch(/^M 200 100 C /);
+    expect(board.connectors()[0]).toMatchObject({ route: 'curve', dash: 'dotted', weight: 4 });
+    board.destroy();
+  });
+
+  it('reads an arrow with no style, or a bad one, as a plain 2px straight line', () => {
+    const board = new BoardDoc();
+    const a = board.addNote(100, 100);
+    const b = board.addNote(600, 100);
+    const arrow = board.connect(a, b)!;
+    board.setArrowStyle([arrow], { weight: 99, route: 'zigzag' as never });
+    expect(board.connectors()[0]).toMatchObject({ route: 'straight', dash: 'solid', weight: 2 });
     board.destroy();
   });
 

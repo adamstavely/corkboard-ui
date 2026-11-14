@@ -141,7 +141,22 @@ export const NOTE_TEMPLATES: readonly NoteTemplate[] = [
 export const FILE_CARD = { w: 240, h: 72 } as const;
 
 /** An arrow from one note or frame to another. */
-export interface Connector {
+/** How an arrow runs: straight, at right angles, or in a curve. */
+export const ARROW_ROUTES = ['straight', 'elbow', 'curve'] as const;
+export type ArrowRoute = (typeof ARROW_ROUTES)[number];
+export const ARROW_DASHES = ['solid', 'dashed', 'dotted'] as const;
+export type ArrowDash = (typeof ARROW_DASHES)[number];
+/** Line weights, in board pixels. */
+export const ARROW_WEIGHTS = [1, 2, 4, 6] as const;
+
+export interface ArrowStyle {
+  route: ArrowRoute;
+  dash: ArrowDash;
+  weight: number;
+}
+export const DEFAULT_ARROW: ArrowStyle = { route: 'straight', dash: 'solid', weight: 2 };
+
+export interface Connector extends ArrowStyle {
   id: string;
   from: string;
   to: string;
@@ -687,7 +702,7 @@ export class BoardDoc {
   }
 
   /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
-  connect(from: string, to: string): string | null {
+  connect(from: string, to: string, style: ArrowStyle = DEFAULT_ARROW): string | null {
     if (from === to || !this.#nodes.has(from) || !this.#nodes.has(to)) return null;
     const existing = this.connectors().find((c) => c.from === from && c.to === to);
     if (existing) return existing.id;
@@ -698,9 +713,25 @@ export class BoardDoc {
       node.set('kind', 'connector');
       node.set('from', from);
       node.set('to', to);
+      node.set('route', style.route);
+      node.set('dash', style.dash);
+      node.set('weight', style.weight);
       this.#nodes.set(id, node);
     }, this);
     return id;
+  }
+
+  /** Restyles arrows: how they run, their dashes, their weight. */
+  setArrowStyle(ids: Iterable<string>, change: Partial<ArrowStyle>): void {
+    const arrows = new Set(this.connectors().map((c) => c.id));
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (!node || !arrows.has(id)) continue;
+        for (const [key, value] of Object.entries(change)) if (value !== undefined) node.set(key, value);
+      }
+    }, this);
   }
 
   /** The whole document as one update, for saving. */
@@ -784,7 +815,7 @@ export class BoardDoc {
     if (node.get('kind') === 'connector') {
       const from = node.get('from');
       const to = node.get('to');
-      if (typeof from === 'string' && typeof to === 'string') connectors.push({ id, from, to });
+      if (typeof from === 'string' && typeof to === 'string') connectors.push({ id, from, to, ...arrowStyleOf(node) });
       return;
     }
     if (node.get('kind') === 'frame') {
@@ -821,6 +852,18 @@ export class BoardDoc {
       ...scores(node),
     });
   }
+}
+
+/** An arrow's style as stored, anything unknown read as the default. */
+function arrowStyleOf(node: Y.Map<unknown>): ArrowStyle {
+  const route = node.get('route') as ArrowRoute;
+  const dash = node.get('dash') as ArrowDash;
+  const weight = node.get('weight');
+  return {
+    route: ARROW_ROUTES.includes(route) ? route : DEFAULT_ARROW.route,
+    dash: ARROW_DASHES.includes(dash) ? dash : DEFAULT_ARROW.dash,
+    weight: typeof weight === 'number' && (ARROW_WEIGHTS as readonly number[]).includes(weight) ? weight : DEFAULT_ARROW.weight,
+  };
 }
 
 const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);

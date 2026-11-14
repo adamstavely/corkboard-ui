@@ -70,3 +70,18 @@
   right: 0;
   transform: none;
 }
+
+/* The arrow tool's style, beside the rail while it's picked. */
+.arrow-defaults {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+}
+
+/* A selected arrow's style, above its middle. */
+.arrow-bar {
+  position: absolute;
+  z-index: 7;
+  transform: translateX(-50%);
+}
