@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
+import { noteLines } from './tasks';
 import { arrowLines, boardBounds, boardBoxes, boardMarkdown, dashPattern, fileName } from './export';
 
 describe('export', () => {
@@ -77,6 +78,37 @@ describe('export', () => {
     const arrow = board.connect(a, b)!;
     board.setArrowStyle([arrow], { weight: 99, route: 'zigzag' as never });
     expect(board.connectors()[0]).toMatchObject({ route: 'straight', dash: 'solid', weight: 2 });
+    board.destroy();
+  });
+
+  it('keeps bullet and numbered lists in notes, nested too, in Markdown and wherever note text is read', () => {
+    const board = new BoardDoc();
+    const id = board.addNote(100, 100);
+    const text = board.notes().find((n) => n.id === id)!.text;
+    const para = (t: string) => {
+      const p = new Y.XmlElement('paragraph');
+      p.insert(0, [new Y.XmlText(t)]);
+      return p;
+    };
+    const item = (...children: Y.XmlElement[]) => {
+      const li = new Y.XmlElement('listItem');
+      li.insert(0, children);
+      return li;
+    };
+    const list = (kind: 'bulletList' | 'orderedList', ...items: Y.XmlElement[]) => {
+      const l = new Y.XmlElement(kind);
+      l.insert(0, items);
+      return l;
+    };
+    board.doc.transact(() => {
+      text.delete(0, text.length);
+      text.insert(0, [
+        para('Risks'),
+        list('bulletList', item(para('Critical list item')), item(para('Second'), list('orderedList', item(para('Step one')), item(para('Step two'))))),
+      ]);
+    });
+    expect(noteLines(text).map((l) => l.text)).toEqual(['Risks', '• Critical list item', '• Second', '  1. Step one', '  2. Step two']);
+    expect(boardMarkdown(board, 'Plan')).toContain('- Risks\n  - Critical list item\n  - Second\n    1. Step one\n    2. Step two');
     board.destroy();
   });
 

@@ -37,8 +37,8 @@
         </tc-menu-morph>
         <a class="brand" href="/" (click)="$event.preventDefault(); back()">Corkboard</a>
         <span class="sep" aria-hidden="true"></span>
-        <span class="sync" [class.offline]="status() === 'offline'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
-          <app-icon [name]="status() === 'offline' ? 'cloudOff' : 'cloud'" />
+        <span class="sync" [class.offline]="status() === 'offline' || status() === 'stuck'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
+          <app-icon [name]="status() === 'offline' || status() === 'stuck' ? 'cloudOff' : 'cloud'" />
         </span>
         <input
           class="title"

@@ -25,8 +25,8 @@ const BOARD_COLUMNS: DataColumn[] = [
 const n = (v: number) => v.toLocaleString();
 
 /**
- * Workspace owners: the last 30 days board by board, what the models used (and cost, once prices are set), a download
- * of everything, and deleting the workspace.
+ * Workspace owners: the last 30 days board by board, what the models used (and cost, once prices are set), a data
+ * export (not a backup: see its description), and deleting the workspace.
  */
 @Component({
   selector: 'app-admin-page',
@@ -84,15 +84,22 @@ const n = (v: number) => v.toLocaleString();
         <h2>Data</h2>
         <div class="data">
           <div>
-            <strong>Download everything</strong>
-            <p class="muted">Members, boards (notes, frames, tasks, chat and comments), folders, models and trackers, as one JSON file. Keys and tokens are never included.</p>
+            <strong>Download a data export</strong>
+            <p class="muted">
+              Members, boards (notes, frames, tasks, chat and comments), folders, models and trackers, as one JSON file. Keys and tokens are never
+              included. It isn't a backup and can't be restored from: attached images and files are listed but not included, and neither are
+              board-by-board sharing, saved versions or rich text formatting.
+            </p>
           </div>
           <tc-button variant="secondary" label="Download" [loading]="exporting()" (click)="download()"></tc-button>
         </div>
         <div class="data danger">
           <div>
             <strong>Delete this workspace</strong>
-            <p class="muted">Every board, comment and file in it goes, for everyone, and can't be brought back. You can't delete your only workspace.</p>
+            <p class="muted">
+              Every board, comment and file in it goes, for everyone, and can't be brought back; the data export doesn't keep attached files. You
+              can't delete your only workspace.
+            </p>
           </div>
           @if (!confirming()) {
             <tc-button variant="secondary" label="Delete workspace…" (click)="confirming.set(true)"></tc-button>

@@ -1,3 +1,4 @@
+import { clearLocalBoards } from './pending-work';
 import { computed, Injectable, signal } from '@angular/core';
 import type { PersonDto } from '../api/generated/models/person-dto';
 import type { SessionDto } from '../api/generated/models/session-dto';
@@ -63,6 +64,8 @@ export class Auth {
       void fetch('/api/auth/sign-out', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
     }
     this.#set(null);
+    // Boards' unsent edits kept in this browser go too: they're this person's, and the browser may be shared.
+    void clearLocalBoards();
   }
 
   #set(value: Stored | null): void {
