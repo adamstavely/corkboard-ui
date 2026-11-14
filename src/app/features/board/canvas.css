@@ -64,34 +64,6 @@
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
 }
 
-.divider {
-  width: 1px;
-  align-self: stretch;
-  background: var(--tc-border-subtle);
-}
-
-.swatches {
-  display: flex;
-  gap: var(--tc-space-1);
-}
-
-.swatch {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid var(--tc-border-default);
-  border-radius: 50%;
-  cursor: pointer;
-}
-.swatch:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.swatch:focus-visible {
-  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
-  outline-offset: 2px;
-}
-
 /* Someone else's pointer, in screen space: an arrow and their name, in their colour. */
 .peer-pointer {
   position: absolute;
@@ -253,26 +225,6 @@
 .arrow.selected .arrow-line {
   stroke: var(--tc-accent-text);
   stroke-width: 3;
-}
-
-.react-picker {
-  display: flex;
-  gap: 2px;
-}
-.react {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--tc-radius-sm);
-  background: transparent;
-  font-size: 16px;
-  cursor: pointer;
-}
-.react:hover,
-.react:focus-visible {
-  background: var(--tc-accent-subtle);
-  outline: none;
 }
 
 /* Images and file cards: picked up and moved like notes. */

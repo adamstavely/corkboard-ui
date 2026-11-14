@@ -223,17 +223,17 @@ body {
   /* tc-menu-morph sets the trigger's width inline as the least; an icon is narrower than any row. */
   min-width: 220px !important;
 }
-.app-menu .app-menu-item .label {
+.app-menu .app-menu-item .app-menu-label {
   flex: 1;
 }
-.app-menu .app-menu-item .hint,
+.app-menu .app-menu-item .app-menu-hint,
 .app-menu .app-menu-item kbd {
   margin-left: var(--tc-space-4);
   color: var(--tc-text-muted);
   font: inherit;
   font-size: var(--tc-font-size-xs, 12px);
 }
-[data-ui='mmo'] > .app-menu .app-menu-item[aria-checked='true'] .label {
+[data-ui='mmo'] > .app-menu .app-menu-item[aria-checked='true'] .app-menu-label {
   color: var(--tc-accent-text);
   font-weight: var(--tc-font-weight-medium);
 }

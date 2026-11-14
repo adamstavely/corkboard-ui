@@ -198,56 +198,6 @@
 .surface.pen {
   cursor: crosshair;
 }
-.insert .menu-trigger {
-  height: var(--tc-control-h-sm, 28px);
-  white-space: nowrap;
-  padding: 0 var(--tc-space-3);
-  border: 0;
-  border-radius: var(--tc-control-radius-sm, var(--tc-radius-sm));
-  background: transparent;
-  color: var(--tc-text-primary);
-  font: inherit;
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-medium);
-  cursor: pointer;
-}
-.insert .menu-trigger:hover {
-  background: var(--tc-fill-default, var(--tc-accent-subtle));
-}
-.insert .menu-list:not([hidden]) {
-  display: flex;
-  flex-direction: column;
-  min-width: 240px;
-  padding: var(--tc-space-1);
-}
-.insert .menu-list button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: var(--tc-space-2) var(--tc-space-3);
-  border: 0;
-  border-radius: var(--tc-radius-sm);
-  background: transparent;
-  color: var(--tc-text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.insert .menu-list button:hover,
-.insert .menu-list button:focus-visible {
-  background: var(--tc-fill-default, var(--tc-accent-subtle));
-  outline: none;
-}
-.insert .menu-list strong {
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-medium);
-}
-.insert .menu-list span {
-  color: var(--tc-text-muted);
-  font-size: var(--tc-font-size-xs, 12px);
-}
-.item-tools,
 .link-prompt {
   display: flex;
   align-items: center;
