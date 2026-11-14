@@ -1,10 +1,11 @@
 import type { ThreadMessage } from '@adamstavely/trenchcoat/comment-thread';
 import * as Y from 'yjs';
 import type { CommentThreadDto } from '../../api/generated/models/comment-thread-dto';
-import type { BoardDoc } from './board-doc';
+import { trackText, type BoardDoc } from './board-doc';
 
 /** Plain text of a note, for naming it: its lines run together. */
 export function plainText(fragment: Y.XmlFragment): string {
+  trackText(fragment);
   const lines: string[] = [];
   const walk = (node: Y.XmlFragment | Y.XmlElement | Y.XmlText): void => {
     if (node instanceof Y.XmlText) {

@@ -1,4 +1,7 @@
+import { computed } from '@angular/core';
 import * as Y from 'yjs';
+import { plainText } from './comments';
+import { noteLines } from './tasks';
 import { BoardDoc, FRAME_MIN, FRAME_PADDING, FRAME_SIZE, FRAME_TITLE, NOTE_SIZE } from './board-doc';
 
 describe('BoardDoc', () => {
@@ -8,6 +11,25 @@ describe('BoardDoc', () => {
     board = new BoardDoc();
   });
   afterEach(() => board.destroy());
+
+  it('reruns anything derived from note text when the text changes, here or from someone else', () => {
+    board.addNote(0, 0, 'yellow', 'Before');
+    const label = computed(() => plainText(board.notes()[0].text));
+    const lines = computed(() => noteLines(board.notes()[0].text).map((l) => l.text));
+    expect(label()).toBe('Before');
+    expect(lines()).toEqual(['Before']);
+
+    // A remote edit: the same change made in another copy of the document.
+    const other = new Y.Doc();
+    Y.applyUpdate(other, Y.encodeStateAsUpdate(board.doc));
+    const before = Y.encodeStateVector(other);
+    const text = ((other.getMap<Y.Map<unknown>>('nodes').values().next().value!.get('text') as Y.XmlFragment).get(0) as Y.XmlElement).get(0) as Y.XmlText;
+    text.delete(0, 6);
+    text.insert(0, 'After');
+    Y.applyUpdate(board.doc, Y.encodeStateAsUpdate(other, before));
+    expect(label()).toBe('After');
+    expect(lines()).toEqual(['After']);
+  });
 
   it('adds notes centred on a point, each above the last', () => {
     const a = board.addNote(100, 100);

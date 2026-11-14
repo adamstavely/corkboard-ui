@@ -98,7 +98,7 @@ export class BoardSummary {
   protected readonly status = computed<AiSummaryStatus>(() => (this.#working() ? 'summarising' : this.#failed() ? 'error' : this.summary() ? 'done' : 'idle'));
   protected readonly stale = computed(() => {
     const s = this.summary();
-    return !!s && isStale(s.basis, this.board().notes().map((n) => n.id));
+    return !!s && isStale(s, this.board());
   });
   /** The notes, as sources its points cite. */
   protected readonly sources = computed<AiSummarySource[]>(() =>

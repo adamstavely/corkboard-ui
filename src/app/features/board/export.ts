@@ -1,4 +1,5 @@
-import type { BoardDoc, Frame, Note } from './board-doc';
+import { FILE_CARD, type BoardDoc, type Frame, type Media, type Note } from './board-doc';
+import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
 
 /**
@@ -38,13 +39,63 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
   return `${out.join('\n').trimEnd()}\n`;
 }
 
+type Box = { x: number; y: number; w: number; h: number };
+
+/** Everything on the board that takes up room: frames, notes, images and file cards. Arrows run between them. */
+export const boardBoxes = (board: BoardDoc): (Box & { id: string })[] => [...board.frames(), ...board.notes(), ...board.media()];
+
 /** The box around everything on the board, with a margin; null for an empty board. */
-export function boardBounds(board: BoardDoc, margin = 40): { x: number; y: number; w: number; h: number } | null {
-  const items = [...board.frames(), ...board.notes()];
+export function boardBounds(board: BoardDoc, margin = 40): Box | null {
+  const items = boardBoxes(board);
   if (!items.length) return null;
   const x = Math.min(...items.map((i) => i.x)) - margin;
   const y = Math.min(...items.map((i) => i.y)) - margin;
   return { x, y, w: Math.max(...items.map((i) => i.x + i.w)) + margin - x, h: Math.max(...items.map((i) => i.y + i.h)) + margin - y };
+}
+
+/** Where a line from a box's centre toward a point leaves the box. */
+export function edgePoint(box: Box, toward: { x: number; y: number }): { x: number; y: number } {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  const scale = 1 / Math.max(Math.abs(dx) / (box.w / 2), Math.abs(dy) / (box.h / 2));
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+/** Each arrow as a line from the edge of one box to the edge of the other, aimed at their centres. */
+export function arrowLines(board: BoardDoc): { id: string; start: { x: number; y: number }; end: { x: number; y: number } }[] {
+  const boxes = new Map<string, Box>([...board.notes(), ...board.frames()].map((n) => [n.id, n]));
+  return board.connectors().flatMap((c) => {
+    const a = boxes.get(c.from);
+    const b = boxes.get(c.to);
+    if (!a || !b) return [];
+    return [{ id: c.id, start: edgePoint(a, { x: b.x + b.w / 2, y: b.y + b.h / 2 }), end: edgePoint(b, { x: a.x + a.w / 2, y: a.y + a.h / 2 }) }];
+  });
+}
+
+/** The board's images, loaded from their object URLs, to draw; ones that fail are left out. */
+export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, string>): Promise<Map<string, HTMLImageElement>> {
+  const loaded = new Map<string, HTMLImageElement>();
+  await Promise.all(
+    board
+      .media()
+      .filter((m) => m.kind === 'image' && urls.has(m.fileId))
+      .map(
+        (m) =>
+          new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              loaded.set(m.fileId, img);
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = urls.get(m.fileId)!;
+          }),
+      ),
+  );
+  return loaded;
 }
 
 /**
@@ -84,8 +135,11 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number, max: n
   return lines;
 }
 
-/** Draws the whole board onto a canvas, at `scale` (2 for crisp images), in the page's current colours. */
-export function boardCanvas(board: BoardDoc, scale = 2): HTMLCanvasElement {
+/**
+ * Draws the whole board onto a canvas, at `scale` (2 for crisp images), in the page's current colours: frames, images
+ * and file cards, arrows, then notes. Pass the images from `loadImages` to draw them.
+ */
+export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLImageElement> = new Map(), scale = 2): HTMLCanvasElement {
   const bounds = boardBounds(board) ?? { x: 0, y: 0, w: 400, h: 300 };
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(bounds.w * scale);
@@ -112,6 +166,26 @@ export function boardCanvas(board: BoardDoc, scale = 2): HTMLCanvasElement {
     ctx.font = `600 18px ${font}`;
     ctx.fillText(f.title || 'Untitled frame', f.x + 16, f.y + 30, f.w - 32);
   }
+  const muted = color('--tc-text-muted', '#6b6b6b');
+  for (const m of [...board.media()].sort((a, b) => a.z - b.z)) drawMedia(ctx, m, images.get(m.fileId), { surface, border, text, muted, font });
+  // Arrows go under the notes, as on the board.
+  const ink = color('--tc-text-secondary', '#555555');
+  ctx.strokeStyle = ink;
+  ctx.fillStyle = ink;
+  ctx.lineWidth = 2;
+  for (const { start, end } of arrowLines(board)) {
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    ctx.beginPath();
+    ctx.moveTo(end.x, end.y);
+    ctx.lineTo(end.x - 12 * Math.cos(angle - 0.4), end.y - 12 * Math.sin(angle - 0.4));
+    ctx.lineTo(end.x - 12 * Math.cos(angle + 0.4), end.y - 12 * Math.sin(angle + 0.4));
+    ctx.closePath();
+    ctx.fill();
+  }
   for (const n of board.notes()) {
     ctx.fillStyle = color(`--note-${n.color}`, '#fff3a8');
     ctx.beginPath();
@@ -129,6 +203,39 @@ export function boardCanvas(board: BoardDoc, scale = 2): HTMLCanvasElement {
     }
   }
   return canvas;
+}
+
+/** An image as it is on the board (its name in a box if it hasn't loaded), or a file's card with its name and size. */
+function drawMedia(
+  ctx: CanvasRenderingContext2D,
+  m: Media,
+  image: HTMLImageElement | undefined,
+  c: { surface: string; border: string; text: string; muted: string; font: string },
+): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(m.x, m.y, m.w, m.h, 8);
+  ctx.fillStyle = c.surface;
+  ctx.fill();
+  if (image) {
+    ctx.clip();
+    ctx.drawImage(image, m.x, m.y, m.w, m.h);
+    ctx.restore();
+    return;
+  }
+  ctx.strokeStyle = c.border;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = c.text;
+  ctx.font = `600 14px ${c.font}`;
+  const h = m.kind === 'file' ? FILE_CARD.h : m.h;
+  ctx.fillText(m.name, m.x + 14, m.y + Math.min(h / 2, 30), m.w - 28);
+  if (m.kind === 'file') {
+    ctx.fillStyle = c.muted;
+    ctx.font = `400 12px ${c.font}`;
+    ctx.fillText(fileSize(m.size), m.x + 14, m.y + 52, m.w - 28);
+  }
+  ctx.restore();
 }
 
 /** Hands the browser a file to save. */

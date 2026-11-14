@@ -121,7 +121,7 @@
     <div class="marquee" [style.left.px]="m.x" [style.top.px]="m.y" [style.width.px]="m.w" [style.height.px]="m.h"></div>
   }
 
-  @if (board().notes().length === 0 && board().frames().length === 0) {
+  @if (board().notes().length === 0 && board().frames().length === 0 && board().media().length === 0) {
     <p class="hint">{{ readOnly() ? 'Nothing on this board yet' : 'Double-click anywhere to add a note' }}</p>
   }
 
@@ -137,6 +137,9 @@
     >
       @for (f of m.frames; track f.id) {
         <rect class="mm-frame" [attr.x]="f.x" [attr.y]="f.y" [attr.width]="f.w" [attr.height]="f.h" [attr.stroke-width]="m.stroke" />
+      }
+      @for (i of m.media; track i.id) {
+        <rect class="mm-media" [attr.x]="i.x" [attr.y]="i.y" [attr.width]="i.w" [attr.height]="i.h" />
       }
       @for (n of m.notes; track n.id) {
         <rect [attr.x]="n.x" [attr.y]="n.y" [attr.width]="n.w" [attr.height]="n.h" [style.fill]="'var(--note-' + n.color + ')'" />

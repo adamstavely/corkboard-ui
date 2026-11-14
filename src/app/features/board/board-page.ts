@@ -6,7 +6,7 @@ import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
-import { boardCanvas, boardMarkdown, download, fileName } from './export';
+import { boardCanvas, boardMarkdown, download, fileName, loadImages } from './export';
 import { Api } from '../../api/generated/api';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
@@ -246,11 +246,16 @@ export class BoardPage {
     this.togglePanel(id);
   }
 
-  protected exportPng(): void {
+  /** The board as a picture, with its images. */
+  async #picture(board: BoardDoc): Promise<HTMLCanvasElement> {
+    return boardCanvas(board, await loadImages(board, this.files()?.urls() ?? new Map()));
+  }
+
+  protected async exportPng(): Promise<void> {
     this.exportOpen.set(false);
     const board = this.board();
     if (!board) return;
-    boardCanvas(board).toBlob((blob) => {
+    (await this.#picture(board)).toBlob((blob) => {
       if (!blob) return;
       download(`${fileName(this.title())}.png`, blob);
       toast.success('Image saved', { description: `${fileName(this.title())}.png` });
@@ -266,11 +271,11 @@ export class BoardPage {
   }
 
   /** Prints the board's picture from a hidden frame; the print dialog can save it as a PDF. */
-  protected exportPdf(): void {
+  protected async exportPdf(): Promise<void> {
     this.exportOpen.set(false);
     const board = this.board();
     if (!board) return;
-    const src = boardCanvas(board).toDataURL('image/png');
+    const src = (await this.#picture(board)).toDataURL('image/png');
     const frame = document.createElement('iframe');
     frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
     document.body.append(frame);

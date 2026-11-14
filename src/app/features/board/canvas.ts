@@ -13,7 +13,7 @@ import { NOTE_COLORS, NOTE_SIZE, type BoardDoc, type NoteColor } from './board-d
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
-import { boardBounds } from './export';
+import { arrowLines, boardBounds, boardBoxes } from './export';
 import type { NoteReaction } from './reactions';
 import type { Media } from './board-doc';
 import { fileSize } from './file-cache';
@@ -203,9 +203,11 @@ export class Canvas {
       this.viewChange.emit({ cx: (width / 2 - x) / zoom, cy: (height / 2 - y) / zoom, zoom });
     });
 
-    // A note or frame that's gone – deleted by someone else, or by undo – can't stay selected or open here.
+    // Something that's gone – deleted by someone else, or by undo – can't stay selected or open here. Anything that can
+    // be selected counts: notes, frames, images, files and arrows.
     effect(() => {
-      const ids = new Set([...this.board().notes(), ...this.board().frames()].map((n) => n.id));
+      const board = this.board();
+      const ids = new Set([...board.notes(), ...board.frames(), ...board.media(), ...board.connectors()].map((n) => n.id));
       const editing = this.editing();
       if (editing && !ids.has(editing)) this.editing.set(null);
       const renaming = this.renaming();
@@ -465,13 +467,13 @@ export class Canvas {
 
   /** Brings everything on the board into view, zoomed to fit (never past 100%), selecting nothing. */
   fitAll(): void {
-    const items = [...this.board().notes(), ...this.board().frames()];
+    const items = boardBoxes(this.board());
     if (items.length) this.#fit(items);
   }
 
-  /** Selects these notes and frames and brings them into view, zoomed to fit (never past 100%). */
+  /** Selects these notes, frames, images or files and brings them into view, zoomed to fit (never past 100%). */
   show(ids: readonly string[]): void {
-    const notes = [...this.board().notes(), ...this.board().frames()].filter((n) => ids.includes(n.id));
+    const notes = boardBoxes(this.board()).filter((n) => ids.includes(n.id));
     if (notes.length === 0) return;
     this.editing.set(null);
     this.selection.set(new Set(notes.map((n) => n.id)));
@@ -536,21 +538,7 @@ export class Canvas {
   });
 
   /** Arrows as lines from the edge of one box to the edge of the other, aimed at their centres. */
-  protected readonly arrows = computed(() => {
-    const boxes = new Map([...this.board().notes(), ...this.board().frames()].map((n) => [n.id, n]));
-    return this.board()
-      .connectors()
-      .flatMap((c) => {
-        const a = boxes.get(c.from);
-        const b = boxes.get(c.to);
-        if (!a || !b) return [];
-        const ca = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
-        const cb = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-        const start = edgePoint(a, cb);
-        const end = edgePoint(b, ca);
-        return [{ id: c.id, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}` }];
-      });
-  });
+  protected readonly arrows = computed(() => arrowLines(this.board()).map(({ id, start, end }) => ({ id, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}` })));
 
   /** Draws an arrow from the first selected note or frame to the second. */
   protected connect(): void {
@@ -661,6 +649,7 @@ export class Canvas {
       viewBox: `${box.x} ${box.y} ${box.r - box.x} ${box.b - box.y}`,
       stroke: (box.r - box.x) / 200,
       frames: board.frames(),
+      media: board.media(),
       notes: board.notes(),
       view,
     };
@@ -726,15 +715,4 @@ export class Canvas {
     const r = this.surface().nativeElement.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
-}
-
-/** Where a line from a box's centre toward a point leaves the box. */
-function edgePoint(box: { x: number; y: number; w: number; h: number }, toward: { x: number; y: number }): { x: number; y: number } {
-  const cx = box.x + box.w / 2;
-  const cy = box.y + box.h / 2;
-  const dx = toward.x - cx;
-  const dy = toward.y - cy;
-  if (!dx && !dy) return { x: cx, y: cy };
-  const scale = 1 / Math.max(Math.abs(dx) / (box.w / 2), Math.abs(dy) / (box.h / 2));
-  return { x: cx + dx * scale, y: cy + dy * scale };
 }
