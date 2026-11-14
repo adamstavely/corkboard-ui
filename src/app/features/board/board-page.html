@@ -121,6 +121,8 @@
           [canPost]="canComment()"
           [isOwner]="isWorkspaceOwner()"
           [request]="chatRequest()"
+          [tasks]="tasks()"
+          [boardTitle]="title()"
           (typingChange)="connection()?.presence?.setTyping($event)"
           (closed)="chatOpen.set(false)"
           (show)="canvas()?.show($event)"

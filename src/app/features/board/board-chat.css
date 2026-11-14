@@ -49,6 +49,16 @@ tc-multiplayer-thread {
 }
 .answer-actions {
   justify-content: flex-end;
+  align-items: center;
+}
+.recap-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .no-model {

@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import type { MultiplayerItem, MultiplayerPerson } from '@adamstavely/trenchcoat/multiplayer-thread';
 import * as Y from 'yjs';
+import type { SessionRecapDto } from '../../api/generated/models/session-recap-dto';
+import { recapText } from './recap';
 
 /** Who wrote a chat message when it's the model; matches Trench Coat's MULTIPLAYER_MODEL_ID and the API's. */
 export const MODEL_AUTHOR = 'model';
@@ -20,6 +22,8 @@ export interface ChatMessage {
   asked?: string[];
   changes?: { notesAdded: number; notesChanged: number; framesAdded: number; notesMoved: number };
   failed?: boolean;
+  /** On a session recap: what was decided, who does what, and what's open. */
+  recap?: SessionRecapDto;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -49,7 +53,8 @@ export function scopeLine(notes: number, frames: readonly string[]): string {
 export function threadItems(messages: readonly ChatMessage[]): MultiplayerItem[] {
   return messages.map((m) => {
     const changes = m.changes ? changesLine(m.changes) : '';
-    return { id: m.id, authorId: m.authorId, at: m.at, text: changes ? `${m.text}\n\n${changes}` : m.text, ...(m.replyTo ? { replyTo: m.replyTo } : {}) };
+    const text = m.recap ? recapText(m.recap) : changes ? `${m.text}\n\n${changes}` : m.text;
+    return { id: m.id, authorId: m.authorId, at: m.at, text, ...(m.replyTo ? { replyTo: m.replyTo } : {}) };
   });
 }
 
