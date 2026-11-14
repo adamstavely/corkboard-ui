@@ -2,7 +2,7 @@ import { computed } from '@angular/core';
 import * as Y from 'yjs';
 import { plainText } from './comments';
 import { noteLines } from './tasks';
-import { BoardDoc, FRAME_MIN, FRAME_PADDING, FRAME_SIZE, FRAME_TITLE, NOTE_SIZE } from './board-doc';
+import { BoardDoc, FRAME_MIN, FRAME_PADDING, FRAME_SIZE, FRAME_TITLE, MAX_COORD, MAX_SIZE, MAX_TABLE, NOTE_SIZE } from './board-doc';
 
 describe('BoardDoc', () => {
   let board: BoardDoc;
@@ -191,5 +191,40 @@ describe('BoardDoc', () => {
     const note = board.notes().find((n) => n.id === id)!;
     expect(note.color).toBe('blue');
     expect(note.text.toArray().map((p) => (p as Y.XmlElement).toArray().map((t) => t.toString()).join(''))).toEqual(['Two risks', 'Vendor and budget']);
+  });
+});
+
+describe('a board with malformed nodes in it', () => {
+  it('skips what it cannot read and shows the rest, rather than breaking for everyone', () => {
+    const board = new BoardDoc();
+    const good = board.addNote(100, 100);
+    // As a hostile or broken client could write them: a bare value, a note with no text, absurd sizes and tables.
+    const nodes = board.doc.getMap('nodes');
+    board.doc.transact(() => {
+      nodes.set('scalar', 42);
+      const textless = new Y.Map<unknown>();
+      nodes.set('textless', textless);
+      textless.set('kind', 'note');
+      const huge = new Y.Map<unknown>();
+      nodes.set('huge', huge);
+      huge.set('kind', 'table');
+      huge.set('x', Number.NaN);
+      huge.set('w', -5);
+      huge.set('rows', 1e9);
+      huge.set('cols', 'many');
+      huge.set('cells', new Y.Map());
+      const far = new Y.Map<unknown>();
+      nodes.set('far', far);
+      far.set('kind', 'frame');
+      far.set('x', 1e300);
+      far.set('h', 1e12);
+    });
+    expect(board.notes().map((n) => n.id)).toEqual([good]);
+    const table = board.items().find((i) => i.id === 'huge');
+    expect(table).toMatchObject({ kind: 'table', x: 0, w: 200, rows: MAX_TABLE, cols: 1 });
+    expect(board.frames()[0]).toMatchObject({ x: MAX_COORD, h: MAX_SIZE });
+    // New things still go on top.
+    expect(() => board.addNote(0, 0)).not.toThrow();
+    board.destroy();
   });
 });
