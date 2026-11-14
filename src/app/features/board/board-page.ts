@@ -59,6 +59,7 @@ import { colorFor, type PresenceUser } from './presence';
 import { Icon } from '../../shared/icon';
 import { BoardSearch } from '../search/board-search';
 import { AccountNav } from '../../shell/account-nav';
+import { BoardStart } from './board-start';
 
 const STATUS_TEXT: Record<ConnectionStatus, string> = {
   connecting: 'Connecting…',
@@ -79,7 +80,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -254,6 +255,13 @@ export class BoardPage {
     this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
   }
 
+  /** The prompt bar and starters on an empty board, until it has something on it or they're hidden. */
+  protected readonly startDismissed = signal(false);
+  protected readonly showStart = computed(() => {
+    const b = this.board();
+    const empty = !!b && !b.notes().length && !b.frames().length && !b.items().length && !b.media().length;
+    return empty && this.canEdit() && !this.startDismissed();
+  });
   protected readonly mainOpen = signal(false);
   protected readonly viewsOpen = signal(false);
   protected readonly exportOpen = signal(false);
