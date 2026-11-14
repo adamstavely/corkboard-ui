@@ -30,7 +30,7 @@ export function accessOf(list: MembersDto, meId: string | undefined): ShareGrant
       level: m.role,
     })),
     ...list.invites.map((i) => ({
-      recipient: { id: `invite:${i.id}`, kind: 'person' as const, name: i.email, detail: 'Invited – joins when they sign in' },
+      recipient: { id: `invite:${i.id}`, kind: 'person' as const, name: i.email, detail: 'Invited – joins through their link' },
       level: i.role,
     })),
   ];

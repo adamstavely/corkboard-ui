@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { toast } from '@adamstavely/trenchcoat/toaster';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { DataTable } from '@adamstavely/trenchcoat/angular/data-table';
 import { SharePanel } from '@adamstavely/trenchcoat/angular/share-panel';
@@ -60,6 +61,8 @@ export class MembersPage {
     ];
   });
 
+  /** Links for the invites just made, to send: each person joins through theirs. Shown until the page is left. */
+  protected readonly newLinks = signal<{ email: string; url: string }[]>([]);
   protected readonly sending = signal(false);
   protected readonly problem = signal<string | null>(null);
   protected readonly leaving = signal(false);
@@ -76,7 +79,12 @@ export class MembersPage {
     const failures: string[] = [];
     for (const change of changesOf(e.detail)) {
       try {
-        await this.#apply(orgId, change);
+        const result = await this.#apply(orgId, change);
+        if (change.op === 'invite' && result && typeof result === 'object' && 'token' in result) {
+          const { email, token } = result as { email: string; token: string };
+          const url = `${location.origin}/invite/${token}`;
+          this.newLinks.update((links) => [{ email, url }, ...links.filter((l) => l.email !== email)]);
+        }
       } catch (err) {
         failures.push(messageOf(err));
       }
@@ -84,6 +92,11 @@ export class MembersPage {
     this.list.reload();
     this.sending.set(false);
     if (failures.length) this.problem.set(failures.join(' '));
+  }
+
+  protected async copy(url: string): Promise<void> {
+    await navigator.clipboard?.writeText(url).catch(() => undefined);
+    toast.success('Invite link copied', { description: 'Send it to them; it works once.' });
   }
 
   protected async leave(): Promise<void> {

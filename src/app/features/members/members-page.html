@@ -21,7 +21,7 @@
     <tc-share-panel
       [resourceName]="session.org()?.name ?? ''"
       [labels]="{ headingNamed: 'Members of {name}', search: 'Invite people', searchPlaceholder: 'Email address' }"
-      description="People join when they next sign in with the email you invite. Readers see boards, commenters also comment, updaters also change them, and owners also manage members, sharing and AI models."
+      description="Each invite makes a link to send to that person; they join through it, once. Inviting again makes a new link. Readers see boards, commenters also comment, updaters also change them, and owners also manage members, sharing and AI models."
       [levels]="levels"
       default-level="updater"
       [access]="access()"
@@ -30,6 +30,21 @@
       [sending]="sending()"
       (tc-share)="onShare($event)"
     ></tc-share-panel>
+    @if (newLinks().length) {
+      <section class="links" aria-labelledby="links-heading">
+        <h2 id="links-heading">Send these invite links</h2>
+        <p class="note">Each works once, for the person you send it to. Inviting someone again replaces their link.</p>
+        <ul>
+          @for (link of newLinks(); track link.email) {
+            <li>
+              <span class="who">{{ link.email }}</span>
+              <input class="url" readonly [value]="link.url" [attr.aria-label]="'Invite link for ' + link.email" (focus)="$any($event.target).select()" />
+              <tc-button size="sm" variant="secondary" label="Copy" (click)="copy(link.url)"></tc-button>
+            </li>
+          }
+        </ul>
+      </section>
+    }
   } @else {
     <tc-data-table heading="People in this workspace" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
     <p class="note">Only owners can invite people or change roles.</p>

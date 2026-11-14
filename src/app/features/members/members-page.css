@@ -29,3 +29,50 @@ h1 {
   margin: 0 0 var(--tc-space-4);
   color: var(--tc-status-danger-fg);
 }
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+.links h2 {
+  margin: 0;
+  font-size: var(--tc-font-size-md);
+}
+.links ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.links li {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.links .who {
+  flex: none;
+  min-width: 160px;
+  font-size: var(--tc-font-size-sm);
+}
+.links .url {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+}
+.links .note {
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
