@@ -12,6 +12,9 @@ function stored(): string | null {
   }
 }
 
+/** The model this browser picked last: one for the whole page, so everything showing a choice shows the same one. */
+const chosen = signal<string | null>(stored());
+
 /**
  * The workspace's models, and the one this browser picked last (or the first). Shared by the chat and the summary, so
  * picking a model in one picks it in both. Call it in an injection context: it makes a resource.
@@ -24,7 +27,6 @@ export function modelChoice(api: Api, orgId: () => string) {
   const options = computed(() => (models.hasValue() ? models.value() : []).map((m) => ({ value: m.id, label: m.label })));
   /** As Trench Coat's model picker lists them: the name, and which model it is underneath. */
   const pickerModels = computed(() => (models.hasValue() ? models.value() : []).map((m) => ({ id: m.id, name: m.label, description: m.model })));
-  const chosen = signal<string | null>(stored());
   const modelId = computed<string | undefined>(() => options().find((o) => o.value === chosen())?.value ?? options()[0]?.value);
   const name = computed(() => options().find((o) => o.value === modelId())?.label ?? 'Assistant');
   const choose = (id: string) => {

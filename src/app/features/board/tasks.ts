@@ -106,7 +106,11 @@ export class TaskFeed {
   readonly #list = signal<StoredTask[]>([]);
   readonly tasks = this.#list.asReadonly();
 
-  constructor(private readonly doc: Y.Doc) {
+  /** `editable`: whether this person may change the board, and so may renumber clashing keys. */
+  constructor(
+    private readonly doc: Y.Doc,
+    private readonly editable: () => boolean = () => true,
+  ) {
     this.#tasks = doc.getMap<StoredTask>('tasks');
     this.#meta = doc.getMap('meta');
     this.#tasks.observe(this.#update);
@@ -149,5 +153,28 @@ export class TaskFeed {
     this.#tasks.delete(id);
   }
 
-  readonly #update = () => this.#list.set([...this.#tasks.values()].sort((a, b) => a.created.localeCompare(b.created) || a.key.localeCompare(b.key)));
+  readonly #update = () => {
+    const tasks = [...this.#tasks.values()].sort(byAge);
+    this.#list.set(tasks);
+    if (this.editable()) this.#renumberClashes(tasks);
+  };
+
+  /**
+   * Two people (or one offline) can add tasks at once and both take the next key, T-4 say. Once their changes meet, the
+   * older task keeps the key and the others move to new ones after the highest. Every editor works this out the same
+   * way from the same tasks, so they write the same keys.
+   */
+  #renumberClashes(tasks: readonly StoredTask[]): void {
+    const seen = new Set<string>();
+    const clashing = tasks.filter((t) => (seen.has(t.key) ? true : (seen.add(t.key), false)));
+    if (!clashing.length) return;
+    let seq = Math.max(Number(this.#meta.get('taskSeq') ?? 0), ...tasks.map((t) => Number(/^T-(\d+)$/.exec(t.key)?.[1] ?? 0)));
+    this.doc.transact(() => {
+      for (const t of clashing) this.#tasks.set(t.id, { ...t, key: `T-${++seq}` });
+      this.#meta.set('taskSeq', seq);
+    });
+  }
 }
+
+/** Oldest first; ties by id, so everyone orders them the same. */
+const byAge = (a: StoredTask, b: StoredTask) => a.created.localeCompare(b.created) || a.id.localeCompare(b.id);

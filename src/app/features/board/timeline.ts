@@ -46,7 +46,13 @@ export function columnDates(schedule: Schedule, i: number): { start: string; end
     const date = new Date(Date.UTC(y, m - 1, d));
     if (schedule.every === 'week') date.setUTCDate(date.getUTCDate() + 7 * k);
     else if (schedule.every === '2weeks') date.setUTCDate(date.getUTCDate() + 14 * k);
-    else date.setUTCMonth(date.getUTCMonth() + (schedule.every === 'month' ? 1 : 3) * k);
+    else {
+      // Months are counted from the start, landing on the same day of the month, or the month's last day when it's
+      // shorter: a timeline from 31 January goes 28 February, 31 March, 30 April.
+      const months = m - 1 + (schedule.every === 'month' ? 1 : 3) * k;
+      const lastDay = new Date(Date.UTC(y, months + 1, 0)).getUTCDate();
+      return new Date(Date.UTC(y, months, Math.min(d, lastDay)));
+    }
     return date;
   };
   const end = at(i + 1);

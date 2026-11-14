@@ -3,7 +3,8 @@ import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
 
 /**
  * A board's files as the page shows them. The API wants the bearer token, which an <img> can't send, so each file is
- * fetched once and kept as an object URL; uploads go up with progress.
+ * fetched once and kept as an object URL; uploads go up with progress. On a shared page the share link's token is the
+ * credential instead (see `FileCache.forLink`), and nothing goes up.
  */
 export class FileCache {
   readonly #urls = signal<ReadonlyMap<string, string>>(new Map());
@@ -14,9 +15,16 @@ export class FileCache {
   constructor(
     private readonly boardId: string,
     private readonly token: () => string,
+    private readonly link?: string,
   ) {}
 
+  /** The files of the board a share link opens, fetched with the link. */
+  static forLink(boardId: string, linkToken: string): FileCache {
+    return new FileCache(boardId, () => '', linkToken);
+  }
+
   #path(fileId = '') {
+    if (this.link) return `/api/shared/${encodeURIComponent(this.link)}/files/${fileId}`;
     return `/api/boards/${this.boardId}/files${fileId ? `/${fileId}` : ''}`;
   }
 
@@ -25,7 +33,7 @@ export class FileCache {
     for (const id of fileIds) {
       if (this.#urls().has(id) || this.#loading.has(id)) continue;
       this.#loading.add(id);
-      void fetch(this.#path(id), { headers: { Authorization: `Bearer ${this.token()}` } })
+      void fetch(this.#path(id), this.link ? {} : { headers: { Authorization: `Bearer ${this.token()}` } })
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => {
           if (blob) this.#urls.update((urls) => new Map(urls).set(id, URL.createObjectURL(blob)));
@@ -34,10 +42,18 @@ export class FileCache {
     }
   }
 
-  /** Sends a file to the board, reporting progress from 0 to 1. */
+  /** Sends a file to the board, reporting progress from 0 to 1. Aborting rejects with an AbortError. */
   upload(file: File, onProgress: (progress: number) => void, abort: AbortSignal): Promise<BoardFileDto> {
     return new Promise((resolve, reject) => {
+      const aborted = () => new DOMException(`${file.name} wasn't sent`, 'AbortError');
+      if (abort.aborted) {
+        reject(aborted());
+        return;
+      }
       const xhr = new XMLHttpRequest();
+      const cancel = () => xhr.abort();
+      abort.addEventListener('abort', cancel, { once: true });
+      xhr.onloadend = () => abort.removeEventListener('abort', cancel);
       xhr.open('POST', this.#path());
       xhr.setRequestHeader('Authorization', `Bearer ${this.token()}`);
       xhr.responseType = 'json';
@@ -51,7 +67,7 @@ export class FileCache {
         } else reject(new Error(typeof body?.message === 'string' ? body.message : `${file.name} couldn't be added`));
       };
       xhr.onerror = () => reject(new Error(`${file.name} couldn't be sent. Check your connection.`));
-      abort.addEventListener('abort', () => xhr.abort());
+      xhr.onabort = () => reject(aborted());
       const form = new FormData();
       form.append('file', file);
       xhr.send(form);
@@ -61,6 +77,16 @@ export class FileCache {
   destroy(): void {
     for (const url of this.#urls().values()) URL.revokeObjectURL(url);
   }
+}
+
+/** Opens a file in a new tab: images and PDFs show; other files download. */
+export function openFile(url: string, file: { name: string; mime: string }): void {
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  if (!file.mime.startsWith('image/') && file.mime !== 'application/pdf') a.download = file.name;
+  a.click();
 }
 
 /** The size an image goes on the board: its own, scaled to fit within 360 by 360. */

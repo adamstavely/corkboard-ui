@@ -65,4 +65,43 @@ describe('tasks', () => {
     expect(feed.tasks().map((t) => t.key)).toEqual(['T-1']);
     feed.destroy();
   });
+
+  it('gives a new key to a task that took the same one as someone else\'s, once their changes meet', () => {
+    const base = new Y.Doc();
+    new TaskFeed(base).add([{ title: 'Existing', status: 'todo', priority: 0, labels: [] }], Date.parse('2026-11-12T10:00:00Z'));
+    const copy = () => {
+      const doc = new Y.Doc();
+      Y.applyUpdate(doc, Y.encodeStateAsUpdate(base));
+      return doc;
+    };
+    const ada = copy();
+    const grace = copy();
+    const adaFeed = new TaskFeed(ada);
+    const graceFeed = new TaskFeed(grace);
+    // Both add a task at the same time, offline from each other: both take T-2.
+    adaFeed.add([{ title: "Ada's", status: 'todo', priority: 0, labels: [] }], Date.parse('2026-11-13T10:00:00Z'));
+    graceFeed.add([{ title: "Grace's", status: 'todo', priority: 0, labels: [] }], Date.parse('2026-11-13T10:00:01Z'));
+
+    Y.applyUpdate(ada, Y.encodeStateAsUpdate(grace));
+    Y.applyUpdate(grace, Y.encodeStateAsUpdate(ada));
+    const keys = (feed: TaskFeed) => feed.tasks().map((t) => [t.title, t.key]);
+    expect(keys(adaFeed)).toEqual([
+      ['Existing', 'T-1'],
+      ["Ada's", 'T-2'],
+      ["Grace's", 'T-3'],
+    ]);
+    expect(keys(graceFeed)).toEqual(keys(adaFeed));
+    expect(adaFeed.nextKey()).toBe('T-4');
+  });
+
+  it('leaves clashing keys alone for someone who can only read the board', () => {
+    const doc = new Y.Doc();
+    const tasks = doc.getMap<StoredTask>('tasks');
+    const task = (id: string): StoredTask => ({ id, key: 'T-1', title: id, status: 'todo', priority: 0, labels: [], created: '2026-11-13T10:00:00Z' });
+    tasks.set('a', task('a'));
+    tasks.set('b', task('b'));
+    const feed = new TaskFeed(doc, () => false);
+    expect(feed.tasks().map((t) => t.key)).toEqual(['T-1', 'T-1']);
+    feed.destroy();
+  });
 });
