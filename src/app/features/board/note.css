@@ -266,3 +266,25 @@ app-note.found-current,
 .frame.found-current {
   box-shadow: 0 0 0 4px var(--tc-accent-text);
 }
+
+/* Locked in place: a small padlock, and no grab cursor. */
+app-note.locked,
+.frame.locked,
+.item.locked,
+.media.locked {
+  cursor: default;
+}
+app-note.locked::after,
+.item.locked::after,
+.media.locked::after {
+  content: '🔒';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  font-size: 13px;
+  pointer-events: none;
+}
+.frame.locked .frame-title::after {
+  content: ' 🔒';
+  font-size: 12px;
+}

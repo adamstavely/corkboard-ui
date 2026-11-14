@@ -24,6 +24,7 @@
         class="frame"
         [class.dimmed]="dims(frame.id)"
         [class.found-current]="current() === frame.id"
+        [class.locked]="board().locked().has(frame.id)"
         [attr.data-frame-id]="frame.id"
         [class.selected]="selection().has(frame.id)"
         [style.left.px]="frame.x"
@@ -73,6 +74,7 @@
         [class.dimmed]="dims(m.id)"
         [class.found]="isFound(m.id)"
         [class.found-current]="current() === m.id"
+        [class.locked]="board().locked().has(m.id)"
         [class.file]="m.kind === 'file'"
         [attr.data-media-id]="m.id"
         [style.left.px]="m.x"
@@ -118,6 +120,7 @@
         [class.dimmed]="dims(item.id)"
         [class.found]="isFound(item.id)"
         [class.found-current]="current() === item.id"
+        [class.locked]="board().locked().has(item.id)"
         [attr.data-item-id]="item.id"
         [style.left.px]="item.x"
         [style.top.px]="item.y"
@@ -256,6 +259,7 @@
         [class.dimmed]="dims(note.id)"
         [class.found]="isFound(note.id)"
         [class.found-current]="current() === note.id"
+        [class.locked]="board().locked().has(note.id)"
         [note]="note"
         [selected]="selection().has(note.id)"
         [editing]="editing() === note.id"
@@ -353,6 +357,9 @@
             <button type="button" role="menuitem" (click)="ask('What are the open questions in these notes?')"><strong>Find open questions</strong></button>
           </div>
         </tc-menu-morph>
+      }
+      @if (!readOnly()) {
+        <button type="button" class="bar-button" [attr.aria-pressed]="allLocked()" (click)="toggleLock()">{{ allLocked() ? '🔓 Unlock' : '🔒 Lock' }}</button>
       }
       <span class="selection-count">{{ bar.count }} selected</span>
     </div>

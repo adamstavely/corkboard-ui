@@ -223,13 +223,20 @@ export class Canvas {
     const notes = this.board().notes().filter((n) => this.selection().has(n.id)).length;
     const canArrange = !this.readOnly() && chosen.length > 1;
     const canAsk = notes > 0 && this.canReact();
-    if (!canArrange && !canAsk) return null;
+    if (!canArrange && !canAsk && this.readOnly()) return null;
     return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(8, r.y * zoom + y - 44), count: chosen.length, notes };
   });
 
+  /** Whether everything selected is locked: the bar offers Unlock then, else Lock. */
+  protected readonly allLocked = computed(() => [...this.selection()].every((id) => this.board().locked().has(id)));
+
+  protected toggleLock(): void {
+    this.board().setLocked(this.selection(), !this.allLocked());
+  }
+
   protected arrange(how: Alignment | 'h' | 'v' | 'tidy'): void {
     this.layoutOpen.set(false);
-    const chosen = boardBoxes(this.board()).filter((b) => this.selection().has(b.id));
+    const chosen = boardBoxes(this.board()).filter((b) => this.selection().has(b.id) && !this.board().locked().has(b.id));
     const moves = how === 'tidy' ? tidy(chosen) : how === 'h' ? distribute(chosen, 'x') : how === 'v' ? distribute(chosen, 'y') : align(chosen, how);
     this.board().place(moves);
   }
@@ -481,7 +488,7 @@ export class Canvas {
   }
 
   #editItem(id: string, cell?: string): void {
-    if (this.readOnly()) return;
+    if (this.readOnly() || this.board().locked().has(id)) return;
     this.itemEditing.set({ id, ...(cell ? { cell } : {}) });
     this.#focusSoon();
   }
@@ -684,13 +691,13 @@ export class Canvas {
     if (e.button !== 0) return;
     this.editing.set(null);
 
-    if (itemId && target.closest('.item-resize') && !this.readOnly()) {
+    if (itemId && target.closest('.item-resize') && !this.readOnly() && !this.board().locked().has(itemId)) {
       const item = this.board().items().find((i) => i.id === itemId)!;
       this.board().undo.stopCapturing();
       this.#gesture = { kind: 'resize', id: itemId, start: screen, size: { w: item.w, h: item.h }, item: true };
       return;
     }
-    if (frameId && target.closest('.frame-resize') && !this.readOnly()) {
+    if (frameId && target.closest('.frame-resize') && !this.readOnly() && !this.board().locked().has(frameId)) {
       const frame = this.board().frames().find((f) => f.id === frameId)!;
       this.board().undo.stopCapturing();
       this.#gesture = { kind: 'resize', id: frameId, start: screen, size: { w: frame.w, h: frame.h } };
@@ -711,8 +718,8 @@ export class Canvas {
       // Frames carry the frames and notes inside them.
       const frames = this.board().withInnerFrames(this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id));
       const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
-      // Without edit rights, a click selects but nothing moves.
-      if (this.readOnly()) return;
+      // Without edit rights, or with anything locked, a click selects but nothing moves.
+      if (this.readOnly() || [...ids].some((x) => this.board().locked().has(x))) return;
       this.board().bringToFront(ids);
       this.board().undo.stopCapturing();
       // What the dragged things can line up with: everything else in view.
@@ -1122,6 +1129,10 @@ export class Canvas {
   }
 
   protected deleteSelection(): void {
+    if ([...this.selection()].some((id) => this.board().locked().has(id))) {
+      this.announcement.set('Locked things can’t be deleted. Unlock them first.');
+      return;
+    }
     if (this.selection().size === 0) return;
     this.editing.set(null);
     this.renaming.set(null);
@@ -1240,6 +1251,7 @@ export class Canvas {
   }
 
   #edit(id: string): void {
+    if (this.board().locked().has(id)) return;
     this.selection.set(new Set([id]));
     this.editing.set(id);
   }

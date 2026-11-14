@@ -1,5 +1,18 @@
 @if (anything()) {
   <div class="strip" role="region" aria-label="Facilitation">
+    @if (facilitator().userId) {
+      <div class="item">
+        <span class="dot" aria-hidden="true">●</span>
+        <span>{{ facilitating() ? "You're facilitating" : facilitator().name + ' is facilitating' }}</span>
+        @if (facilitating()) {
+          <tc-button size="sm" variant="secondary" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Step down" (click)="release()"></tc-button>
+        } @else if (canRun() && isOwner()) {
+          <tc-button size="sm" variant="ghost" label="Take over" (click)="claim()"></tc-button>
+        }
+      </div>
+    }
+
     @if (timerShown()) {
       <div class="item timer" [class.up]="timesUp()" role="timer" [attr.aria-label]="timesUp() ? 'Time is up' : clock() + ' left'">
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="9" r="6" /><path d="M8 6v3l2 1M6 1h4" /></svg>
@@ -73,6 +86,11 @@
 
     @if (controlsOpen() && canRun()) {
       <div class="item controls" role="group" aria-label="Start a timer or a vote">
+        @if (!facilitator().userId) {
+          <tc-button size="sm" variant="secondary" label="Facilitate" title="Take the facilitator's seat: only you can bring everyone to your view" (click)="claim()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
+          <span class="divider" aria-hidden="true"></span>
+        }
         <span class="muted">Timer</span>
         @for (m of timerMinutes; track m) {
           <tc-button size="sm" variant="ghost" [label]="m + ' min'" (click)="startTimer(m)"></tc-button>

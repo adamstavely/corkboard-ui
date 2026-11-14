@@ -205,6 +205,9 @@ export class BoardDoc {
   readonly #items = signal<Item[]>([]);
   /** Shapes, text, drawings, tables and link cards, bottom to top. */
   readonly items = this.#items.asReadonly();
+  readonly #locked = signal<ReadonlySet<string>>(new Set());
+  /** Things locked in place: they can be selected, but not moved, resized, edited or deleted until unlocked. */
+  readonly locked = this.#locked.asReadonly();
   readonly #connectors = signal<Connector[]>([]);
   /** Every arrow between notes and frames. */
   readonly connectors = this.#connectors.asReadonly();
@@ -624,6 +627,33 @@ export class BoardDoc {
     return wanted.map((id) => copies.get(id)!);
   }
 
+  /** Locks or unlocks things in place. */
+  setLocked(ids: Iterable<string>, locked: boolean): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (!node) continue;
+        if (locked) node.set('locked', true);
+        else node.delete('locked');
+      }
+    }, this);
+  }
+
+  /** Sets the frames' order for the outline and for presenting, first to last. */
+  setFrameOrder(ids: readonly string[]): void {
+    this.doc.transact(() => ids.forEach((id, i) => this.#nodes.get(id)?.set('order', i)), this);
+  }
+
+  /** The frames in outline order: as set, then (for ones never ordered) top to bottom, left to right. */
+  outline(): Frame[] {
+    const order = (f: Frame) => {
+      const o = this.#nodes.get(f.id)?.get('order');
+      return typeof o === 'number' ? o : Number.MAX_SAFE_INTEGER;
+    };
+    return [...this.frames()].sort((a, b) => order(a) - order(b) || Math.round(a.y / 40) - Math.round(b.y / 40) || a.x - b.x);
+  }
+
   /** Moves things to these places in one step (one undo), as aligning and tidying do. */
   place(positions: ReadonlyMap<string, { x: number; y: number }>): void {
     this.undo.stopCapturing();
@@ -700,7 +730,9 @@ export class BoardDoc {
     const connectors: Connector[] = [];
     const media: Media[] = [];
     const items: Item[] = [];
+    const locked = new Set<string>();
     this.#nodes.forEach((node, id) => {
+      if (node.get('locked') === true) locked.add(id);
       const kind = node.get('kind');
       if (kind === 'image' || kind === 'file') {
         media.push({
@@ -766,6 +798,7 @@ export class BoardDoc {
     this.#connectors.set(connectors);
     this.#media.set(media.sort(order));
     this.#items.set(items.sort(order));
+    if (locked.size !== this.#locked().size || [...locked].some((id) => !this.#locked().has(id))) this.#locked.set(locked);
   }
 }
 

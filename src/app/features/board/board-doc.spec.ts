@@ -46,6 +46,20 @@ describe('BoardDoc', () => {
     expect(board.notes().find((n) => n.id === right)).toMatchObject({ x: original.x + original.w + 24, y: original.y, color: 'pink' });
   });
 
+  it('locks and unlocks things, and keeps frames in the order set for the outline', () => {
+    const a = board.addNote(0, 0);
+    board.setLocked([a], true);
+    expect(board.locked().has(a)).toBe(true);
+    board.setLocked([a], false);
+    expect(board.locked().size).toBe(0);
+
+    const top = board.addFrame(0, 0, [], 'Top');
+    const bottom = board.addFrame(0, 1000, [], 'Bottom');
+    expect(board.outline().map((f) => f.title)).toEqual(['Top', 'Bottom']);
+    board.setFrameOrder([bottom, top]);
+    expect(board.outline().map((f) => f.title)).toEqual(['Bottom', 'Top']);
+  });
+
   it('adds notes centred on a point, each above the last', () => {
     const a = board.addNote(100, 100);
     const b = board.addNote(300, 100, 'pink');

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, HostListener, inject, input, resource, signal, untracked, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { html } from 'lit';
@@ -18,8 +19,10 @@ import { BoardDoc } from './board-doc';
 import { Commands, type AppCommand } from '../../core/commands';
 import { formatRemaining } from './facilitation';
 import { facilitationControllerJoinBreakout } from '../../api/generated/fn/facilitation/facilitation-controller-join-breakout';
+import { facilitationControllerBringEveryone } from '../../api/generated/fn/facilitation/facilitation-controller-bring-everyone';
 import { boardsControllerNext } from '../../api/generated/fn/boards/boards-controller-next';
 import { VersionPreview } from './version-preview';
+import { BoardOutline } from './board-outline';
 import { WritingTray } from './writing-tray';
 import type { BoardVersionDto } from '../../api/generated/models/board-version-dto';
 import { BoardChat } from './board-chat';
@@ -74,7 +77,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, WritingTray, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -192,7 +195,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** A saved version shown in place of the board, read-only, until they go back (or restore it). */
@@ -259,6 +262,7 @@ export class BoardPage {
     { id: 'clusters', label: 'Clusters', hint: 'Notes linked by shared words' },
     { id: 'history', label: 'History', hint: 'What the model changed, to undo' },
     { id: 'activity', label: 'Activity', hint: 'Who did what, and versions to restore' },
+    { id: 'outline', label: 'Outline', hint: 'Frames in order, and who is where' },
   ] as const;
 
   protected openView(id: (typeof this.views)[number]['id']): void {
@@ -392,7 +396,7 @@ export class BoardPage {
     }
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'activity'): void {
+  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'activity' | 'outline'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -463,6 +467,25 @@ export class BoardPage {
     void this.#router.navigateByUrl(url);
   }
 
+  /** From the outline: show a frame as the presenter, starting to present if need be, so followers see it too. */
+  protected presentFrame(frameId: string): void {
+    if (!this.presenting()) this.togglePresenting();
+    this.canvas()?.show([frameId], false);
+  }
+
+  /** The facilitator brings everyone to what they're looking at. */
+  protected async bringEveryone(): Promise<void> {
+    const view = this.#lastView;
+    if (!view) return;
+    try {
+      await this.#api.invoke(facilitationControllerBringEveryone, { id: this.id(), body: view });
+      toast.success('Everyone is looking where you are');
+    } catch (err) {
+      const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+      toast.error("Everyone couldn't be brought here", { description: typeof message === 'string' ? message : 'Try again.' });
+    }
+  }
+
   protected async joinBreakout(frameId: string): Promise<void> {
     try {
       await this.#api.invoke(facilitationControllerJoinBreakout, { id: this.id(), body: { frameId } });
@@ -478,6 +501,21 @@ export class BoardPage {
   protected readonly deleting = signal(false);
 
   constructor() {
+    // When the facilitator brings everyone, everyone else's view goes there (once each time, not on opening the board).
+    let seenSpotlight: number | null = null;
+    effect(() => {
+      const spot = this.fstate()?.spotlight;
+      const facilitator = this.fstate()?.facilitator;
+      if (!spot) return;
+      untracked(() => {
+        const fresh = seenSpotlight !== null && spot.n > seenSpotlight;
+        seenSpotlight = spot.n;
+        if (!fresh || !spot.view || facilitator?.userId === this.meUser()?.id) return;
+        this.canvas()?.lookAt(spot.view);
+        toast.info(`${spot.by} brought everyone here`);
+      });
+    });
+
     // What this board can do, in the header's ⌘K menu, for as long as it's open.
     effect((onCleanup) => {
       const canvas = this.canvas();
