@@ -173,7 +173,7 @@
 /* Above the zoom panel, bottom right, when the map is on. */
 .minimap {
   position: absolute;
-  right: var(--tc-space-3);
+  right: var(--launcher-clear, var(--tc-space-3));
   bottom: calc(var(--tc-space-3) + 52px);
   z-index: 2;
   width: 200px;

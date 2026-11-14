@@ -1,4 +1,9 @@
-/* The tool rail down the board's left side, vertically centred, with the assistant above it and undo below. */
+/* The tool rail down the board's left side, vertically centred, with undo below. */
+:host {
+  /* Room for Trench Coat's side-pane launcher in the bottom-right corner (16px in, about 105px wide). */
+  --launcher-clear: 132px;
+}
+
 .rail-stack {
   position: absolute;
   top: 50%;
@@ -9,30 +14,6 @@
   align-items: center;
   gap: var(--tc-space-2);
   transform: translateY(-50%);
-}
-
-/* The assistant: a yellow button of its own. */
-.ai {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 3px solid var(--tc-surface-raised);
-  border-radius: 12px;
-  background: #fbd84a;
-  color: #1a1a1a;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
-  cursor: pointer;
-  --icon-size: 22px;
-}
-.ai:hover {
-  background: #f7cd2a;
-}
-.ai:focus-visible {
-  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
-  outline-offset: 2px;
 }
 
 /* A tool picked: the board takes a crosshair until it's used. */
@@ -55,10 +36,10 @@
   translate: 48px -40px;
 }
 
-/* Bottom right: map, fit, zoom and the shortcuts. */
+/* Bottom right, left of the assistant's "Ask AI" launcher: map, fit, zoom and the shortcuts. */
 .zoom-panel {
   position: absolute;
-  right: var(--tc-space-3);
+  right: var(--launcher-clear);
   bottom: var(--tc-space-3);
   z-index: 8;
 }

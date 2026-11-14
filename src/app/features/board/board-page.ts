@@ -59,6 +59,10 @@ import { colorFor, type PresenceUser } from './presence';
 import { Icon } from '../../shared/icon';
 import { BoardSearch } from '../search/board-search';
 import { AccountNav } from '../../shell/account-nav';
+import { AssistantSession, ASSISTANT_STARTERS } from './assistant';
+import { modelChoice } from './model-choice';
+import { dictate } from '../../shared/speech';
+import { AiSidePane } from '@adamstavely/trenchcoat/angular/ai-side-pane';
 import { BoardStart } from './board-start';
 
 const STATUS_TEXT: Record<ConnectionStatus, string> = {
@@ -80,7 +84,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -248,11 +252,24 @@ export class BoardPage {
   });
 
   /** Something to ask the model in the chat, from elsewhere on the page; `n` makes each request new. */
-  protected readonly chatRequest = signal<{ text: string; n: number } | null>(null);
+  /** The assistant: one conversation per board, opened from its launcher, ⌘., or an Ask AI menu. */
+  protected readonly assistantOpen = signal(false);
+  protected readonly assistantStarters = ASSISTANT_STARTERS;
+  protected readonly dictate = dictate;
+  protected readonly models = modelChoice(this.#api, () => (this.meta.hasValue() ? this.meta.value().orgId : ''));
+  protected readonly assistant = computed(() => new AssistantSession(this.#api, this.id(), this.models.modelId, () => this.selection()));
+  /** What the assistant reads: the selected notes, or the whole board. */
+  protected readonly assistantContext = computed(() => {
+    const picked = this.selection().length;
+    return picked
+      ? { title: `${picked} selected ${picked === 1 ? 'note' : 'notes'}`, connected: true, count: picked }
+      : { title: this.title() || 'This board', connected: true, count: this.board()?.notes().length ?? 0 };
+  });
 
-  protected askInChat(text: string): void {
-    this.chatOpen.set(true);
-    this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
+  /** Opens the assistant and asks it this. */
+  protected askAssistant(text: string): void {
+    this.assistantOpen.set(true);
+    void this.assistant().send(text);
   }
 
   /** The prompt bar and starters on an empty board, until it has something on it or they're hidden. */

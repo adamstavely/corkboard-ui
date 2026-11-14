@@ -552,10 +552,10 @@
   </div>
 </div>
 
-<!-- The tools, down the left: what a click on the board makes. The assistant sits apart above them, undo below. -->
+<!-- The tools, down the left: what a click on the board makes, with undo below. The assistant is Trench Coat's side
+     pane, with its own launcher (see board-page). -->
 @if (!readOnly() || canReact()) {
   <div class="rail-stack">
-    <button type="button" class="ai" aria-label="Assistant" data-tip="Assistant" data-tip-side="right" (click)="assistant.emit()"><app-icon name="sparkles" /></button>
     <div class="app-island vertical rail" role="toolbar" aria-label="Tools" aria-orientation="vertical">
       <button type="button" class="icon-btn" aria-label="Select" data-tip="Select  V" data-tip-side="right" [attr.aria-pressed]="tool() === 'select'" (click)="pickTool('select')"><app-icon name="cursor" /></button>
       @if (!readOnly()) {

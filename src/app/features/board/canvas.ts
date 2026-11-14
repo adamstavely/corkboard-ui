@@ -219,8 +219,6 @@ export class Canvas {
   protected readonly shapesOpen = signal(false);
   /** The rail's views, opened beside the board. */
   readonly openView = output<'tasks' | 'gantt' | 'matrix'>();
-  /** The ✦ button: the assistant. */
-  readonly assistant = output<void>();
 
   /** Picks a tool from the rail or a key. Frame, with notes selected, frames them at once. */
   pickTool(tool: Tool): void {

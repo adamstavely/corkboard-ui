@@ -190,3 +190,8 @@
   --tc-hn-icon-size: 20px;
   --tc-hn-face-size: 28px;
 }
+
+/* The assistant's pane holds the whole board page, so it fills the window. */
+.assistant {
+  height: 100%;
+}

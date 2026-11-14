@@ -1,333 +1,353 @@
-<div class="page">
-  <div class="stage">
-    <!-- The board fills the window; its controls float over it in two panels, like the tools in the left rail. -->
-    <div class="app-island island-left">
-      <tc-menu-morph [open]="mainOpen()" (tc-open-change)="mainOpen.set($event.detail.open)">
-        <button type="button" class="icon-btn" data-menu-trigger aria-label="Main menu" data-tip="Menu"><app-icon name="menu" /></button>
-        <div data-menu class="app-menu" aria-label="Main menu">
-          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); back()"><span class="app-menu-label">All boards</span></button>
-          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); openSearch()"><span class="app-menu-label">Search</span><kbd>{{ modKey }}K</kbd></button>
-          <hr />
-          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/models')"><span class="app-menu-label">AI models</span></button>
-          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/members')"><span class="app-menu-label">Members</span></button>
-          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/integrations')"><span class="app-menu-label">Integrations</span></button>
-          <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/account')"><span class="app-menu-label">Settings</span></button>
-        </div>
-      </tc-menu-morph>
-      <a class="brand" href="/" (click)="$event.preventDefault(); back()">Corkboard</a>
-      <span class="sep" aria-hidden="true"></span>
-      <span class="sync" [class.offline]="status() === 'offline'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
-        <app-icon [name]="status() === 'offline' ? 'cloudOff' : 'cloud'" />
-      </span>
-      <input
-        class="title"
-        aria-label="Board title"
-        maxlength="200"
-        [readOnly]="!canEdit()"
-        [value]="title()"
-        [style.width.ch]="titleWidth()"
-        (input)="title.set($any($event.target).value)"
-        (blur)="rename()"
-        (keydown)="onTitleKey($event)"
-      />
-      @if (previous.hasValue() && previous.value(); as prev) {
-        <a class="continues" [href]="'/boards/' + prev.id" (click)="$event.preventDefault(); go('/boards/' + prev.id)" [title]="'This board carries on from ' + prev.title">
-          <app-icon name="arrowLeft" />{{ prev.title }}
-        </a>
-      }
-      <!-- The board's views, the next session and deleting: one menu, so the panel stays short. -->
-      <tc-menu-morph [open]="viewsOpen()" (tc-open-change)="viewsOpen.set($event.detail.open)">
-        <button type="button" class="icon-btn" data-menu-trigger aria-label="Board menu" data-tip="Board menu" [disabled]="!connection()"><app-icon name="more" /></button>
-        <div data-menu class="app-menu" aria-label="Board menu">
-          @for (view of views; track view.id) {
-            <button type="button" class="app-menu-item" role="menuitemcheckbox" [attr.aria-checked]="panel() === view.id" (click)="openView(view.id)">
-              <span class="app-menu-label">{{ view.label }}</span><span class="app-menu-hint">{{ view.hint }}</span>
-            </button>
-          }
-          @if (canEdit() || isOwner()) {
+<!-- The assistant: Trench Coat's side pane, docked to the right of the board, with its own "Ask AI" launcher while
+     it's closed (⌘. opens it too). It reads the board, or the notes selected, and can change the board. -->
+<tc-ai-side-pane
+  class="assistant"
+  heading="Assistant"
+  side="right"
+  placeholder="Ask about the board, or tell it what to do"
+  [messages]="assistant().messages()"
+  [starters]="assistantStarters"
+  [startersTitle]="'Ask about this board'"
+  [pageContext]="assistantContext()"
+  [models]="models.pickerModels()"
+  [model]="models.modelId() ?? ''"
+  [onDictate]="dictate"
+  [open]="assistantOpen()"
+  (tc-open-change)="assistantOpen.set($event.detail.open)"
+  (tc-send)="assistant().send($event.detail.message, $event.detail.model)"
+  (tc-regenerate)="assistant().regenerate($event.detail.id)"
+  (tc-new-chat)="assistant().clear()"
+  (tc-model-change)="models.choose($event.detail.model)"
+>
+  <div class="page">
+    <div class="stage">
+      <!-- The board fills the window; its controls float over it in two panels, like the tools in the left rail. -->
+      <div class="app-island island-left">
+        <tc-menu-morph [open]="mainOpen()" (tc-open-change)="mainOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Main menu" data-tip="Menu"><app-icon name="menu" /></button>
+          <div data-menu class="app-menu" aria-label="Main menu">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); back()"><span class="app-menu-label">All boards</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); openSearch()"><span class="app-menu-label">Search</span><kbd>{{ modKey }}K</kbd></button>
             <hr />
-          }
-          @if (canEdit()) {
-            <button type="button" class="app-menu-item" role="menuitem" title="A new board with the same frames, carrying over the tasks and action items still open" (click)="viewsOpen.set(false); nextSession()">
-              <span class="app-menu-label">{{ startingNext() ? 'Starting the next session…' : 'Start the next session' }}</span>
-            </button>
-          }
-          @if (isOwner()) {
-            <button type="button" class="app-menu-item danger" role="menuitem" (click)="viewsOpen.set(false); confirmDelete.set(true)"><span class="app-menu-label">Delete board</span></button>
-          }
+            <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/models')"><span class="app-menu-label">AI models</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/members')"><span class="app-menu-label">Members</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/integrations')"><span class="app-menu-label">Integrations</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="mainOpen.set(false); go('/account')"><span class="app-menu-label">Settings</span></button>
+          </div>
+        </tc-menu-morph>
+        <a class="brand" href="/" (click)="$event.preventDefault(); back()">Corkboard</a>
+        <span class="sep" aria-hidden="true"></span>
+        <span class="sync" [class.offline]="status() === 'offline'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
+          <app-icon [name]="status() === 'offline' ? 'cloudOff' : 'cloud'" />
+        </span>
+        <input
+          class="title"
+          aria-label="Board title"
+          maxlength="200"
+          [readOnly]="!canEdit()"
+          [value]="title()"
+          [style.width.ch]="titleWidth()"
+          (input)="title.set($any($event.target).value)"
+          (blur)="rename()"
+          (keydown)="onTitleKey($event)"
+        />
+        @if (previous.hasValue() && previous.value(); as prev) {
+          <a class="continues" [href]="'/boards/' + prev.id" (click)="$event.preventDefault(); go('/boards/' + prev.id)" [title]="'This board carries on from ' + prev.title">
+            <app-icon name="arrowLeft" />{{ prev.title }}
+          </a>
+        }
+        <!-- The board's views, the next session and deleting: one menu, so the panel stays short. -->
+        <tc-menu-morph [open]="viewsOpen()" (tc-open-change)="viewsOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Board menu" data-tip="Board menu" [disabled]="!connection()"><app-icon name="more" /></button>
+          <div data-menu class="app-menu" aria-label="Board menu">
+            @for (view of views; track view.id) {
+              <button type="button" class="app-menu-item" role="menuitemcheckbox" [attr.aria-checked]="panel() === view.id" (click)="openView(view.id)">
+                <span class="app-menu-label">{{ view.label }}</span><span class="app-menu-hint">{{ view.hint }}</span>
+              </button>
+            }
+            @if (canEdit() || isOwner()) {
+              <hr />
+            }
+            @if (canEdit()) {
+              <button type="button" class="app-menu-item" role="menuitem" title="A new board with the same frames, carrying over the tasks and action items still open" (click)="viewsOpen.set(false); nextSession()">
+                <span class="app-menu-label">{{ startingNext() ? 'Starting the next session…' : 'Start the next session' }}</span>
+              </button>
+            }
+            @if (isOwner()) {
+              <button type="button" class="app-menu-item danger" role="menuitem" (click)="viewsOpen.set(false); confirmDelete.set(true)"><span class="app-menu-label">Delete board</span></button>
+            }
+          </div>
+        </tc-menu-morph>
+        <tc-menu-morph [open]="exportOpen()" (tc-open-change)="exportOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Export" data-tip="Export" [disabled]="!board()"><app-icon name="export" /></button>
+          <div data-menu class="app-menu" aria-label="Export the board">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="exportPng()"><span class="app-menu-label">Image (PNG)</span><span class="app-menu-hint">The whole board</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="exportMarkdown()"><span class="app-menu-label">Markdown</span><span class="app-menu-hint">Frames and notes</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="exportPdf()"><span class="app-menu-label">Print or PDF</span></button>
+          </div>
+        </tc-menu-morph>
+        <!-- Search folds to its icon; ⌘K or the icon opens it. -->
+        <div class="search">
+          <button type="button" class="icon-btn" aria-label="Search" [attr.data-tip]="'Search (' + modKey + 'K)'" (click)="openSearch()"><app-icon name="search" /></button>
+          <app-board-search />
         </div>
-      </tc-menu-morph>
-      <tc-menu-morph [open]="exportOpen()" (tc-open-change)="exportOpen.set($event.detail.open)">
-        <button type="button" class="icon-btn" data-menu-trigger aria-label="Export" data-tip="Export" [disabled]="!board()"><app-icon name="export" /></button>
-        <div data-menu class="app-menu" aria-label="Export the board">
-          <button type="button" class="app-menu-item" role="menuitem" (click)="exportPng()"><span class="app-menu-label">Image (PNG)</span><span class="app-menu-hint">The whole board</span></button>
-          <button type="button" class="app-menu-item" role="menuitem" (click)="exportMarkdown()"><span class="app-menu-label">Markdown</span><span class="app-menu-hint">Frames and notes</span></button>
-          <button type="button" class="app-menu-item" role="menuitem" (click)="exportPdf()"><span class="app-menu-label">Print or PDF</span></button>
-        </div>
-      </tc-menu-morph>
-      <!-- Search folds to its icon; ⌘K or the icon opens it. -->
-      <div class="search">
-        <button type="button" class="icon-btn" aria-label="Search" [attr.data-tip]="'Search (' + modKey + 'K)'" (click)="openSearch()"><app-icon name="search" /></button>
-        <app-board-search />
       </div>
-    </div>
 
-    <div class="app-island island-right">
-      @if (canRun()) {
-        <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, hidden writing" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="facilitating.set(!facilitating())">
-          <app-icon name="timer" />
+      <div class="app-island island-right">
+        @if (canRun()) {
+          <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, hidden writing" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="facilitating.set(!facilitating())">
+            <app-icon name="timer" />
+          </button>
+        }
+        <button type="button" class="icon-btn" aria-label="Chat" data-tip="Chat" [attr.aria-pressed]="chatOpen()" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())">
+          <app-icon name="chat" />
         </button>
-      }
-      <button type="button" class="icon-btn" aria-label="Chat" data-tip="Chat" [attr.aria-pressed]="chatOpen()" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())">
-        <app-icon name="chat" />
-      </button>
-      <button
-        type="button"
-        class="icon-btn"
-        [attr.aria-label]="openThreads() ? 'Comments, ' + openThreads() + ' open' : 'Comments'"
-        data-tip="Comments"
-        [attr.aria-pressed]="panel() === 'comments'"
-        [disabled]="!meta.hasValue()"
-        (click)="togglePanel('comments')"
-      >
-        <app-icon name="comments" />
-        @if (openThreads()) {
-          <span class="count" aria-hidden="true">{{ openThreads() }}</span>
-        }
-      </button>
-      <span class="sep" aria-hidden="true"></span>
-      <!-- Who's here, once there's more than one of you: Trench Coat's stack, fanning out leftward on hover. -->
-      @if (people().length > 1) {
-        <tc-stack-spread class="people" dir="rtl" max="4" [label]="people().length + ' people on this board'">
-          @for (person of people(); track person.id) {
-            <span class="person" role="img" [class.me]="person.me" [style.background]="person.color" [title]="person.name" [attr.aria-label]="person.name">
-              {{ person.initials }}
-            </span>
+        <button
+          type="button"
+          class="icon-btn"
+          [attr.aria-label]="openThreads() ? 'Comments, ' + openThreads() + ' open' : 'Comments'"
+          data-tip="Comments"
+          [attr.aria-pressed]="panel() === 'comments'"
+          [disabled]="!meta.hasValue()"
+          (click)="togglePanel('comments')"
+        >
+          <app-icon name="comments" />
+          @if (openThreads()) {
+            <span class="count" aria-hidden="true">{{ openThreads() }}</span>
           }
-        </tc-stack-spread>
-      }
-      <app-account-nav [apps]="false" [separator]="false" />
-      <span class="sep" aria-hidden="true"></span>
-      <button
-        type="button"
-        class="icon-btn filled"
-        [attr.aria-label]="presenting() ? 'Stop presenting' : 'Present'"
-        [attr.data-tip]="presenting() ? 'Stop presenting' : 'Present'"
-        [attr.aria-pressed]="presenting()"
-        [disabled]="!connection()"
-        (click)="togglePresenting()"
-      >
-        <app-icon name="play" />
-      </button>
-      <button type="button" class="share" [attr.aria-pressed]="panel() === 'share'" [disabled]="!meta.hasValue()" (click)="togglePanel('share')">
-        <app-icon name="users" />Share
-      </button>
-    </div>
-    @if (status() === 'denied' || meta.error()) {
-      <p class="problem" role="alert">This board couldn't be opened. It may have been deleted, or you may not have access.</p>
-    } @else if (status() !== 'connecting' && board() && connection()) {
-      <app-canvas
-        [board]="board()!"
-        [presence]="connection()!.presence"
-        [provider]="connection()!.provider"
-        [readOnly]="!canEdit()"
-        [readOnlyLabel]="readOnlyLabel()"
-        [commentCounts]="commentCounts()"
-        (selectionChange)="selection.set($event)"
-        (framesChange)="selectedFrames.set($event)"
-        (selectedIds)="selectionIds.set($event)"
-        [noteVotes]="noteVotes()"
-        [voting]="votingNow()"
-        [votesLeft]="votesLeft()"
-        (vote)="onVote($event.noteId, $event.add)"
-        (viewChange)="onView($event)"
-        [reactions]="reactions()"
-        [canReact]="canComment()"
-        (react)="onReact($event.nodeId, $event.emoji, $event.on)"
-        [fileUrls]="files()?.urls() ?? emptyUrls"
-        (filesDropped)="onDropped($event.files, $event.at)"
-        (addFiles)="togglePanel('files')"
-        (askImage)="askAbout($event)"
-        (openFile)="open($event)"
-        [frameBadges]="frameBadges()"
-        (askAi)="askInChat($event)"
-        [pins]="pins()"
-        (pinOpen)="openPin({ nodeId: $event })"
-        (pinPlaced)="openPin($event)"
-        (joinFrame)="joinBreakout($event)"
-        (openView)="panel.set($event)"
-        (assistant)="chatOpen.set(true)"
-      />
-      @if (showStart()) {
-        <app-board-start (ask)="askInChat($event)" (dismissed)="startDismissed.set(true)" />
-      }
-      @if (fstate()?.writing; as w) {
-        @if (w.open && canComment()) {
-          <app-writing-tray [boardId]="id()" [writing]="w" />
+        </button>
+        <span class="sep" aria-hidden="true"></span>
+        <!-- Who's here, once there's more than one of you: Trench Coat's stack, fanning out leftward on hover. -->
+        @if (people().length > 1) {
+          <tc-stack-spread class="people" dir="rtl" max="4" [label]="people().length + ' people on this board'">
+            @for (person of people(); track person.id) {
+              <span class="person" role="img" [class.me]="person.me" [style.background]="person.color" [title]="person.name" [attr.aria-label]="person.name">
+                {{ person.initials }}
+              </span>
+            }
+          </tc-stack-spread>
         }
-      }
-      @if (previewing(); as v) {
-        <app-version-preview
-          [boardId]="id()"
-          [version]="v"
-          [current]="board()!"
-          [canEdit]="canEdit()"
-          [fileUrls]="files()?.urls() ?? emptyUrls"
-          (closed)="previewing.set(null)"
-          (restored)="previewing.set(null); versionsChanged.set(versionsChanged() + 1)"
-        />
-      }
-      @if (fstate(); as f) {
-        <app-board-facilitation
-          [boardId]="id()"
-          [voting]="f.voting"
-          [votes]="f.votes"
-          [timer]="f.timer"
-          [writing]="f.writing"
-          [breakouts]="f.breakouts"
-          [facilitator]="f.facilitator"
-          [meId]="meUser()?.id"
-          [isOwner]="isOwner()"
-          (bringEveryone)="bringEveryone()"
-          [breakoutFrames]="breakoutFrames()"
-          [framesSelected]="framesSelected()"
-          [frames]="board()!.frames()"
+        <app-account-nav [apps]="false" [separator]="false" />
+        <span class="sep" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="icon-btn filled"
+          [attr.aria-label]="presenting() ? 'Stop presenting' : 'Present'"
+          [attr.data-tip]="presenting() ? 'Stop presenting' : 'Present'"
+          [attr.aria-pressed]="presenting()"
+          [disabled]="!connection()"
+          (click)="togglePresenting()"
+        >
+          <app-icon name="play" />
+        </button>
+        <button type="button" class="share" [attr.aria-pressed]="panel() === 'share'" [disabled]="!meta.hasValue()" (click)="togglePanel('share')">
+          <app-icon name="users" />Share
+        </button>
+      </div>
+      @if (status() === 'denied' || meta.error()) {
+        <p class="problem" role="alert">This board couldn't be opened. It may have been deleted, or you may not have access.</p>
+      } @else if (status() !== 'connecting' && board() && connection()) {
+        <app-canvas
+          [board]="board()!"
+          [presence]="connection()!.presence"
+          [provider]="connection()!.provider"
+          [readOnly]="!canEdit()"
+          [readOnlyLabel]="readOnlyLabel()"
+          [commentCounts]="commentCounts()"
+          (selectionChange)="selection.set($event)"
+          (framesChange)="selectedFrames.set($event)"
+          (selectedIds)="selectionIds.set($event)"
+          [noteVotes]="noteVotes()"
+          [voting]="votingNow()"
           [votesLeft]="votesLeft()"
-          [canRun]="canRun()"
-          [canVote]="canComment()"
-          [controlsOpen]="facilitating()"
-          [presenter]="presenter()"
-          [following]="followingId() !== null"
-          [presenting]="presenting()"
-          (follow)="setFollowing($event)"
-          (stopPresenting)="togglePresenting()"
-          (show)="canvas()?.show($event)"
+          (vote)="onVote($event.noteId, $event.add)"
+          (viewChange)="onView($event)"
+          [reactions]="reactions()"
+          [canReact]="canComment()"
+          (react)="onReact($event.nodeId, $event.emoji, $event.on)"
+          [fileUrls]="files()?.urls() ?? emptyUrls"
+          (filesDropped)="onDropped($event.files, $event.at)"
+          (addFiles)="togglePanel('files')"
+          (askImage)="askAbout($event)"
+          (openFile)="open($event)"
+          [frameBadges]="frameBadges()"
+          (askAi)="askAssistant($event)"
+          [pins]="pins()"
+          (pinOpen)="openPin({ nodeId: $event })"
+          (pinPlaced)="openPin($event)"
+          (joinFrame)="joinBreakout($event)"
+          (openView)="panel.set($event)"
         />
+        @if (showStart()) {
+          <app-board-start (ask)="askAssistant($event)" (dismissed)="startDismissed.set(true)" />
+        }
+        @if (fstate()?.writing; as w) {
+          @if (w.open && canComment()) {
+            <app-writing-tray [boardId]="id()" [writing]="w" />
+          }
+        }
+        @if (previewing(); as v) {
+          <app-version-preview
+            [boardId]="id()"
+            [version]="v"
+            [current]="board()!"
+            [canEdit]="canEdit()"
+            [fileUrls]="files()?.urls() ?? emptyUrls"
+            (closed)="previewing.set(null)"
+            (restored)="previewing.set(null); versionsChanged.set(versionsChanged() + 1)"
+          />
+        }
+        @if (fstate(); as f) {
+          <app-board-facilitation
+            [boardId]="id()"
+            [voting]="f.voting"
+            [votes]="f.votes"
+            [timer]="f.timer"
+            [writing]="f.writing"
+            [breakouts]="f.breakouts"
+            [facilitator]="f.facilitator"
+            [meId]="meUser()?.id"
+            [isOwner]="isOwner()"
+            (bringEveryone)="bringEveryone()"
+            [breakoutFrames]="breakoutFrames()"
+            [framesSelected]="framesSelected()"
+            [frames]="board()!.frames()"
+            [votesLeft]="votesLeft()"
+            [canRun]="canRun()"
+            [canVote]="canComment()"
+            [controlsOpen]="facilitating()"
+            [presenter]="presenter()"
+            [following]="followingId() !== null"
+            [presenting]="presenting()"
+            (follow)="setFollowing($event)"
+            (stopPresenting)="togglePresenting()"
+            (show)="canvas()?.show($event)"
+          />
+        }
+        @if (chatOpen() && meta.hasValue() && meUser(); as me) {
+          <app-board-chat
+            [class.beside-panel]="panel() !== null"
+            [boardId]="id()"
+            [orgId]="meta.value().orgId"
+            [messages]="chat()?.messages() ?? []"
+            [me]="me"
+            [here]="others()"
+            [answering]="answering()"
+            [selection]="selection()"
+            [frames]="selectedFrames()"
+            [canEdit]="canEdit()"
+            [canPost]="canComment()"
+            [isOwner]="isWorkspaceOwner()"
+            [tasks]="tasks()"
+            [boardTitle]="title()"
+            (typingChange)="connection()?.presence?.setTyping($event)"
+            (closed)="chatOpen.set(false)"
+            (show)="canvas()?.show($event)"
+            (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
+          />
+        }
+        @if (panel() === 'outline' && board(); as b) {
+          <app-board-outline
+            [board]="b"
+            [peers]="connection()?.presence?.peers() ?? []"
+            [canEdit]="canEdit()"
+            (closed)="panel.set(null)"
+            (show)="canvas()?.show([$event])"
+            (present)="presentFrame($event)"
+          />
+        }
+        @if (panel() === 'comments' && meta.hasValue()) {
+          <app-board-comments
+            [boardId]="id()"
+            [board]="board()!"
+            [threads]="threads()"
+            [selection]="selectionIds()"
+            [canComment]="canComment()"
+            [me]="meUser()"
+            [target]="pinTarget()"
+            (closed)="panel.set(null)"
+            (show)="showNode($event)"
+            (changed)="comments.reload()"
+          />
+        }
+        @if (panel() === 'matrix') {
+          <app-board-matrix
+            [board]="board()!"
+            [selection]="selection()"
+            [canEdit]="canEdit()"
+            (closed)="panel.set(null)"
+            (ask)="askAssistant('Place these notes on the value-vs-effort matrix')"
+          />
+        }
+        @if (panel() === 'tasks' && tasks() && meta.hasValue()) {
+          <app-board-tasks
+            [boardId]="id()"
+            [boardTitle]="meta.value().title"
+            [board]="board()!"
+            [feed]="tasks()!"
+            [selection]="selection()"
+            [canEdit]="canEdit()"
+            [orgId]="meta.value().orgId"
+            (closed)="panel.set(null)"
+          />
+        }
+        @if (panel() === 'gantt') {
+          <app-board-gantt [board]="board()!" [tasks]="tasks()?.tasks() ?? []" [canEdit]="canEdit()" (closed)="panel.set(null)" (show)="panel.set(null); canvas()?.show($event)" />
+        }
+        @if (panel() === 'summary' && summaryFeed() && meta.hasValue()) {
+          <app-board-summary
+            [boardId]="id()"
+            [orgId]="meta.value().orgId"
+            [boardTitle]="meta.value().title"
+            [board]="board()!"
+            [feed]="summaryFeed()!"
+            [canWrite]="canComment()"
+            (closed)="panel.set(null)"
+            (show)="canvas()?.show($event)"
+            (ask)="askAssistant($event)"
+          />
+        }
+        @if (panel() === 'files' && files()) {
+          <app-board-files [cache]="files()!" (closed)="panel.set(null)" (added)="place($event.file, $event.local)" />
+        }
+        @if (panel() === 'ask-image' && asking() && meta.hasValue()) {
+          <app-image-ask
+            [boardId]="id()"
+            [orgId]="meta.value().orgId"
+            [fileId]="asking()!.fileId"
+            [name]="asking()!.name"
+            [src]="files()?.urls()?.get(asking()!.fileId) ?? ''"
+            (closed)="panel.set(null)"
+          />
+        }
+        @if (panel() === 'activity') {
+          <app-board-activity [boardId]="id()" [canEdit]="canEdit()" [refresh]="versionsChanged()" (preview)="previewing.set($event)" (closed)="panel.set(null)" />
+        }
+        @if (away(); as a) {
+          <tc-away-summary class="away" heading="While you were away" [since]="a.since" [items]="a.items" (tc-seen)="away.set(null)"></tc-away-summary>
+        }
+        @if (panel() === 'history' && ledger()) {
+          <app-board-history [boardId]="id()" [feed]="ledger()!" [canEdit]="canEdit()" (closed)="panel.set(null)" />
+        }
+        @if (panel() === 'clusters') {
+          <app-board-clusters [board]="board()!" (closed)="panel.set(null)" (show)="canvas()?.show($event)" />
+        }
+        @if (panel() === 'share' && meta.hasValue()) {
+          <app-board-share
+            [boardId]="id()"
+            [boardName]="meta.value().title"
+            [canManage]="isOwner()"
+            [meId]="meId()"
+            (closed)="panel.set(null)"
+            (changed)="meta.reload()"
+          />
+        }
+      } @else {
+        <tc-skeleton aria-label="Loading board"></tc-skeleton>
       }
-      @if (chatOpen() && meta.hasValue() && meUser(); as me) {
-        <app-board-chat
-          [class.beside-panel]="panel() !== null"
-          [boardId]="id()"
-          [orgId]="meta.value().orgId"
-          [messages]="chat()?.messages() ?? []"
-          [me]="me"
-          [here]="others()"
-          [answering]="answering()"
-          [selection]="selection()"
-          [frames]="selectedFrames()"
-          [canEdit]="canEdit()"
-          [canPost]="canComment()"
-          [isOwner]="isWorkspaceOwner()"
-          [request]="chatRequest()"
-          [tasks]="tasks()"
-          [boardTitle]="title()"
-          (typingChange)="connection()?.presence?.setTyping($event)"
-          (closed)="chatOpen.set(false)"
-          (show)="canvas()?.show($event)"
-          (pin)="canvas()?.addNoteBeside($event.near, $event.text)"
-        />
-      }
-      @if (panel() === 'outline' && board(); as b) {
-        <app-board-outline
-          [board]="b"
-          [peers]="connection()?.presence?.peers() ?? []"
-          [canEdit]="canEdit()"
-          (closed)="panel.set(null)"
-          (show)="canvas()?.show([$event])"
-          (present)="presentFrame($event)"
-        />
-      }
-      @if (panel() === 'comments' && meta.hasValue()) {
-        <app-board-comments
-          [boardId]="id()"
-          [board]="board()!"
-          [threads]="threads()"
-          [selection]="selectionIds()"
-          [canComment]="canComment()"
-          [me]="meUser()"
-          [target]="pinTarget()"
-          (closed)="panel.set(null)"
-          (show)="showNode($event)"
-          (changed)="comments.reload()"
-        />
-      }
-      @if (panel() === 'matrix') {
-        <app-board-matrix
-          [board]="board()!"
-          [selection]="selection()"
-          [canEdit]="canEdit()"
-          (closed)="panel.set(null)"
-          (ask)="askInChat('Place these notes on the value-vs-effort matrix')"
-        />
-      }
-      @if (panel() === 'tasks' && tasks() && meta.hasValue()) {
-        <app-board-tasks
-          [boardId]="id()"
-          [boardTitle]="meta.value().title"
-          [board]="board()!"
-          [feed]="tasks()!"
-          [selection]="selection()"
-          [canEdit]="canEdit()"
-          [orgId]="meta.value().orgId"
-          (closed)="panel.set(null)"
-        />
-      }
-      @if (panel() === 'gantt') {
-        <app-board-gantt [board]="board()!" [tasks]="tasks()?.tasks() ?? []" [canEdit]="canEdit()" (closed)="panel.set(null)" (show)="panel.set(null); canvas()?.show($event)" />
-      }
-      @if (panel() === 'summary' && summaryFeed() && meta.hasValue()) {
-        <app-board-summary
-          [boardId]="id()"
-          [orgId]="meta.value().orgId"
-          [boardTitle]="meta.value().title"
-          [board]="board()!"
-          [feed]="summaryFeed()!"
-          [canWrite]="canComment()"
-          (closed)="panel.set(null)"
-          (show)="canvas()?.show($event)"
-          (ask)="askInChat($event)"
-        />
-      }
-      @if (panel() === 'files' && files()) {
-        <app-board-files [cache]="files()!" (closed)="panel.set(null)" (added)="place($event.file, $event.local)" />
-      }
-      @if (panel() === 'ask-image' && asking() && meta.hasValue()) {
-        <app-image-ask
-          [boardId]="id()"
-          [orgId]="meta.value().orgId"
-          [fileId]="asking()!.fileId"
-          [name]="asking()!.name"
-          [src]="files()?.urls()?.get(asking()!.fileId) ?? ''"
-          (closed)="panel.set(null)"
-        />
-      }
-      @if (panel() === 'activity') {
-        <app-board-activity [boardId]="id()" [canEdit]="canEdit()" [refresh]="versionsChanged()" (preview)="previewing.set($event)" (closed)="panel.set(null)" />
-      }
-      @if (away(); as a) {
-        <tc-away-summary class="away" heading="While you were away" [since]="a.since" [items]="a.items" (tc-seen)="away.set(null)"></tc-away-summary>
-      }
-      @if (panel() === 'history' && ledger()) {
-        <app-board-history [boardId]="id()" [feed]="ledger()!" [canEdit]="canEdit()" (closed)="panel.set(null)" />
-      }
-      @if (panel() === 'clusters') {
-        <app-board-clusters [board]="board()!" (closed)="panel.set(null)" (show)="canvas()?.show($event)" />
-      }
-      @if (panel() === 'share' && meta.hasValue()) {
-        <app-board-share
-          [boardId]="id()"
-          [boardName]="meta.value().title"
-          [canManage]="isOwner()"
-          [meId]="meId()"
-          (closed)="panel.set(null)"
-          (changed)="meta.reload()"
-        />
-      }
-    } @else {
-      <tc-skeleton aria-label="Loading board"></tc-skeleton>
-    }
+    </div>
   </div>
-</div>
+</tc-ai-side-pane>
 
 <tc-dialog
   size="sm"
