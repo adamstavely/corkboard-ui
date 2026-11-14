@@ -9,27 +9,67 @@
   height: 100%;
 }
 
-.bar {
-  display: flex;
-  align-items: center;
-  gap: var(--tc-space-3);
-  padding: var(--tc-space-2) var(--tc-space-4);
-  border-bottom: 1px solid var(--tc-border-subtle);
-  background: var(--tc-surface-raised);
-  flex: none;
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The two panels over the board's top corners. */
+.island-left,
+.island-right {
+  position: absolute;
+  top: var(--tc-space-3);
+  z-index: 20;
+  max-width: calc(50% - 2 * var(--tc-space-3));
+}
+.island-left {
+  left: var(--tc-space-3);
+}
+.island-right {
+  right: var(--tc-space-3);
+}
+
+.brand {
+  padding: 0 6px;
+  color: var(--tc-text-strong);
+  font-size: var(--tc-font-size-md);
+  font-weight: var(--tc-font-weight-semibold);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Saved, saving or offline, as a cloud beside the title; the words are in its tooltip. */
+.sync {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--tc-text-muted);
+  --icon-size: 18px;
+}
+.sync.offline {
+  color: var(--tc-status-warning-fg);
+}
+.sync:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  border-radius: 6px;
 }
 
 .title {
-  flex: 1;
   min-width: 0;
-  padding: var(--tc-space-1) var(--tc-space-2);
+  max-width: 100%;
+  padding: 4px 6px;
   border: 1px solid transparent;
-  border-radius: var(--tc-radius-sm);
+  border-radius: 6px;
   background: transparent;
   color: var(--tc-text-strong);
   font: inherit;
-  font-size: var(--tc-font-size-lg);
-  font-weight: var(--tc-font-weight-semibold);
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-medium);
+  text-overflow: ellipsis;
 }
 .title:hover {
   border-color: var(--tc-border-subtle);
@@ -39,16 +79,52 @@
   outline-offset: 0;
 }
 
-.status {
-  color: var(--tc-text-muted);
-  font-size: var(--tc-font-size-sm);
-  white-space: nowrap;
+/* Search folds to its icon, and opens to the field when it has focus (⌘K or the icon). */
+.search {
+  display: flex;
+  align-items: center;
+}
+.search app-board-search {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.15s ease;
+}
+.search:focus-within app-board-search {
+  width: 280px;
+  overflow: visible;
+}
+.search:focus-within .icon-btn {
+  display: none;
 }
 
-.stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+/* The one filled button: Share. */
+.share {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  margin-left: 4px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--tc-action-primary-bg);
+  color: var(--tc-action-primary-fg);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+  cursor: pointer;
+  --icon-size: 18px;
+}
+.share:hover {
+  background: var(--tc-action-primary-bg-hover);
+}
+.share:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.share:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
 }
 
 .problem {
@@ -56,13 +132,10 @@
 }
 
 .people {
-  position: absolute;
-  top: var(--tc-space-3);
-  right: var(--tc-space-4);
-  z-index: 2;
-  /* Sized for 32px avatars: a deeper overlap, and its "+N" as tall as they are. */
-  --tc-sspr-overlap: 12px;
-  --tc-control-h-sm: 32px;
+  margin-right: 4px;
+  /* Sized for 28px avatars: a deeper overlap, and its "+N" as tall as they are. */
+  --tc-sspr-overlap: 10px;
+  --tc-control-h-sm: 28px;
 }
 
 /* Right to left, the browser would show the count as "2+"; its text keeps its own order (its layout stays RTL). */
@@ -74,8 +147,8 @@
 .person {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 2px solid var(--app-canvas);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
@@ -85,73 +158,11 @@
   cursor: default;
 }
 
-.status.offline {
-  color: var(--tc-status-warning-fg);
-}
-
-/* Views and Export: Trench Coat's menu-morph, with a trigger that matches the bar's small secondary buttons. */
-.menu-trigger {
-  height: var(--tc-control-h-sm, 28px);
-  padding: 0 var(--tc-space-3);
-  border: 1px solid var(--tc-border-default);
-  border-radius: var(--tc-control-radius-sm, var(--tc-radius-sm));
-  background: var(--tc-surface-raised);
-  color: var(--tc-text-primary);
-  font: inherit;
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-medium);
-  cursor: pointer;
-}
-.menu-trigger:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.menu-trigger:focus-visible {
-  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
-  outline-offset: 2px;
-}
-.menu-list {
-  display: flex;
-  flex-direction: column;
-  min-width: 240px;
-  padding: var(--tc-space-1);
-}
-.menu-list button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: var(--tc-space-2) var(--tc-space-3);
-  border: 0;
-  border-radius: var(--tc-radius-sm);
-  background: transparent;
-  color: var(--tc-text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.menu-list button:hover,
-.menu-list button:focus-visible {
-  background: var(--tc-fill-default, var(--tc-accent-subtle));
-  outline: none;
-}
-.menu-list button[aria-checked='true'] strong::after {
-  content: ' ✓';
-  color: var(--tc-accent-text);
-}
-.menu-list strong {
-  font-size: var(--tc-font-size-sm);
-  font-weight: var(--tc-font-weight-medium);
-}
-.menu-list span {
-  color: var(--tc-text-muted);
-  font-size: var(--tc-font-size-xs, 12px);
-}
 
 /* What happened while you were away: top left, under the bar, until you've seen it. */
 .away {
   position: absolute;
-  top: var(--tc-space-3);
+  top: calc(var(--tc-space-3) + 52px);
   left: var(--tc-space-4);
   z-index: 3;
   width: min(380px, calc(100% - 2 * var(--tc-space-4)));
@@ -171,4 +182,11 @@
 .continues:hover {
   color: var(--tc-accent-text);
   text-decoration: underline;
+}
+
+/* The bell and avatar at the same size as the panel's other buttons. */
+.island-right ::ng-deep tc-header-nav {
+  --tc-hn-trigger-size: 36px;
+  --tc-hn-icon-size: 20px;
+  --tc-hn-face-size: 28px;
 }

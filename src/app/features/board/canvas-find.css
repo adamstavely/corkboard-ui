@@ -1,7 +1,7 @@
 /* Find and filter: top right of the board. */
 .find {
   position: absolute;
-  top: var(--tc-space-3);
+  top: calc(var(--tc-space-3) + 52px);
   right: var(--tc-space-4);
   z-index: 6;
   display: flex;
