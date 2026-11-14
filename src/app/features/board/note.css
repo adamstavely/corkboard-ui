@@ -208,3 +208,21 @@ app-note .reaction:disabled {
 app-note .reaction:focus-visible {
   outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
 }
+
+/* Who wrote it, on notes from a signed writing round: quietly, above the text, which moves down to make room. */
+app-note.signed .text {
+  padding-top: 10px;
+  box-sizing: border-box;
+}
+app-note .note-author {
+  position: absolute;
+  top: 5px;
+  left: 12px;
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}

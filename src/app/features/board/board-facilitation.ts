@@ -5,7 +5,11 @@ import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { Api } from '../../api/generated/api';
 import { facilitationControllerSetTimer } from '../../api/generated/fn/facilitation/facilitation-controller-set-timer';
 import { facilitationControllerSetVoting } from '../../api/generated/fn/facilitation/facilitation-controller-set-voting';
-import { formatRemaining, ranking, type Timer, type Voting } from './facilitation';
+import { writingControllerCancel } from '../../api/generated/fn/facilitation/writing-controller-cancel';
+import { writingControllerReveal } from '../../api/generated/fn/facilitation/writing-controller-reveal';
+import { writingControllerStart } from '../../api/generated/fn/facilitation/writing-controller-start';
+import { toast } from '@adamstavely/trenchcoat/toaster';
+import { formatRemaining, ranking, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
@@ -29,6 +33,9 @@ export class BoardFacilitation {
   readonly voting = input.required<Voting>();
   readonly votes = input.required<ReadonlyMap<string, readonly string[]>>();
   readonly timer = input.required<Timer>();
+  readonly writing = input.required<Writing>();
+  /** The board's frames, to send revealed notes into one. */
+  readonly frames = input<readonly { id: string; title: string }[]>([]);
   /** This person's votes left in the running round. */
   readonly votesLeft = input(0);
   /** Whether they may start and stop the timer and votes, and whether they may vote. */
@@ -49,6 +56,12 @@ export class BoardFacilitation {
   protected readonly timerMinutes = TIMER_MINUTES;
   protected readonly voteOptions = VOTE_OPTIONS;
   protected readonly votesEach = signal('3');
+  protected readonly anonymous = signal(true);
+  protected readonly into = signal('');
+  protected readonly frameOptions = computed(() => [
+    { value: '', label: 'Beside the board’s notes' },
+    ...this.frames().map((f) => ({ value: f.id, label: `Into “${f.title || 'Untitled frame'}”` })),
+  ]);
   protected readonly problem = signal('');
 
   /** Now, every second while a timer runs. */
@@ -75,7 +88,8 @@ export class BoardFacilitation {
   protected readonly results = computed(() => (this.voting().open ? [] : ranking(this.votes())));
 
   protected readonly anything = computed(
-    () => this.controlsOpen() || this.timerShown() || this.voting().open || this.results().length > 0 || !!this.presenter() || this.presenting(),
+    () =>
+      this.controlsOpen() || this.timerShown() || this.voting().open || this.writing().open || this.results().length > 0 || !!this.presenter() || this.presenting(),
   );
 
   protected async startTimer(minutes: number): Promise<void> {
@@ -101,6 +115,23 @@ export class BoardFacilitation {
 
   protected async finishVote(): Promise<void> {
     await this.#run(() => this.#api.invoke(facilitationControllerSetVoting, { id: this.boardId(), body: { open: false } }));
+  }
+
+  protected async startWriting(): Promise<void> {
+    await this.#run(() =>
+      this.#api.invoke(writingControllerStart, { id: this.boardId(), body: { anonymous: this.anonymous(), ...(this.into() ? { frameId: this.into() } : {}) } }),
+    );
+  }
+
+  protected async reveal(): Promise<void> {
+    await this.#run(async () => {
+      const { revealed } = await this.#api.invoke(writingControllerReveal, { id: this.boardId() });
+      toast.success(`Revealed ${revealed} note${revealed === 1 ? '' : 's'}`);
+    });
+  }
+
+  protected async cancelWriting(): Promise<void> {
+    await this.#run(() => this.#api.invoke(writingControllerCancel, { id: this.boardId() }));
   }
 
   protected showTop(): void {

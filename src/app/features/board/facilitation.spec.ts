@@ -51,4 +51,21 @@ describe('FacilitationFeed', () => {
     expect(feed.state().timer).toMatchObject({ endsAt: 5000, label: 'Add notes' });
     feed.destroy();
   });
+
+  it('shows a hidden writing round: whether it is on and how many have written, nothing more', () => {
+    const doc = new Y.Doc();
+    const feed = new FacilitationFeed(doc);
+    expect(feed.state().writing.open).toBe(false);
+    const w = doc.getMap('writing');
+    doc.transact(() => {
+      w.set('open', true);
+      w.set('anonymous', true);
+      w.set('round', 'r1');
+      w.set('startedBy', 'Ada');
+      w.set('notes', 4);
+      w.set('writers', 2);
+    });
+    expect(feed.state().writing).toEqual({ open: true, anonymous: true, round: 'r1', frameId: null, startedBy: 'Ada', notes: 4, writers: 2 });
+    feed.destroy();
+  });
 });

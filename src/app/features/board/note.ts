@@ -15,6 +15,9 @@ import { noteExtensions, renderNoteText } from './note-text';
   selector: 'app-note',
   template: `
     <div class="text" #text></div>
+    @if (note().authorName) {
+      <span class="note-author">{{ note().authorName }}</span>
+    }
     @if (peer(); as peer) {
       <span class="note-peer" [style.background]="peer.color">{{ peer.name }}{{ peer.editing ? ' is writing' : '' }}</span>
     }
@@ -56,6 +59,7 @@ import { noteExtensions, renderNoteText } from './note-text';
     '[attr.data-note-id]': 'note().id',
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
+    '[class.signed]': '!!note().authorName',
     '[class.peer-selected]': '!!peer()',
     '[style.--peer-color]': 'peer()?.color',
     '[style.transform]': '"translate(" + note().x + "px, " + note().y + "px)"',

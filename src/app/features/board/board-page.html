@@ -77,6 +77,11 @@
         (askImage)="askAbout($event)"
         (openFile)="open($event)"
       />
+      @if (fstate()?.writing; as w) {
+        @if (w.open && canComment()) {
+          <app-writing-tray [boardId]="id()" [writing]="w" />
+        }
+      }
       @if (previewing(); as v) {
         <app-version-preview
           [boardId]="id()"
@@ -94,6 +99,8 @@
           [voting]="f.voting"
           [votes]="f.votes"
           [timer]="f.timer"
+          [writing]="f.writing"
+          [frames]="board()!.frames()"
           [votesLeft]="votesLeft()"
           [canRun]="canRun()"
           [canVote]="canComment()"
