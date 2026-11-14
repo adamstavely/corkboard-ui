@@ -28,6 +28,9 @@
       <tc-button variant="secondary" label="AI models" (click)="go('/models')"></tc-button>
       <tc-button variant="secondary" label="Integrations" (click)="go('/integrations')"></tc-button>
       <tc-button variant="secondary" label="Members" (click)="go('/members')"></tc-button>
+      @if (session.org()?.role === 'owner') {
+        <tc-button variant="secondary" label="Admin" (click)="go('/admin')"></tc-button>
+      }
       @if (canCreate()) {
         <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="picking.set(true)"></tc-button>
       }

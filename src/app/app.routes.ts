@@ -12,6 +12,7 @@ export const routes: Routes = [
       { path: '', title: 'Boards · Corkboard', loadComponent: () => import('./features/boards/board-list').then((m) => m.BoardList) },
       { path: 'models', title: 'AI models · Corkboard', loadComponent: () => import('./features/models/models-page').then((m) => m.ModelsPage) },
       { path: 'account', title: 'Passkeys · Corkboard', loadComponent: () => import('./features/account/account-page').then((m) => m.AccountPage) },
+      { path: 'admin', title: 'Workspace admin · Corkboard', loadComponent: () => import('./features/admin/admin-page').then((m) => m.AdminPage) },
       { path: 'integrations', title: 'Integrations · Corkboard', loadComponent: () => import('./features/integrations/integrations-page').then((m) => m.IntegrationsPage) },
       { path: 'members', title: 'Members · Corkboard', loadComponent: () => import('./features/members/members-page').then((m) => m.MembersPage) },
       // The canvas, Yjs and Tiptap load with the first board opened.
