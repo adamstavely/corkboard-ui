@@ -15,6 +15,16 @@ server {
     client_max_body_size 16m;
   }
 
+  # The live notification stream: passed through as it arrives, and left open (the API pings every 25 seconds).
+  location = /api/me/notifications/stream {
+    proxy_pass ${API_UPSTREAM}/me/notifications/stream;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+  }
+
   # Hashed build output can be cached for good.
   location ~* \.(?:js|css|woff2?)$ {
     expires 1y;
