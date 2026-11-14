@@ -104,4 +104,22 @@ describe('tasks', () => {
     expect(feed.tasks().map((t) => t.key)).toEqual(['T-1', 'T-1']);
     feed.destroy();
   });
+
+  it("shows a task's issue beside its key, and keeps its own key and link when edited", () => {
+    const stored: StoredTask = {
+      id: 'a',
+      key: 'T-3',
+      title: 'Runbook',
+      status: 'todo',
+      priority: 0,
+      labels: [],
+      created: '2026-11-13T10:00:00Z',
+      external: { kind: 'jira', key: 'ENG-12', url: 'https://acme.atlassian.net/browse/ENG-12' },
+    };
+    const shown = toTask(stored);
+    expect(shown.key).toBe('T-3 · ENG-12');
+    const back = fromTask({ ...shown, title: 'Write the runbook' }, stored);
+    expect(back).toMatchObject({ key: 'T-3', title: 'Write the runbook', external: stored.external });
+    expect(fromTask({ ...shown, key: 'T-9 · X-1' }, undefined).key).toBe('T-9');
+  });
 });
