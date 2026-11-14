@@ -22,7 +22,7 @@ export function nextMonday(now = new Date()): string {
   selector: 'app-board-gantt',
   imports: [RoadmapTimeline, Select, Button],
   template: `
-    <aside class="panel" aria-label="Timeline">
+    <aside class="panel" [class.placed]="placed()" aria-label="Timeline">
       <div class="head">
         @if (timelines().length > 1) {
           <tc-select label="Timeline" [options]="timelineOptions()" [value]="currentId()" (tc-value-change)="chosen.set($event.detail.value)"></tc-select>
@@ -35,7 +35,9 @@ export function nextMonday(now = new Date()): string {
           <tc-select label="Each column" [options]="periods" [value]="schedule().every" [disabled]="!canEdit()" (tc-value-change)="setEvery($any($event.detail.value))"></tc-select>
         }
         <span class="spacer"></span>
-        <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        @if (!placed()) {
+          <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        }
       </div>
       @if (current(); as t) {
         <tc-roadmap-timeline
@@ -55,6 +57,15 @@ export function nextMonday(now = new Date()): string {
     </aside>
   `,
   styles: `
+    /* Placed on the board: it fills its element there, which does the positioning. */
+    .panel.placed {
+      position: static;
+      inset: auto;
+      width: auto;
+      height: 100%;
+      max-height: none;
+      z-index: auto;
+    }
     .panel {
       position: absolute;
       inset: calc(var(--tc-space-3) + 52px) var(--tc-space-4) calc(var(--tc-space-4) + 56px);
@@ -102,6 +113,8 @@ export class BoardGantt {
   readonly board = input.required<BoardDoc>();
   readonly tasks = input<readonly StoredTask[]>([]);
   readonly canEdit = input(false);
+  /** On the board as an element of its own, rather than opened beside it: no Close, and it fills its box. */
+  readonly placed = input(false);
   readonly closed = output<void>();
   /** Find a bar's note on the board. */
   readonly show = output<readonly string[]>();

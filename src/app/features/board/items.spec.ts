@@ -1,4 +1,5 @@
-import { BoardDoc, type DrawingItem, type LinkItem, type ShapeItem, type TableItem, type TextItem } from './board-doc';
+import * as Y from 'yjs';
+import { BoardDoc, VIEW_MIN, VIEW_SIZE, type DrawingItem, type LinkItem, type ShapeItem, type TableItem, type TextItem, type ViewItem } from './board-doc';
 import { boardBounds } from './export';
 import { safeUrl, shapePath } from './items';
 
@@ -41,6 +42,17 @@ describe('shapes, text, drawings, tables and link cards', () => {
     board.setPenStyle([id], { width: 2 });
     board.setPenStyle([id], { width: 5 });
     expect(item<DrawingItem>(id)).toMatchObject({ color: 'blue', width: 2 });
+  });
+
+  it('places a matrix, kanban or timeline as a thing on the board, sized to fit, and no smaller than usable', () => {
+    const id = board.addView(0, 0, 'kanban');
+    expect(item<ViewItem>(id)).toMatchObject({ kind: 'view', view: 'kanban', x: -VIEW_SIZE.kanban.w / 2, w: VIEW_SIZE.kanban.w, h: VIEW_SIZE.kanban.h });
+    board.move([id], 100, 50);
+    board.resizeItem(id, 10, 10);
+    expect(item<ViewItem>(id)).toMatchObject({ x: 100 - VIEW_SIZE.kanban.w / 2, w: VIEW_MIN.w, h: VIEW_MIN.h });
+    // A view of a kind this version doesn't know is left out, not drawn as something else.
+    board.doc.getMap<Y.Map<unknown>>('nodes').get(id)!.set('view', 'spreadsheet');
+    expect(board.items().some((i) => i.id === id)).toBe(false);
   });
 
   it('fills in table cells one at a time, and drops cells a smaller table loses', () => {

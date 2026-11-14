@@ -141,9 +141,28 @@ export interface LinkItem extends Placed {
   image: string | null;
   site: string;
 }
-/** The board's other things: shapes, text, pen strokes, tables and link cards. */
-export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem;
-const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link']);
+/** The views that live on the board as things of their own: drawn from the board's notes and tasks, kept live. */
+export const BOARD_VIEWS = ['matrix', 'kanban', 'timeline'] as const;
+export type BoardView = (typeof BOARD_VIEWS)[number];
+/** A new view's size: room for Trench Coat's matrix, task board or roadmap at 100%. */
+export const VIEW_SIZE: Record<BoardView, { w: number; h: number }> = {
+  matrix: { w: 760, h: 620 },
+  kanban: { w: 1040, h: 620 },
+  timeline: { w: 1040, h: 520 },
+};
+/** The smallest a view can be resized to and still be used. */
+export const VIEW_MIN = { w: 360, h: 280 } as const;
+/** What each view is called, on its title bar and to a screen reader. */
+export const VIEW_NAMES: Record<BoardView, string> = { matrix: 'Value vs effort', kanban: 'Tasks', timeline: 'Timeline' };
+/** A matrix, kanban or timeline placed on the board: moved, sized and stacked like anything else. */
+export interface ViewItem extends Placed {
+  kind: 'view';
+  view: BoardView;
+}
+
+/** The board's other things: shapes, text, pen strokes, tables, link cards and views. */
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view']);
 
 /** A ready-made note: a bold heading and prompts to fill in. */
 export interface NoteTemplate {
@@ -601,6 +620,12 @@ export class BoardDoc {
     });
   }
 
+  /** Puts a matrix, kanban or timeline on the board, centred on a point, and returns its id. */
+  addView(cx: number, cy: number, view: BoardView): string {
+    const { w, h } = VIEW_SIZE[view];
+    return this.#place('view', cx, cy, w, h, (n) => n.set('view', view));
+  }
+
   addTable(cx: number, cy: number, rows = 3, cols = 3): string {
     return this.#place('table', cx, cy, cols * 140, rows * 40, (n) => {
       n.set('rows', rows);
@@ -703,8 +728,9 @@ export class BoardDoc {
     const node = this.#nodes.get(id);
     if (!node || !ITEM_KINDS.has(String(node.get('kind')))) return;
     this.doc.transact(() => {
-      node.set('w', Math.round(Math.max(ITEM_MIN, w)));
-      node.set('h', Math.round(Math.max(node.get('kind') === 'text' ? 20 : ITEM_MIN, h)));
+      const view = node.get('kind') === 'view';
+      node.set('w', Math.round(Math.max(view ? VIEW_MIN.w : ITEM_MIN, w)));
+      node.set('h', Math.round(Math.max(view ? VIEW_MIN.h : node.get('kind') === 'text' ? 20 : ITEM_MIN, h)));
     }, this);
   }
 
@@ -1031,6 +1057,10 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
         image: typeof image === 'string' && image.startsWith('https://') ? image : null,
         site: str(node.get('site')),
       };
+    }
+    case 'view': {
+      const view = node.get('view') as BoardView;
+      return BOARD_VIEWS.includes(view) ? { ...box, kind: 'view', view } : null;
     }
     default:
       return null;

@@ -23,7 +23,7 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
   selector: 'app-board-tasks',
   imports: [TaskBoard, Button, Icon],
   template: `
-    <aside class="panel" aria-label="Tasks">
+    <aside class="panel" [class.placed]="placed()" aria-label="Tasks">
       <div class="head">
         <span class="note">{{ canEdit() ? hint() : 'Only updaters and owners can change tasks.' }}</span>
         @if (canEdit() && trackers().length && unsent() > 0) {
@@ -37,7 +37,9 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
         @if (canEdit() && newItems().length) {
           <tc-button size="sm" variant="secondary" [label]="'Add ' + newItems().length + ' action item' + (newItems().length === 1 ? '' : 's')" (click)="addActionItems()"></tc-button>
         }
-        <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        @if (!placed()) {
+          <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        }
       </div>
       @if (linked().length) {
         <p class="linked">
@@ -58,6 +60,15 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
     </aside>
   `,
   styles: `
+    /* Placed on the board: it fills its element there, which does the positioning. */
+    .panel.placed {
+      position: static;
+      inset: auto;
+      width: auto;
+      height: 100%;
+      max-height: none;
+      z-index: auto;
+    }
     .panel {
       position: absolute;
       inset: calc(var(--tc-space-3) + 52px) var(--tc-space-4) calc(var(--tc-space-4) + 56px);
@@ -116,6 +127,8 @@ export class BoardTasks {
   readonly canEdit = input(false);
   /** The board's workspace, for its issue trackers. */
   readonly orgId = input<string>();
+  /** On the board as an element of its own, rather than opened beside it: no Close, and it fills its box. */
+  readonly placed = input(false);
   readonly closed = output<void>();
 
   protected readonly statuses = TASK_STATUSES;

@@ -29,6 +29,7 @@ import { BoardMatrix } from './board-matrix';
 import { BoardTasks } from './board-tasks';
 import { BoardGantt } from './board-gantt';
 import { TaskFeed } from './tasks';
+import type { BoardView } from './board-doc';
 import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
 import { BoardClusters, BoardHistory } from './board-insights';
@@ -84,6 +85,9 @@ const initials = (name: string) =>
     .join('');
 
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
+/** The views that are placed on the board rather than opened beside it, by their ids in the Views menu. */
+const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as const satisfies Record<string, BoardView>;
+
 @Component({
   selector: 'app-board-page',
   imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
@@ -204,7 +208,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** A saved version shown in place of the board, read-only, until they go back (or restore it). */
@@ -309,7 +313,10 @@ export class BoardPage {
 
   protected openView(id: (typeof this.views)[number]['id']): void {
     this.viewsOpen.set(false);
-    this.togglePanel(id);
+    // The matrix, tasks and timeline live on the board: this puts one there, or goes to the one already there.
+    const placed = PLACED_VIEWS[id as keyof typeof PLACED_VIEWS];
+    if (placed) this.canvas()?.placeView(placed);
+    else this.togglePanel(id as Exclude<typeof id, keyof typeof PLACED_VIEWS>);
   }
 
   /** The board as a picture, with its images. */
@@ -438,7 +445,7 @@ export class BoardPage {
     }
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'activity' | 'outline'): void {
+  protected togglePanel(which: 'share' | 'comments' | 'summary' | 'history' | 'clusters' | 'files' | 'activity' | 'outline'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -581,9 +588,9 @@ export class BoardPage {
         { id: 'chat', label: 'Open the chat', run: () => this.chatOpen.set(true) },
         { id: 'present', label: 'Present this board', run: () => this.togglePresenting() },
         ...(this.canRun() ? [{ id: 'facilitate', label: 'Facilitate: timer, votes, writing, breakouts', run: () => this.facilitating.set(true) }] : []),
-        view('tasks', 'Open Tasks'),
-        view('matrix', 'Open the prioritisation matrix'),
-        view('gantt', 'Open the timeline'),
+        view('tasks', 'Tasks on the board'),
+        view('matrix', 'Prioritisation matrix on the board'),
+        view('gantt', 'Timeline on the board'),
         view('summary', 'Open the summary'),
         view('activity', 'Open activity and versions'),
         { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },

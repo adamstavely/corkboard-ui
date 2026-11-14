@@ -176,8 +176,33 @@
           (pinOpen)="openPin({ nodeId: $event })"
           (pinPlaced)="openPin($event)"
           (joinFrame)="joinBreakout($event)"
-          (openView)="panel.set($event)"
+          [viewContent]="boardView"
         />
+        <!-- What a matrix, kanban or timeline placed on the board shows: live, from the board's notes and tasks. -->
+        <ng-template #boardView let-view>
+          @switch (view.view) {
+            @case ('matrix') {
+              <app-board-matrix [placed]="true" [board]="board()!" [canEdit]="canEdit()" (ask)="askAssistant('Place these notes on the value-vs-effort matrix')" />
+            }
+            @case ('kanban') {
+              @if (tasks() && meta.hasValue()) {
+                <app-board-tasks
+                  [placed]="true"
+                  [boardId]="id()"
+                  [boardTitle]="meta.value().title"
+                  [board]="board()!"
+                  [feed]="tasks()!"
+                  [selection]="selection()"
+                  [canEdit]="canEdit()"
+                  [orgId]="meta.value().orgId"
+                />
+              }
+            }
+            @case ('timeline') {
+              <app-board-gantt [placed]="true" [board]="board()!" [tasks]="tasks()?.tasks() ?? []" [canEdit]="canEdit()" (show)="canvas()?.show($event)" />
+            }
+          }
+        </ng-template>
         @if (showStart()) {
           <app-board-start (ask)="askAssistant($event)" (dismissed)="startDismissed.set(true)" />
         }
@@ -269,30 +294,6 @@
             (show)="showNode($event)"
             (changed)="comments.reload()"
           />
-        }
-        @if (panel() === 'matrix') {
-          <app-board-matrix
-            [board]="board()!"
-            [selection]="selection()"
-            [canEdit]="canEdit()"
-            (closed)="panel.set(null)"
-            (ask)="askAssistant('Place these notes on the value-vs-effort matrix')"
-          />
-        }
-        @if (panel() === 'tasks' && tasks() && meta.hasValue()) {
-          <app-board-tasks
-            [boardId]="id()"
-            [boardTitle]="meta.value().title"
-            [board]="board()!"
-            [feed]="tasks()!"
-            [selection]="selection()"
-            [canEdit]="canEdit()"
-            [orgId]="meta.value().orgId"
-            (closed)="panel.set(null)"
-          />
-        }
-        @if (panel() === 'gantt') {
-          <app-board-gantt [board]="board()!" [tasks]="tasks()?.tasks() ?? []" [canEdit]="canEdit()" (closed)="panel.set(null)" (show)="panel.set(null); canvas()?.show($event)" />
         }
         @if (panel() === 'summary' && summaryFeed() && meta.hasValue()) {
           <app-board-summary

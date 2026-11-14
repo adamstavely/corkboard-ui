@@ -132,9 +132,21 @@
         [style.height.px]="item.h"
         [style.z-index]="board().stack().get(item.id)"
         [attr.aria-label]="itemLabel(item)"
-        role="img"
+        [attr.role]="item.kind === 'view' ? 'region' : 'img'"
       >
         @switch (item.kind) {
+          @case ('view') {
+            <!-- A placed view: its title bar picks it up; its body is the live view (see board-page's boardView). -->
+            <div class="view-head">
+              <app-icon [name]="viewIcons[item.view]" />
+              <span>{{ itemLabel(item) }}</span>
+            </div>
+            <div class="view-body">
+              @if (viewContent(); as content) {
+                <ng-container *ngTemplateOutlet="content; context: { $implicit: item }" />
+              }
+            </div>
+          }
           @case ('shape') {
             <svg class="shape-fill" [attr.viewBox]="'0 0 ' + item.w + ' ' + item.h" preserveAspectRatio="none" aria-hidden="true">
               <path [attr.d]="shapePath(item.shape, item.w, item.h)" [style.fill]="'var(--note-' + item.color + ')'" />
@@ -636,9 +648,9 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="app-menu-label">Link</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>
             <hr />
-            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('tasks')"><app-icon name="kanban" /><span class="app-menu-label">Kanban</span><span class="app-menu-hint">Action items</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('gantt')"><app-icon name="timeline" /><span class="app-menu-label">Timeline</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('matrix')"><app-icon name="matrix" /><span class="app-menu-label">Matrix</span><span class="app-menu-hint">Value and effort</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('kanban')"><app-icon name="kanban" /><span class="app-menu-label">Kanban</span><span class="app-menu-hint">Action items</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('timeline')"><app-icon name="timeline" /><span class="app-menu-label">Timeline</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('matrix')"><app-icon name="matrix" /><span class="app-menu-label">Matrix</span><span class="app-menu-hint">Value and effort</span></button>
           </div>
         </tc-menu-morph>
         <tc-menu-morph [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
