@@ -28,6 +28,15 @@ import { edited } from './edited';
 import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
 import { Icon, iconMarkup } from '../../shared/icon';
 
+const INTRO_HIDDEN = 'cb-intro-hidden';
+function readIntroOpen(): boolean {
+  try {
+    return localStorage.getItem(INTRO_HIDDEN) !== '1';
+  } catch {
+    return true;
+  }
+}
+
 /** The workspace's boards, most recently changed first, and the way to start a new one. */
 @Component({
   selector: 'app-board-list',
@@ -134,6 +143,18 @@ export class BoardList {
 
   protected readonly creating = signal(false);
   protected readonly picking = signal(false);
+
+  /** The intro above the boards: open until this person hides it, remembered in this browser only. */
+  protected readonly introOpen = signal(readIntroOpen());
+  protected setIntro(open: boolean): void {
+    this.introOpen.set(open);
+    try {
+      if (open) localStorage.removeItem(INTRO_HIDDEN);
+      else localStorage.setItem(INTRO_HIDDEN, '1');
+    } catch {
+      // Storage can be off (a private window); the intro then just shows again next time.
+    }
+  }
 
   protected readonly templates = resource({ loader: () => this.#api.invoke(boardsControllerTemplates) });
 
