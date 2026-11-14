@@ -9,6 +9,7 @@ import { Auth } from './core/auth';
 import { Session } from './core/session';
 import { BoardSearch } from './features/search/board-search';
 import { AccountNav } from './shell/account-nav';
+import { logoElement } from './shared/logo';
 
 /** A board fills the window, with its own floating panels in place of the top bar. */
 const onBoard = (url: string) => /^\/boards\/[^/?#]+/.test(url);
@@ -34,6 +35,9 @@ export class App {
 
   /** The picker shows before anyone is someone, so it gets no header; nor does a board. */
   protected readonly showHeader = computed(() => this.auth.signedIn() && !this.#onBoard());
+
+  /** Corkboard's mark, for the header brand. */
+  protected readonly logo = logoElement();
 
   protected onBrandNavigate(event: CustomEvent<{ href: string }>): void {
     event.preventDefault();
