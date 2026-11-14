@@ -1,42 +1,61 @@
 <div class="page">
-  <h1>Who are you?</h1>
-  <p class="lead">Corkboard has no sign-in. Pick yourself, or add yourself if you're new.</p>
+  <h1>Sign in to Corkboard</h1>
+  <p class="lead">Use the passkey on this device, your phone or a security key. There's no password to remember.</p>
 
-  @if (people.isLoading() && !people.hasValue()) {
-    <tc-skeleton height="160" radius="12"></tc-skeleton>
-  } @else if (people.error()) {
-    <p class="problem" role="alert">People couldn't be loaded. Is corkboard-api running?</p>
-  } @else if (people.value()?.length) {
-    <ul class="people" aria-label="People">
-      @for (person of people.value(); track person.id) {
-        <li>
-          <button type="button" class="person" (click)="pick(person)">
-            <span class="avatar" aria-hidden="true">{{ initials(person.name) }}</span>
-            <span class="who">
-              <span class="name">{{ person.name }}</span>
-              <span class="email">{{ person.email }}</span>
-            </span>
-          </button>
-        </li>
-      }
-    </ul>
-  }
+  <div class="sign-in">
+    <tc-button label="Sign in with a passkey" [loading]="busy() === 'in'" (click)="signIn()"></tc-button>
+    @if (problem()) {
+      <p class="problem" role="alert">{{ problem() }}</p>
+    }
+  </div>
 
-  <form class="add" aria-labelledby="add-heading" (submit)="add($event)">
+  <form class="add" aria-labelledby="add-heading" (submit)="signUp($event)">
     <h2 id="add-heading">New here?</h2>
+    <p class="hint">Make an account. Your browser will ask to save a passkey for it.</p>
     <label>
       <span>Name</span>
       <input name="name" autocomplete="name" maxlength="100" required [value]="name()" (input)="name.set($any($event.target).value)" />
     </label>
     <label>
       <span>Email</span>
-      <input name="email" type="email" autocomplete="email" maxlength="254" required [value]="email()" (input)="email.set($any($event.target).value)" />
+      <input name="email" type="email" autocomplete="email webauthn" maxlength="254" required [value]="email()" (input)="email.set($any($event.target).value)" />
     </label>
-    @if (problem()) {
-      <p class="problem" role="alert">{{ problem() }}</p>
+    @if (signUpProblem()) {
+      <p class="problem" role="alert">{{ signUpProblem() }}</p>
     }
     <div class="actions">
-      <tc-button type="submit" label="Add me" [loading]="adding()" [disabled]="!name().trim() || !email().trim()"></tc-button>
+      <tc-button type="submit" label="Create account" [loading]="busy() === 'up'" [disabled]="!name().trim() || !email().trim()"></tc-button>
+      @if (config.value()?.picker) {
+        <tc-button variant="ghost" label="Add without a passkey" [loading]="busy() === 'add'" [disabled]="!name().trim() || !email().trim()" (click)="add()"></tc-button>
+      }
     </div>
   </form>
+
+  @if (config.value()?.picker) {
+    <section class="picker" aria-labelledby="picker-heading">
+      <h2 id="picker-heading">Development: pick who you are</h2>
+      <p class="hint">The API's people picker is on, so anyone can be anyone. Never turn it on anywhere shared.</p>
+      @if (people.isLoading() && !people.hasValue()) {
+        <tc-skeleton height="160" radius="12"></tc-skeleton>
+      } @else if (people.error()) {
+        <p class="problem" role="alert">People couldn't be loaded. Is corkboard-api running?</p>
+      } @else if (people.value()?.length) {
+        <ul class="people" aria-label="People">
+          @for (person of people.value(); track person.id) {
+            <li>
+              <button type="button" class="person" (click)="pick(person)">
+                <span class="avatar" aria-hidden="true">{{ initials(person.name) }}</span>
+                <span class="who">
+                  <span class="name">{{ person.name }}</span>
+                  <span class="email">{{ person.email }}</span>
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  } @else if (config.error()) {
+    <p class="problem" role="alert">Corkboard couldn't be reached. Is corkboard-api running?</p>
+  }
 </div>
