@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, output, resource, signal, untracked } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { MessageActions } from '@adamstavely/trenchcoat/angular/message-actions';
 import { MultiplayerThread } from '@adamstavely/trenchcoat/angular/multiplayer-thread';
@@ -11,6 +11,12 @@ import { Router } from '@angular/router';
 import { Api } from '../../api/generated/api';
 import { Session } from '../../core/session';
 import { chatControllerSend } from '../../api/generated/fn/chat/chat-controller-send';
+import { boardsControllerMembers } from '../../api/generated/fn/boards/boards-controller-members';
+import { recapControllerRecap } from '../../api/generated/fn/summary/recap-controller-recap';
+import { toast } from '@adamstavely/trenchcoat/toaster';
+import { download, fileName } from './export';
+import { recapMarkdown, recapTasks } from './recap';
+import type { TaskFeed } from './tasks';
 import { modelChoice } from './model-choice';
 import { MODEL_AUTHOR, scopeLine, threadItems, threadPeople, type ChatMessage } from './chat';
 
@@ -83,6 +89,9 @@ export class BoardChat {
   readonly request = input<{ text: string; n: number } | null>(null);
   /** Workspace owners can connect a model when there's none. */
   readonly isOwner = input(false);
+  /** The board's tasks, for a recap's actions; and its title, for the recap's file. */
+  readonly tasks = input<TaskFeed | undefined>(undefined);
+  readonly boardTitle = input('');
   readonly closed = output<void>();
   /** Whether this person is writing a message, for everyone else's typing dots. */
   readonly typingChange = output<boolean>();
@@ -116,7 +125,8 @@ export class BoardChat {
     const messages = this.messages();
     // Newest first (the app targets ES2022, which has no findLast).
     const newest = [...messages].reverse();
-    const answer = newest.find((m) => m.authorId === MODEL_AUTHOR && m.replyTo === me);
+    // A recap isn't an answer to a question: it has its own actions.
+    const answer = newest.find((m) => m.authorId === MODEL_AUTHOR && m.replyTo === me && !m.recap);
     if (!answer || answer.failed) return null;
     const question = newest.slice(newest.indexOf(answer)).find((m) => m.authorId === me);
     return { reply: answer.text, cited: answer.cited ?? [], asked: answer.asked ?? [], question: question?.text };
@@ -129,6 +139,50 @@ export class BoardChat {
   };
 
   protected readonly problem = signal('');
+
+  // ── Session recap ──
+
+  readonly #members = resource({ params: () => this.boardId(), loader: ({ params: id }) => this.#api.invoke(boardsControllerMembers, { id }) });
+  protected readonly recapping = signal(false);
+  /** The newest recap in the chat, to save or turn into tasks. */
+  protected readonly latestRecap = computed(() => [...this.messages()].reverse().find((m) => m.recap)?.recap ?? null);
+  /** Recaps (by when they were written) whose actions have been added as tasks here, so it isn't done twice. */
+  protected readonly tasked = signal<ReadonlySet<number>>(new Set());
+
+  /** Has the model write the session's decisions, owners and open questions into the chat. */
+  protected async recap(): Promise<void> {
+    const modelId = this.modelId();
+    if (!modelId || this.recapping()) return;
+    this.problem.set('');
+    this.recapping.set(true);
+    try {
+      await this.#api.invoke(recapControllerRecap, { id: this.boardId(), body: { modelId } });
+    } catch (err) {
+      const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+      this.problem.set(typeof message === 'string' ? message : "The recap couldn't be written. Try again.");
+    } finally {
+      this.recapping.set(false);
+    }
+  }
+
+  protected saveRecap(): void {
+    const r = this.latestRecap();
+    if (!r) return;
+    const base = fileName(r.title);
+    const name = `${base.endsWith('recap') ? base : `${base}-recap`}.md`;
+    download(name, new Blob([recapMarkdown(r, this.boardTitle())], { type: 'text/markdown' }));
+    toast.success('Recap saved', { description: name });
+  }
+
+  protected addRecapTasks(): void {
+    const r = this.latestRecap();
+    const feed = this.tasks();
+    if (!r || !feed || this.tasked().has(r.at)) return;
+    const people = (this.#members.hasValue() ? this.#members.value() : []).filter((m) => m.role).map((m) => ({ id: m.userId, name: m.name }));
+    const added = feed.add(recapTasks(r, people));
+    this.tasked.update((s) => new Set(s).add(r.at));
+    toast.success(`Added ${added.length} task${added.length === 1 ? '' : 's'}`, { description: added.map((t) => t.key).join(', ') });
+  }
 
   #typingTimer: ReturnType<typeof setTimeout> | undefined;
   #sent = 0;

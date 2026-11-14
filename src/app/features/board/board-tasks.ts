@@ -6,6 +6,7 @@ import { Api } from '../../api/generated/api';
 import { boardsControllerMembers } from '../../api/generated/fn/boards/boards-controller-members';
 import type { BoardDoc } from './board-doc';
 import { toast } from '@adamstavely/trenchcoat/toaster';
+import { personNamed } from './recap';
 import { ACTION_LABEL, actionItemNotes, fromTask, ownerAndText, TASK_STATUSES, toTask, type TaskFeed } from './tasks';
 
 const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'var(--tc-chart-1)' }];
@@ -101,7 +102,7 @@ export class BoardTasks {
     const items = this.newItems().map((note) => {
       const { owner, text } = ownerAndText(note.text);
       // "Ada" matches Ada Lovelace; "Unassigned" and unknown names don't.
-      const who = owner && people.find((p) => p.name.toLowerCase() === owner.toLowerCase() || p.name.toLowerCase().split(/\s+/)[0] === owner.toLowerCase());
+      const who = personNamed(owner, people);
       return { title: text || 'Untitled', status: 'todo' as const, priority: 0 as const, labels: [ACTION_LABEL], noteId: note.id, ...(who ? { assignee: who.id } : {}) };
     });
     const added = this.feed().add(items);

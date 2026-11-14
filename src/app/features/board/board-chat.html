@@ -4,6 +4,9 @@
       <tc-model-picker [models]="pickerModels()" [value]="modelId() ?? ''" (tc-value-change)="choose($event.detail.value)"></tc-model-picker>
     }
     <span class="scope">{{ scope() }}</span>
+    @if (canPost() && modelId()) {
+      <tc-button size="sm" variant="secondary" label="Recap session" [loading]="recapping()" (click)="recap()"></tc-button>
+    }
     <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
   </div>
 
@@ -30,6 +33,22 @@
         }
       </div>
     }
+  }
+
+  @if (latestRecap(); as r) {
+    <div class="answer-actions" role="group" aria-label="Latest recap">
+      <span class="recap-label">Recap: {{ r.title }}</span>
+      <tc-button size="sm" variant="ghost" label="Save as Markdown" (click)="saveRecap()"></tc-button>
+      @if (canEdit() && tasks() && r.actions.length) {
+        <tc-button
+          size="sm"
+          variant="secondary"
+          [label]="tasked().has(r.at) ? 'Added to tasks' : 'Add ' + r.actions.length + ' action' + (r.actions.length === 1 ? '' : 's') + ' to tasks'"
+          [disabled]="tasked().has(r.at)"
+          (click)="addRecapTasks()"
+        ></tc-button>
+      }
+    </div>
   }
 
   <tc-multiplayer-thread
