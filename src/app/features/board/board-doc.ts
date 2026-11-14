@@ -624,6 +624,19 @@ export class BoardDoc {
     return wanted.map((id) => copies.get(id)!);
   }
 
+  /** Moves things to these places in one step (one undo), as aligning and tidying do. */
+  place(positions: ReadonlyMap<string, { x: number; y: number }>): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const [id, p] of positions) {
+        const node = this.#nodes.get(id);
+        if (!node) continue;
+        if (node.get('x') !== p.x) node.set('x', p.x);
+        if (node.get('y') !== p.y) node.set('y', p.y);
+      }
+    }, this);
+  }
+
   /** A new empty note beside this one (same colour and size), in a direction, with a gap; returns its id. */
   addNoteNext(id: string, side: 'right' | 'left' | 'down' | 'up', gap = 24): string | null {
     const from = this.notes().find((n) => n.id === id);

@@ -85,3 +85,42 @@
   opacity: 1;
   transform: scale(1.15);
 }
+
+/* Snapping guides while dragging. */
+.guides {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 100001;
+}
+.guides line {
+  stroke: var(--tc-status-danger-fg, #e5484d);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 4 3;
+}
+
+/* The bar above a selection: arranging, and asking the model about it. */
+.selection-bar {
+  position: absolute;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.selection-count {
+  padding: 0 6px;
+  color: var(--tc-text-muted);
+  font-size: 12px;
+}

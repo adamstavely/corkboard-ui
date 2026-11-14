@@ -15,6 +15,7 @@ import type { Editor } from '@tiptap/core';
 import { NOTE_COLORS, NOTE_SIZE, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
+import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
 import type { ImagePin } from './comments';
 import { NoteView } from './note';
 import type { Presence } from './presence';
@@ -30,7 +31,7 @@ import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point,
 
 type Gesture =
   | { kind: 'pan'; last: Point }
-  | { kind: 'drag'; last: Point; moved: boolean; ids: Set<string> }
+  | { kind: 'drag'; last: Point; moved: boolean; ids: Set<string>; start: Point; applied: Point; box: Rect | null; others: LayoutBox[] }
   | { kind: 'resize'; id: string; start: Point; size: { w: number; h: number }; item?: boolean }
   | { kind: 'marquee'; start: Point; base: Set<string> }
   | { kind: 'draw'; points: number[] };
@@ -201,6 +202,47 @@ export class Canvas {
   }
   protected isFound(id: string): boolean {
     return !!this.found() && this.#foundSet().has(id);
+  }
+
+  // ── Snapping, aligning, and the bar over a selection ──
+
+  /** Guide lines while a drag snaps (board coordinates). */
+  protected readonly guides = signal<Guide[]>([]);
+  protected readonly layoutOpen = signal(false);
+  protected readonly aiOpen = signal(false);
+  /** Ask the model about the selected notes (the chat takes the selection as its scope). */
+  readonly askAi = output<string>();
+
+  /** Where the bar over the selection goes, in screen space: above the selection, or null when there's nothing to act on. */
+  protected readonly selectionBar = computed(() => {
+    if (this.editing() || this.itemEditing() || this.marquee() || this.selection().size === 0) return null;
+    const chosen = boardBoxes(this.board()).filter((b) => this.selection().has(b.id));
+    if (!chosen.length) return null;
+    const r = rectAround(chosen);
+    const { x, y, zoom } = this.viewport();
+    const notes = this.board().notes().filter((n) => this.selection().has(n.id)).length;
+    const canArrange = !this.readOnly() && chosen.length > 1;
+    const canAsk = notes > 0 && this.canReact();
+    if (!canArrange && !canAsk) return null;
+    return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(8, r.y * zoom + y - 44), count: chosen.length, notes };
+  });
+
+  protected arrange(how: Alignment | 'h' | 'v' | 'tidy'): void {
+    this.layoutOpen.set(false);
+    const chosen = boardBoxes(this.board()).filter((b) => this.selection().has(b.id));
+    const moves = how === 'tidy' ? tidy(chosen) : how === 'h' ? distribute(chosen, 'x') : how === 'v' ? distribute(chosen, 'y') : align(chosen, how);
+    this.board().place(moves);
+  }
+
+  protected ask(what: string): void {
+    this.aiOpen.set(false);
+    this.askAi.emit(what);
+  }
+
+  #viewRect(): Rect {
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const { x, y, zoom } = this.viewport();
+    return { x: -x / zoom, y: -y / zoom, w: width / zoom, h: height / zoom };
   }
 
   togglePen(): void {
@@ -673,7 +715,13 @@ export class Canvas {
       if (this.readOnly()) return;
       this.board().bringToFront(ids);
       this.board().undo.stopCapturing();
-      this.#gesture = { kind: 'drag', last: screen, moved: false, ids };
+      // What the dragged things can line up with: everything else in view.
+      const boxes = boardBoxes(this.board());
+      const moving = boxes.filter((b) => ids.has(b.id));
+      const box = moving.length ? rectAround(moving) : null;
+      const view = this.#viewRect();
+      const others = boxes.filter((b) => !ids.has(b.id) && intersects(view, b));
+      this.#gesture = { kind: 'drag', last: screen, moved: false, ids, start: screen, applied: { x: 0, y: 0 }, box, others };
       return;
     }
 
@@ -694,7 +742,13 @@ export class Canvas {
       g.last = screen;
     } else if (g.kind === 'drag') {
       const zoom = this.viewport().zoom;
-      this.board().move(g.ids, (screen.x - g.last.x) / zoom, (screen.y - g.last.y) / zoom);
+      const raw = { x: (screen.x - g.start.x) / zoom, y: (screen.y - g.start.y) / zoom };
+      // Edges and centres snap to others' within a few pixels on screen; Alt drags freely.
+      const s = g.box && !e.altKey ? snap({ ...g.box, x: g.box.x + raw.x, y: g.box.y + raw.y }, g.others, 6 / zoom) : { dx: 0, dy: 0, guides: [] };
+      const target = { x: raw.x + s.dx, y: raw.y + s.dy };
+      this.board().move(g.ids, target.x - g.applied.x, target.y - g.applied.y);
+      g.applied = target;
+      this.guides.set(s.guides);
       g.last = screen;
       g.moved = true;
     } else if (g.kind === 'resize') {
@@ -739,6 +793,7 @@ export class Canvas {
     }
     if ((this.#gesture?.kind === 'drag' && this.#gesture.moved) || this.#gesture?.kind === 'resize') this.board().undo.stopCapturing();
     this.#gesture = undefined;
+    this.guides.set([]);
     this.marquee.set(null);
     this.panning.set(false);
   }
@@ -1193,4 +1248,11 @@ export class Canvas {
     const r = this.surface().nativeElement.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
+}
+
+/** The smallest box round some boxes. */
+function rectAround(boxes: readonly { x: number; y: number; w: number; h: number }[]): Rect {
+  const x = Math.min(...boxes.map((b) => b.x));
+  const y = Math.min(...boxes.map((b) => b.y));
+  return { x, y, w: Math.max(...boxes.map((b) => b.x + b.w)) - x, h: Math.max(...boxes.map((b) => b.y + b.h)) - y };
 }
