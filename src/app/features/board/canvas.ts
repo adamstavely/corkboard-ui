@@ -1,5 +1,7 @@
 import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { Icon, type IconName } from '../../shared/icon';
+import { Highlighter, List, ListOrdered, type IconNode } from 'lucide';
+import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
 import { unfurlControllerPreview } from '../../api/generated/fn/boards/unfurl-controller-preview';
@@ -62,16 +64,27 @@ const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
 
 
 
-/** The formats a note supports, from Trench Coat's bar; checklists wait for a task-list extension. */
+/** A Lucide icon as the path data Trench Coat's bar draws. */
+const paths = (icon: IconNode) => icon.flatMap(([tag, attrs]) => (tag === 'path' ? [String(attrs['d'])] : []));
+const HIGHLIGHT_NAMES: Record<HighlightColor, string> = { yellow: 'Yellow', green: 'Green', blue: 'Blue', pink: 'Pink', purple: 'Purple' };
+
+/** The formats a note supports: Trench Coat's marks, a highlighter, and bulleted and numbered lists one click away. */
 const pick = (id: string) => defaultSelectionToolbarItems.find((i) => i.type !== 'separator' && i.id === id)!;
-const list = pick('list');
 const FORMAT_ITEMS: SelectionToolbarItem[] = [
   pick('bold'),
   pick('italic'),
   pick('strike'),
   pick('code'),
+  {
+    type: 'menu',
+    id: 'highlight',
+    label: 'Highlight',
+    icon: paths(Highlighter),
+    options: [{ value: 'none', label: 'No highlight' }, ...HIGHLIGHTS.map((c) => ({ value: c, label: HIGHLIGHT_NAMES[c], color: `var(--hl-${c})` }))],
+  },
   { type: 'separator' },
-  list.type === 'menu' ? { ...list, options: list.options.filter((o) => o.value !== 'checks') } : list,
+  { type: 'toggle', id: 'bullets', label: 'Bulleted list', icon: paths(List), shortcut: '- then space' },
+  { type: 'toggle', id: 'numbers', label: 'Numbered list', icon: paths(ListOrdered), shortcut: '1. then space' },
 ];
 const MARKS = ['bold', 'italic', 'strike', 'code'] as const;
 
@@ -348,8 +361,9 @@ export class Canvas {
 
   /** Where the bar over the selection goes, in screen space: above the selection, or null when there's nothing to act on. */
   protected readonly selectionBar = computed(() => {
-    // Shown while a note is written in, too, so its colour can change without leaving it.
-    if (this.itemEditing() || this.marquee() || this.selection().size === 0) return null;
+    // Shown while a note is written in, too, so its colour can change without leaving it; but not while text in it is
+    // selected, when the text bar takes its place rather than sitting on top of it.
+    if (this.itemEditing() || this.marquee() || this.selection().size === 0 || this.formatAnchor()) return null;
     const chosen = boardBoxes(this.board()).filter((b) => this.selection().has(b.id));
     if (!chosen.length) return null;
     const r = rectAround(chosen);
@@ -807,11 +821,16 @@ export class Canvas {
         return;
       }
       const sync = () => {
+        // Kept open while focus is in the bar itself (its highlight menu takes focus), so the pick lands.
+        const inBar = !!document.activeElement?.closest('tc-selection-toolbar');
+        if (inBar) return;
         this.formatAnchor.set(editor.state.selection.empty || !editor.isFocused ? null : selectionRect());
-        this.pressed.set(MARKS.filter((m) => editor.isActive(m)));
-        this.values.set({
-          list: editor.isActive('bulletList') ? 'bullets' : editor.isActive('orderedList') ? 'numbers' : 'none',
-        });
+        this.pressed.set([
+          ...MARKS.filter((m) => editor.isActive(m)),
+          ...(editor.isActive('bulletList') ? ['bullets'] : []),
+          ...(editor.isActive('orderedList') ? ['numbers'] : []),
+        ]);
+        this.values.set({ highlight: editor.isActive('highlight') ? String(editor.getAttributes('highlight')['color'] ?? 'yellow') : 'none' });
       };
       editor.on('transaction', sync);
       editor.on('selectionUpdate', sync);
@@ -1538,12 +1557,9 @@ export class Canvas {
     else if (id === 'italic') chain.toggleItalic().run();
     else if (id === 'strike') chain.toggleStrike().run();
     else if (id === 'code') chain.toggleCode().run();
-    else if (id === 'list') {
-      if (value === 'bullets' && !editor.isActive('bulletList')) chain.toggleBulletList().run();
-      else if (value === 'numbers' && !editor.isActive('orderedList')) chain.toggleOrderedList().run();
-      else if (value === 'none' && editor.isActive('bulletList')) chain.toggleBulletList().run();
-      else if (value === 'none' && editor.isActive('orderedList')) chain.toggleOrderedList().run();
-    }
+    else if (id === 'bullets') chain.toggleBulletList().run();
+    else if (id === 'numbers') chain.toggleOrderedList().run();
+    else if (id === 'highlight') chain.setHighlight(typeof value === 'string' && (HIGHLIGHTS as readonly string[]).includes(value) ? (value as HighlightColor) : null).run();
   }
 
   /** Sends where this person's pointer is on the board, or that it has left. */

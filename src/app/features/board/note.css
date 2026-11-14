@@ -313,3 +313,23 @@ app-note.locked::after,
 .note-votes button app-icon {
   margin-right: 0;
 }
+
+/* Highlighted text (note-text.ts): the highlighter's colour behind it, the text colour unchanged. */
+app-note mark {
+  padding: 0 1px;
+  border-radius: 2px;
+  color: inherit;
+  background: var(--hl-yellow);
+}
+app-note mark[data-color='green'] {
+  background: var(--hl-green);
+}
+app-note mark[data-color='blue'] {
+  background: var(--hl-blue);
+}
+app-note mark[data-color='pink'] {
+  background: var(--hl-pink);
+}
+app-note mark[data-color='purple'] {
+  background: var(--hl-purple);
+}
