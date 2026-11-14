@@ -30,6 +30,8 @@ export class BoardComments {
   readonly selection = input<readonly string[]>([]);
   readonly canComment = input(false);
   readonly me = input<{ id: string; name: string } | undefined>(undefined);
+  /** A comment pinned to an image, opened from its pin or just placed (with where), shown instead of the selection's. */
+  readonly target = input<{ nodeId: string; anchor?: { x: number; y: number } } | null>(null);
   readonly closed = output<void>();
   /** Bring this note or frame into view and select it. */
   readonly show = output<string>();
@@ -38,6 +40,8 @@ export class BoardComments {
 
   /** The one note or frame selected, whose thread shows. */
   protected readonly nodeId = computed(() => {
+    const target = this.target();
+    if (target) return target.nodeId;
     const selected = this.selection();
     return selected.length === 1 ? selected[0] : null;
   });
@@ -93,7 +97,8 @@ export class BoardComments {
     if (!nodeId || !text.trim()) return;
     this.problem.set(null);
     try {
-      await this.#api.invoke(commentsControllerAdd, { id: this.boardId(), body: { nodeId, body: text } });
+      const anchor = this.target()?.nodeId === nodeId ? this.target()?.anchor : undefined;
+      await this.#api.invoke(commentsControllerAdd, { id: this.boardId(), body: { nodeId, body: text, ...(anchor && !this.thread() ? { anchor } : {}) } });
       this.changed.emit();
     } catch (err) {
       this.problem.set(messageOf(err));

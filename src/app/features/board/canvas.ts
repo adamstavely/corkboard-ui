@@ -14,6 +14,7 @@ import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
 import { NOTE_COLORS, NOTE_SIZE, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
+import type { ImagePin } from './comments';
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
@@ -82,7 +83,7 @@ const isEditable = (el: EventTarget | null) =>
   selector: 'app-canvas',
   imports: [NoteView, Button, SelectionToolbar, MenuMorph],
   templateUrl: './canvas.html',
-  styleUrls: ['./canvas.css', './canvas-items.css'],
+  styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css'],
 })
 export class Canvas {
   readonly board = input.required<BoardDoc>();
@@ -123,6 +124,13 @@ export class Canvas {
   readonly addFiles = output<void>();
   readonly askImage = output<Media>();
   readonly openFile = output<Media>();
+  /** Comments pinned to spots on images, by image; a pin opens its thread, and a new one can be placed. */
+  readonly pins = input<ReadonlyMap<string, ImagePin[]>>(new Map());
+  readonly pinOpen = output<string>();
+  readonly pinPlaced = output<{ nodeId: string; anchor: { x: number; y: number } }>();
+  /** The next click on the selected image pins a comment there. */
+  protected readonly pinning = signal(false);
+
   /** What this person is looking at, whenever it changes: for presenting it to others. */
   readonly viewChange = output<PresentedView>();
 
@@ -490,6 +498,16 @@ export class Canvas {
       this.draft.set([p.x, p.y]);
       return;
     }
+    // Pinning a comment: the click on the image says where.
+    const pinImage = this.pinning() ? target.closest<HTMLElement>('[data-media-id]') : null;
+    if (pinImage && e.button === 0) {
+      const r = pinImage.getBoundingClientRect();
+      const anchor = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+      this.pinning.set(false);
+      this.pinPlaced.emit({ nodeId: `${pinImage.dataset['mediaId']}@${crypto.randomUUID()}`, anchor });
+      return;
+    }
+    if (target.closest('.image-pin')) return;
     const noteEl = target.closest<HTMLElement>('app-note, [data-media-id], [data-item-id]');
     // A frame is grabbed anywhere on it (a note can cover its title). Shift-drag inside one boxes notes instead.
     const frameEl = noteEl ? null : target.closest<HTMLElement>('.frame');
@@ -680,6 +698,10 @@ export class Canvas {
       e.preventDefault();
       if (!this.finding()) this.toggleFind();
       else this.surface().nativeElement.parentElement?.querySelector<HTMLInputElement>('[data-find-autofocus]')?.focus();
+      return;
+    }
+    if (e.key === 'Escape' && this.pinning()) {
+      this.pinning.set(false);
       return;
     }
     if (e.key === 'Escape' && this.pen() && !isEditable(e.target)) {

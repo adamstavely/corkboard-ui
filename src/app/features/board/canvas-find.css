@@ -1,0 +1,55 @@
+/* Find and filter: top right of the board. */
+.find {
+  position: absolute;
+  top: var(--tc-space-3);
+  right: var(--tc-space-4);
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-1);
+  max-width: calc(100% - 2 * var(--tc-space-4));
+  padding: var(--tc-space-2);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
+}
+.find-input,
+.find select,
+.tag-input {
+  padding: 4px 8px;
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+}
+.find-input {
+  width: 200px;
+}
+.find-count {
+  min-width: 64px;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+  text-align: center;
+}
+.tag-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tag-input {
+  width: 96px;
+}
+.tag-chip {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--tc-fill-default, var(--tc-accent-subtle));
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}

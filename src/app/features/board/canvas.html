@@ -4,6 +4,7 @@
   [class.can-pan]="spaceHeld()"
   [class.panning]="panning()"
   [class.pen]="pen()"
+  [class.pinning]="pinning()"
   [style.background-size.px]="gridSize()"
   [style.background-position]="viewport().x + 'px ' + viewport().y + 'px'"
   (pointerdown)="onPointerDown($event)"
@@ -81,6 +82,19 @@
             <img [src]="src" [alt]="m.name" draggable="false" />
           } @else {
             <span class="media-loading">{{ m.name }}</span>
+          }
+          @for (pin of pins().get(m.id) ?? []; track pin.nodeId) {
+            <button
+              type="button"
+              class="image-pin"
+              [style.left.%]="pin.x * 100"
+              [style.top.%]="pin.y * 100"
+              [attr.aria-label]="'Comment ' + pin.n + ' on ' + m.name"
+              (pointerdown)="$event.stopPropagation()"
+              (click)="pinOpen.emit(pin.nodeId)"
+            >
+              {{ pin.n }}
+            </button>
           }
         } @else {
           <span class="file-icon" aria-hidden="true">{{ (m.name.split('.').pop() ?? '').slice(0, 4).toUpperCase() }}</span>
@@ -389,6 +403,16 @@
         <tc-button size="sm" variant="ghost" label="+ Column" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"></tc-button>
         <tc-button size="sm" variant="ghost" label="− Column" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"></tc-button>
       </div>
+      <span class="divider" aria-hidden="true"></span>
+    }
+    @if (canReact() && oneImage()) {
+      <tc-button
+        size="sm"
+        [variant]="pinning() ? 'primary' : 'ghost'"
+        [label]="pinning() ? 'Click the image…' : 'Pin a comment'"
+        title="Click a spot on the image to comment on it (Esc to stop)"
+        (click)="pinning.set(!pinning())"
+      ></tc-button>
       <span class="divider" aria-hidden="true"></span>
     }
     @if (canReact() && oneNote(); as id) {

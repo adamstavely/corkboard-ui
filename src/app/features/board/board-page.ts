@@ -49,7 +49,7 @@ import { ChatFeed } from './chat';
 import { Canvas } from './canvas';
 import { BoardShare } from './board-share';
 import { BoardComments } from './board-comments';
-import { openCounts } from './comments';
+import { imagePins, openCounts } from './comments';
 import { commentsControllerList } from '../../api/generated/fn/comments/comments-controller-list';
 import { atLeast, type Role } from '../../core/roles';
 import { colorFor, type PresenceUser } from './presence';
@@ -226,6 +226,14 @@ export class BoardPage {
   protected readonly threads = computed(() => (this.comments.hasValue() ? this.comments.value() : []));
   protected readonly commentCounts = computed(() => openCounts(this.threads()));
   protected readonly openThreads = computed(() => this.threads().filter((t) => !t.resolvedAt).length);
+  protected readonly pins = computed(() => imagePins(this.threads()));
+  /** A pinned comment to show in the comments panel: one clicked, or one just placed (with where it goes). */
+  protected readonly pinTarget = signal<{ nodeId: string; anchor?: { x: number; y: number } } | null>(null);
+
+  protected openPin(target: { nodeId: string; anchor?: { x: number; y: number } }): void {
+    this.pinTarget.set(target);
+    this.panel.set('comments');
+  }
   protected readonly meUser = computed(() => {
     const me = this.#me();
     return me ? { id: me.id, name: me.name } : undefined;
@@ -468,6 +476,11 @@ export class BoardPage {
   protected readonly deleting = signal(false);
 
   constructor() {
+    // Selecting something else on the board shows its comments instead of a pin's.
+    effect(() => {
+      this.selectionIds();
+      untracked(() => this.pinTarget.set(null));
+    });
     // Breakout timers tick; when breakouts start, each person goes to their group's frame, and back to the whole board
     // when they end.
     effect((onCleanup) => {
