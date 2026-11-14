@@ -24,7 +24,12 @@ describe('App', () => {
   it('shows the header to a signed-in person', async () => {
     const el = await render(true);
     expect(el.querySelector('tc-header-brand')).not.toBeNull();
-    expect((el.querySelector('tc-header-nav') as HTMLElement & { user: { name: string } }).user.name).toBe('Ada');
+    const nav = el.querySelector('tc-header-nav') as HTMLElement & { user: { name: string }; accountItems: { id: string }[] };
+    expect(nav.user.name).toBe('Ada');
+    // The bell and the app picker live inside the header nav, so it lines them up with the avatar.
+    expect(nav.querySelector('tc-notifications')).not.toBeNull();
+    expect(nav.querySelector('tc-app-picker')).not.toBeNull();
+    expect(nav.accountItems.map((i) => i.id)).toEqual(['settings', 'theme', 'language', 'docs', 'terms', 'sign-out']);
   });
 
   it('shows no header before sign-in', async () => {

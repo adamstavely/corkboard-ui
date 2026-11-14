@@ -10,19 +10,41 @@
             <app-board-search />
           }
         }
-        <tc-notifications
-          [items]="notifications.items()"
-          [categories]="notificationCategories"
-          (tc-item-open)="onNotificationOpen($event)"
-          (tc-read-change)="onNotificationsRead($event)"
-          (tc-mark-all-read)="onAllRead($event)"
-        ></tc-notifications>
-        <tc-header-nav [user]="auth.profile()" [accountItems]="accountItems()" (tc-account-select)="onAccountSelect($event)"></tc-header-nav>
+        <!-- The bell and the app picker sit inside the header nav, which lines them up with the avatar and keeps one popover
+             open at a time. -->
+        <tc-header-nav [user]="auth.profile()" [accountItems]="accountItems()" (tc-account-select)="onAccountSelect($event)">
+          <tc-notifications
+            [items]="notifications.items()"
+            [categories]="notificationCategories"
+            (tc-item-open)="onNotificationOpen($event)"
+            (tc-read-change)="onNotificationsRead($event)"
+            (tc-mark-all-read)="onAllRead($event)"
+          ></tc-notifications>
+          <tc-app-picker label="Apps" [apps]="apps.config.value().apps" [current]="apps.config.value().current"></tc-app-picker>
+        </tc-header-nav>
       </header>
     }
     <main class="content">
       <router-outlet />
     </main>
     <tc-toaster position="bottom-right"></tc-toaster>
+
+    <!-- Read-only: nothing to agree to yet, so Close in place of Accept and no Decline. Loaded the first time it's
+         opened, so it costs the first page nothing. -->
+    @defer (when termsOpen()) {
+      @if (terms.hasValue()) {
+        <tc-terms-dialog
+          [open]="termsOpen()"
+          [heading]="terms.value().heading"
+          [version]="terms.value().version"
+          [effectiveDate]="terms.value().effectiveDate"
+          [sections]="terms.value().sections"
+          [canDecline]="false"
+          accept-label="Close"
+          (tc-accept)="termsOpen.set(false)"
+          (tc-open-change)="termsOpen.set($event.detail.open)"
+        ></tc-terms-dialog>
+      }
+    }
   </div>
 </tc-look-provider>
