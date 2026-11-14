@@ -1,5 +1,6 @@
 <!-- The assistant: Trench Coat's side pane, docked to the right of the board, with its own "Ask AI" launcher while
-     it's closed (⌘. opens it too). It reads the board, or the notes selected, and can change the board. -->
+     it's closed (⌘. opens it too). It reads the board, or the notes selected, and can change the board. The board's menus inside it fire
+     tc-open-change too, and it bubbles: only the pane's own opens or closes it. -->
 <tc-ai-side-pane
   class="assistant"
   heading="Assistant"
@@ -13,7 +14,7 @@
   [model]="models.modelId() ?? ''"
   [onDictate]="dictate"
   [open]="assistantOpen()"
-  (tc-open-change)="assistantOpen.set($event.detail.open)"
+  (tc-open-change)="$event.target === $event.currentTarget && assistantOpen.set($event.detail.open)"
   (tc-send)="assistant().send($event.detail.message, $event.detail.model)"
   (tc-regenerate)="assistant().regenerate($event.detail.id)"
   (tc-new-chat)="assistant().clear()"

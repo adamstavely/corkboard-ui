@@ -641,7 +641,7 @@
     <div class="app-island vertical rail" role="toolbar" aria-label="Tools" aria-orientation="vertical">
       <button type="button" class="icon-btn" aria-label="Select" data-tip="Select  V" data-tip-side="right" [attr.aria-pressed]="tool() === 'select'" (click)="pickTool('select')"><app-icon name="cursor" /></button>
       @if (!readOnly()) {
-        <tc-menu-morph [open]="createOpen()" (tc-open-change)="createOpen.set($event.detail.open)">
+        <tc-menu-morph side="right" gap="12" [open]="createOpen()" (tc-open-change)="createOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Create" data-tip="Create" data-tip-side="right"><app-icon name="create" /></button>
           <div data-menu class="app-menu" aria-label="Create">
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="app-menu-label">Table</span></button>
@@ -653,7 +653,7 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('matrix')"><app-icon name="matrix" /><span class="app-menu-label">Matrix</span><span class="app-menu-hint">Value and effort</span></button>
           </div>
         </tc-menu-morph>
-        <tc-menu-morph [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
+        <tc-menu-morph side="right" gap="12" [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Note templates" data-tip="Note templates" data-tip-side="right"><app-icon name="template" /></button>
           <div data-menu class="app-menu" aria-label="Note templates">
             @for (t of noteTemplates; track t.id) {
@@ -663,7 +663,7 @@
         </tc-menu-morph>
         <button type="button" class="icon-btn" aria-label="Sticky note" data-tip="Sticky note  N" data-tip-side="right" [attr.aria-pressed]="tool() === 'note'" (click)="pickTool('note')"><app-icon name="sticky" /></button>
         <button type="button" class="icon-btn" aria-label="Text" data-tip="Text  T" data-tip-side="right" [attr.aria-pressed]="tool() === 'text'" (click)="pickTool('text')"><app-icon name="text" /></button>
-        <tc-menu-morph [open]="shapesOpen()" (tc-open-change)="shapesOpen.set($event.detail.open)">
+        <tc-menu-morph side="right" gap="12" [open]="shapesOpen()" (tc-open-change)="shapesOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Shapes and arrows" data-tip="Shapes and arrows" data-tip-side="right" [attr.aria-pressed]="shapeTool()"><app-icon name="shapes" /></button>
           <div data-menu class="app-menu" aria-label="Shapes and arrows">
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickArrow('straight')"><app-icon name="arrow" /><span class="app-menu-label">Arrow</span><kbd>L</kbd></button>

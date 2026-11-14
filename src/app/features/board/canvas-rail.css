@@ -28,14 +28,6 @@
   color: var(--tc-text-secondary, var(--tc-text-muted));
 }
 
-/*
- * tc-menu-morph opens under its trigger; the rail's menus belong beside it, level with the button. The menu's own
- * positioning stays; this moves it right by a button and up by one.
- */
-.rail > tc-menu-morph > [data-menu] {
-  translate: 48px -40px;
-}
-
 /* Bottom right, left of the assistant's "Ask AI" launcher: map, fit, zoom and the shortcuts. */
 .zoom-panel {
   position: absolute;
