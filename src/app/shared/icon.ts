@@ -3,6 +3,12 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  ArrowDown,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  Layers,
+  PaintBucket,
+  SquareDashed,
   ChevronUp,
   Copy,
   CornerDownRight,
@@ -133,6 +139,13 @@ export const ICONS = {
   thumbsUp: ThumbsUp,
   heart: Heart,
   party: PartyPopper,
+  layers: Layers,
+  toFront: ArrowUpToLine,
+  forward: ArrowUp,
+  backward: ArrowDown,
+  toBack: ArrowDownToLine,
+  fill: PaintBucket,
+  dashedBox: SquareDashed,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

@@ -75,7 +75,6 @@ import { noteExtensions, renderNoteText } from './note-text';
     '[style.transform]': '"translate(" + note().x + "px, " + note().y + "px)"',
     '[style.width.px]': 'note().w',
     '[style.height.px]': 'note().h',
-    '[style.z-index]': 'note().z',
     '[style.--note-fill]': '"var(--note-" + note().color + ")"',
   },
 })

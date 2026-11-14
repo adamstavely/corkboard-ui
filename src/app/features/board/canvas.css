@@ -101,6 +101,19 @@
   border-radius: var(--tc-radius-lg);
   background: color-mix(in srgb, var(--tc-surface-raised) 60%, transparent);
 }
+/* Frame styles: a solid or tinted fill, and a dashed border or none (selected frames still show theirs). */
+.frame[data-fill='solid'] {
+  background: var(--tc-surface-raised);
+}
+.frame[data-fill]:not([data-fill='clear'], [data-fill='solid']) {
+  background: color-mix(in srgb, var(--frame-tint) 45%, var(--tc-surface-raised));
+}
+.frame[data-border='dashed'] {
+  border-style: dashed;
+}
+.frame[data-border='none']:not(.selected) {
+  border-color: transparent;
+}
 .frame.selected {
   border-color: var(--tc-accent-text);
   box-shadow: 0 0 0 1px var(--tc-accent-text);

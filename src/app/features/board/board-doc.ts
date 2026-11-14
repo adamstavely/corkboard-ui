@@ -1,4 +1,4 @@
-import { signal, type Signal } from '@angular/core';
+import { computed, signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
 
 export const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'gray'] as const;
@@ -42,9 +42,23 @@ export interface Frame {
   h: number;
   z: number;
   title: string;
+  /** How it looks: its fill and its border (see FRAME_FILLS and FRAME_BORDERS). */
+  fill: FrameFill;
+  border: FrameBorder;
   /** On a timeline's outer frame: when its first column starts and how long each lasts, for the Gantt view. */
   schedule?: { start: string; every: 'week' | '2weeks' | 'month' | 'quarter' };
 }
+
+/** A frame's fill: clear (the board shows through, as frames always have), solid, or a tint of a note colour. */
+export const FRAME_FILLS = ['clear', 'solid', ...NOTE_COLORS] as const;
+export type FrameFill = (typeof FRAME_FILLS)[number];
+export const FRAME_BORDERS = ['solid', 'dashed', 'none'] as const;
+export type FrameBorder = (typeof FRAME_BORDERS)[number];
+export type FrameStyle = Pick<Frame, 'fill' | 'border'>;
+export const DEFAULT_FRAME: FrameStyle = { fill: 'clear', border: 'solid' };
+
+/** Where a selection moves in the stack: to the top or bottom, or past the next thing it overlaps. */
+export type Restack = 'front' | 'forward' | 'backward' | 'back';
 
 /** An image or file placed on the board; its bytes come from the API by `fileId`. */
 export interface Media {
@@ -183,6 +197,15 @@ export function trackText(fragment: Y.XmlFragment): void {
 export const REMOTE = Symbol('remote');
 
 /** A timeline frame's dates, when someone has set them. */
+function frameStyleOf(node: Y.Map<unknown>): FrameStyle {
+  const fill = node.get('fill') as FrameFill;
+  const border = node.get('border') as FrameBorder;
+  return {
+    fill: FRAME_FILLS.includes(fill) ? fill : DEFAULT_FRAME.fill,
+    border: FRAME_BORDERS.includes(border) ? border : DEFAULT_FRAME.border,
+  };
+}
+
 function scheduleOf(node: Y.Map<unknown>): Pick<Frame, 'schedule'> {
   const s = node.get('schedule') as { start?: unknown; every?: unknown } | undefined;
   return s && typeof s.start === 'string' && ['week', '2weeks', 'month', 'quarter'].includes(s.every as string) ? { schedule: s as Frame['schedule'] } : {};
@@ -226,6 +249,12 @@ export class BoardDoc {
   readonly #connectors = signal<Connector[]>([]);
   /** Every arrow between notes and frames. */
   readonly connectors = this.#connectors.asReadonly();
+
+  /** Each note, item and image's place in the stack, from 1 at the bottom: its CSS z-index (layers can be any number). */
+  readonly stack = computed(() => {
+    const order = (a: { z: number; id: string }, b: { z: number; id: string }) => a.z - b.z || a.id.localeCompare(b.id);
+    return new Map([...this.notes(), ...this.items(), ...this.media()].sort(order).map((n, i) => [n.id, i + 1]));
+  });
 
   readonly #textRevision = signal(0);
   /** Goes up whenever a note's text changes; `trackText` depends on it. */
@@ -408,13 +437,61 @@ export class BoardDoc {
     }, this);
   }
 
-  /** Puts notes above everything else, keeping their order among themselves. */
-  bringToFront(ids: Iterable<string>): void {
+  /**
+   * Moves things up or down the stack, keeping their order among themselves. There are two stacks: frames, among
+   * frames, and everything else (notes, shapes, text, images…), which is always above the frames it sits in. Forward
+   * and backward step past the next thing the selection overlaps; with nothing overlapping, nothing changes.
+   */
+  restack(ids: Iterable<string>, how: Restack): void {
     const wanted = new Set(ids);
-    const chosen = [...this.notes(), ...this.items(), ...this.media()].filter((n) => wanted.has(n.id)).sort((a, b) => a.z - b.z);
-    const top = this.#topZ();
-    if (chosen.length === 0 || chosen.every((n, i) => n.z === top - chosen.length + 1 + i)) return;
-    this.doc.transact(() => chosen.forEach((n, i) => this.#nodes.get(n.id)?.set('z', top + 1 + i)), this);
+    const order = (a: { z: number; id: string }, b: { z: number; id: string }) => a.z - b.z || a.id.localeCompare(b.id);
+    const layers = [[...this.frames()], [...this.notes(), ...this.items(), ...this.media()]].map((layer) => layer.sort(order));
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const layer of layers) {
+        const chosen = layer.filter((n) => wanted.has(n.id));
+        if (chosen.length) this.#restackLayer(layer, chosen, how);
+      }
+    }, this);
+  }
+
+  /** One stack's part of restack: new layers (whole numbers, for CSS) for what moves and, to make room, what's above. */
+  #restackLayer(layer: readonly (Box & { id: string; z: number })[], chosen: readonly (Box & { id: string; z: number })[], how: Restack): void {
+    const rest = layer.filter((n) => !chosen.includes(n));
+    const overlaps = (n: Box) => chosen.some((c) => c.x < n.x + n.w && n.x < c.x + c.w && c.y < n.y + n.h && n.y < c.y + c.h);
+    const setZ = (id: string, z: number) => this.#nodes.get(id)?.set('z', z);
+    const k = chosen.length;
+    if (how === 'front' || how === 'back') {
+      const end = how === 'front' ? layer.slice(-k) : layer.slice(0, k);
+      if (end.every((n, i) => n === chosen[i]) && new Set(layer.map((n) => n.z)).size === layer.length) return;
+      const z = how === 'front' ? Math.max(...layer.map((n) => n.z)) + 1 : Math.min(...layer.map((n) => n.z)) - k;
+      chosen.forEach((n, i) => setZ(n.id, z + i));
+      return;
+    }
+    // Forward: just above the first overlapping thing over the selection's top; backward: just below the last one
+    // under its bottom. Whatever is from there up is raised by k to make room.
+    const index = (n: { id: string }) => layer.findIndex((m) => m.id === n.id);
+    const past =
+      how === 'forward'
+        ? rest.find((n) => index(n) > index(chosen[k - 1]) && overlaps(n))
+        : [...rest].reverse().find((n) => index(n) < index(chosen[0]) && overlaps(n));
+    if (!past) return;
+    const base = how === 'forward' ? past.z + 1 : past.z;
+    for (const n of rest) if (n.z >= base && (how === 'backward' || n !== past)) setZ(n.id, n.z + k);
+    chosen.forEach((n, i) => setZ(n.id, base + i));
+  }
+
+  /** Changes frames' fill or border. */
+  setFrameStyle(ids: Iterable<string>, change: Partial<FrameStyle>): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#nodes.get(id);
+        if (node?.get('kind') !== 'frame') continue;
+        if (change.fill && FRAME_FILLS.includes(change.fill)) node.set('fill', change.fill);
+        if (change.border && FRAME_BORDERS.includes(change.border)) node.set('border', change.border);
+      }
+    }, this);
   }
 
   /** Removes notes, frames and arrows; arrows to or from what's removed go too. */
@@ -828,6 +905,7 @@ export class BoardDoc {
         h: size(node.get('h'), FRAME_SIZE.h),
         z: num(node.get('z')),
         title: typeof title === 'string' ? title : '',
+        ...frameStyleOf(node),
         ...scheduleOf(node),
       });
       return;

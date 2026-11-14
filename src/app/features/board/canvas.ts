@@ -13,7 +13,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { ARROW_WEIGHTS, DEFAULT_ARROW, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -344,6 +344,38 @@ export class Canvas {
     if (!canArrange && !canAsk && this.readOnly()) return null;
     return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(8, r.y * zoom + y - 56), count: chosen.length, notes };
   });
+
+  protected readonly layerOpen = signal(false);
+  protected readonly layerChoices: { how: Restack; label: string; icon: IconName; keys: string }[] = [
+    { how: 'front', label: 'Bring to front', icon: 'toFront', keys: `⇧${this.modKey}]` },
+    { how: 'forward', label: 'Bring forward', icon: 'forward', keys: `${this.modKey}]` },
+    { how: 'backward', label: 'Send backward', icon: 'backward', keys: `${this.modKey}[` },
+    { how: 'back', label: 'Send to back', icon: 'toBack', keys: `⇧${this.modKey}[` },
+  ];
+
+  /** Moves what's selected up or down the stack (frames among frames, everything else above them). Locked things stay. */
+  protected restack(how: Restack): void {
+    this.layerOpen.set(false);
+    this.board().restack([...this.selection()].filter((id) => !this.board().locked().has(id)), how);
+  }
+
+  protected readonly frameStyleOpen = signal(false);
+  protected readonly selectedFrames = computed(() => this.board().frames().filter((f) => this.selection().has(f.id)));
+  /** The first selected frame's look, for the bar's swatch and the menu's ticks. */
+  protected readonly frameStyle = computed<FrameStyle>(() => this.selectedFrames()[0] ?? DEFAULT_FRAME);
+  protected readonly frameFills = FRAME_FILLS.map((fill) => ({ id: fill, label: fill === 'clear' ? 'Clear' : fill === 'solid' ? 'Solid' : COLOR_LABELS[fill] }));
+  protected readonly frameBorders: { id: FrameBorder; label: string }[] = FRAME_BORDERS.map((b) => ({ id: b, label: { solid: 'Solid border', dashed: 'Dashed border', none: 'No border' }[b] }));
+
+  /** A fill as a swatch shows it (inline, so the menu's own button styles don't cover it); clear is hatched. */
+  protected fillLook(fill: FrameFill): string {
+    if (fill === 'clear') return 'repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in srgb, var(--tc-text-primary) 14%, transparent) 4px 5px)';
+    if (fill === 'solid') return 'var(--tc-surface-raised)';
+    return `color-mix(in srgb, var(--note-${fill}) 45%, var(--tc-surface-raised))`;
+  }
+
+  protected restyleFrames(change: { fill?: FrameFill; border?: FrameBorder }): void {
+    this.board().setFrameStyle(this.selectedFrames().map((f) => f.id), change);
+  }
 
   /** Whether everything selected is locked: the bar offers Unlock then, else Lock. */
   protected readonly allLocked = computed(() => [...this.selection()].every((id) => this.board().locked().has(id)));
@@ -896,7 +928,6 @@ export class Canvas {
       const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
       // Without edit rights, or with anything locked, a click selects but nothing moves.
       if (this.readOnly() || [...ids].some((x) => this.board().locked().has(x))) return;
-      this.board().bringToFront(ids);
       this.board().undo.stopCapturing();
       // What the dragged things can line up with: everything else in view.
       const boxes = boardBoxes(this.board());
@@ -1053,6 +1084,13 @@ export class Canvas {
       }
     }
     if (!isEditable(e.target) && !this.readOnly() && this.selection().size) {
+      // ⌘/Ctrl ] and [: forward and backward; with Shift, to the front and back.
+      if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
+        e.preventDefault();
+        const up = e.code === 'BracketRight';
+        this.restack(e.shiftKey ? (up ? 'front' : 'back') : up ? 'forward' : 'backward');
+        return;
+      }
       // ⌘/Ctrl D: a copy beside; Alt + arrow: a copy of one note on that side.
       if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault();
@@ -1424,6 +1462,10 @@ export class Canvas {
     { label: 'Undo', keys: `${this.modKey}Z` },
     { label: 'Redo', keys: `⇧${this.modKey}Z` },
     { label: 'Duplicate', keys: `${this.modKey}D` },
+    { label: 'Bring forward', keys: `${this.modKey}]` },
+    { label: 'Bring to front', keys: `⇧${this.modKey}]` },
+    { label: 'Send backward', keys: `${this.modKey}[` },
+    { label: 'Send to back', keys: `⇧${this.modKey}[` },
     { label: 'Fit everything', keys: '⇧1' },
     { label: 'Pan', keys: 'Space + drag' },
   ];
