@@ -327,106 +327,158 @@
   <div class="sr-only" aria-live="polite" role="status">{{ announcement() }}</div>
 
   @if (selectionBar(); as bar) {
-    <div class="selection-bar" role="toolbar" aria-label="Selection" [style.left.px]="bar.left" [style.top.px]="bar.top" (pointerdown)="$event.stopPropagation()">
+    <!-- Over what's selected (and the note being written in): an icon for each thing you can do to it, as Miro has. -->
+    <div class="selection-bar app-island" role="toolbar" aria-label="Selection" [style.left.px]="bar.left" [style.top.px]="bar.top" (pointerdown)="$event.stopPropagation()">
+      @if (!readOnly() && (selectedNoteIds().length || selectedShapes().length)) {
+        <tc-menu-morph [open]="colourOpen()" (tc-open-change)="colourOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Colour" data-tip="Colour">
+            <span class="current-colour" [style.background]="'var(--note-' + barColour() + ')'"></span>
+          </button>
+          <div data-menu class="app-menu colour-menu" aria-label="Colour">
+            <div class="colour-grid">
+              @for (color of colors; track color.id) {
+                <button
+                  type="button"
+                  class="swatch-item"
+                  role="menuitemradio"
+                  [attr.aria-checked]="barColour() === color.id"
+                  [style.background]="'var(--note-' + color.id + ')'"
+                  [attr.aria-label]="color.label"
+                  [title]="color.label"
+                  (click)="colourOpen.set(false); setColor(color.id)"
+                ></button>
+              }
+            </div>
+          </div>
+        </tc-menu-morph>
+      }
+      @if (!readOnly() && selectedShapes().length) {
+        <tc-menu-morph [open]="shapeOpen()" (tc-open-change)="shapeOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Shape" data-tip="Shape"><app-icon name="shapes" /></button>
+          <div data-menu class="app-menu" aria-label="Shape">
+            @for (shape of shapes; track shape) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="shapeOpen.set(false); board().setShape(selectedShapes(), shape)">
+                <app-icon [name]="shapeIcons[shape]" /><span class="app-menu-label">{{ shapeNames[shape] }}</span>
+              </button>
+            }
+          </div>
+        </tc-menu-morph>
+      }
+      @if (!readOnly() && selectedTexts().length) {
+        <tc-menu-morph [open]="sizeOpen()" (tc-open-change)="sizeOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Text size" data-tip="Text size"><app-icon name="textSize" /></button>
+          <div data-menu class="app-menu" aria-label="Text size">
+            @for (size of textSizeNames; track size.id) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="sizeOpen.set(false); board().setTextSize(selectedTexts(), size.id)">
+                <span class="app-menu-label">{{ size.name }}</span><kbd>{{ size.label }}</kbd>
+              </button>
+            }
+          </div>
+        </tc-menu-morph>
+      }
       @if (!readOnly() && bar.count > 1) {
-        <tc-menu-morph class="insert" [open]="layoutOpen()" (tc-open-change)="layoutOpen.set($event.detail.open)">
-          <button type="button" class="menu-trigger" data-menu-trigger>Arrange <app-icon name="chevron" /></button>
-          <div data-menu class="menu-list" aria-label="Arrange">
-            <button type="button" role="menuitem" (click)="arrange('tidy')"><strong>Tidy into a grid</strong><span>In reading order</span></button>
-            <button type="button" role="menuitem" (click)="arrange('left')"><strong>Align left</strong></button>
-            <button type="button" role="menuitem" (click)="arrange('center')"><strong>Align centres</strong><span>Across</span></button>
-            <button type="button" role="menuitem" (click)="arrange('right')"><strong>Align right</strong></button>
-            <button type="button" role="menuitem" (click)="arrange('top')"><strong>Align tops</strong></button>
-            <button type="button" role="menuitem" (click)="arrange('middle')"><strong>Align middles</strong><span>Down</span></button>
-            <button type="button" role="menuitem" (click)="arrange('bottom')"><strong>Align bottoms</strong></button>
+        <tc-menu-morph [open]="layoutOpen()" (tc-open-change)="layoutOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Arrange" data-tip="Arrange"><app-icon name="arrange" /></button>
+          <div data-menu class="app-menu" aria-label="Arrange">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('tidy')"><span class="app-menu-label">Tidy into a grid</span><span class="app-menu-hint">In reading order</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('left')"><span class="app-menu-label">Align left</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('center')"><span class="app-menu-label">Align centres</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('right')"><span class="app-menu-label">Align right</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('top')"><span class="app-menu-label">Align tops</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('middle')"><span class="app-menu-label">Align middles</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('bottom')"><span class="app-menu-label">Align bottoms</span></button>
             @if (bar.count > 2) {
-              <button type="button" role="menuitem" (click)="arrange('h')"><strong>Space evenly across</strong></button>
-              <button type="button" role="menuitem" (click)="arrange('v')"><strong>Space evenly down</strong></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('h')"><span class="app-menu-label">Space evenly across</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="arrange('v')"><span class="app-menu-label">Space evenly down</span></button>
             }
           </div>
         </tc-menu-morph>
       }
       @if (bar.notes && canReact()) {
-        <tc-menu-morph class="insert" [open]="aiOpen()" (tc-open-change)="aiOpen.set($event.detail.open)">
-          <button type="button" class="menu-trigger" data-menu-trigger><app-icon name="sparkles" /> Ask AI <app-icon name="chevron" /></button>
-          <div data-menu class="menu-list" aria-label="Ask the model about the selection">
+        <tc-menu-morph [open]="aiOpen()" (tc-open-change)="aiOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Ask AI" data-tip="Ask AI"><app-icon name="sparkles" /></button>
+          <div data-menu class="app-menu" aria-label="Ask the model about the selection">
             @if (!readOnly()) {
-              <button type="button" role="menuitem" (click)="ask('Group these notes into themes')"><strong>Group into themes</strong><span>Frames for what belongs together</span></button>
-              <button type="button" role="menuitem" (click)="ask('Draft action items with owners from these notes')"><strong>Turn into action items</strong><span>With owners, in an Action items frame</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="ask('Group these notes into themes')"><span class="app-menu-label">Group into themes</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="ask('Draft action items with owners from these notes')"><span class="app-menu-label">Turn into action items</span></button>
             }
-            <button type="button" role="menuitem" (click)="ask('Summarise these notes')"><strong>Summarise</strong><span>In the chat</span></button>
-            <button type="button" role="menuitem" (click)="ask('What are the open questions in these notes?')"><strong>Find open questions</strong></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="ask('Summarise these notes')"><span class="app-menu-label">Summarise</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="ask('What are the open questions in these notes?')"><span class="app-menu-label">Find open questions</span></button>
           </div>
         </tc-menu-morph>
       }
-      @if (!readOnly()) {
-        <button type="button" class="bar-button" [attr.aria-pressed]="allLocked()" (click)="toggleLock()"><app-icon [name]="allLocked() ? 'unlock' : 'lock'" />{{ allLocked() ? 'Unlock' : 'Lock' }}</button>
-      }
-      @if (!readOnly() && (selectedNoteIds().length || selectedShapes().length)) {
-        <div class="swatches" role="group" aria-label="Colour">
-          @for (color of colors; track color.id) {
-            <button type="button" class="swatch" [style.background]="'var(--note-' + color.id + ')'" [attr.aria-label]="color.label" [title]="color.label" (click)="setColor(color.id)"></button>
-          }
-        </div>
-      }
-      @if (!readOnly() && selectedShapes().length) {
-        <div class="item-tools" role="group" aria-label="Shape">
-          @for (shape of shapes; track shape) {
-            <tc-button size="sm" variant="ghost" [label]="shapeNames[shape]" (click)="board().setShape(selectedShapes(), shape)"></tc-button>
-          }
-        </div>
-      }
-      @if (!readOnly() && selectedTexts().length) {
-        <div class="item-tools" role="group" aria-label="Text size">
-          @for (size of textSizeNames; track size.id) {
-            <tc-button size="sm" variant="ghost" [label]="size.label" (click)="board().setTextSize(selectedTexts(), size.id)"></tc-button>
-          }
-        </div>
-      }
-      @if (!readOnly() && oneTable(); as t) {
-        <div class="item-tools" role="group" aria-label="Table">
-          <tc-button size="sm" variant="ghost" label="Add row" (click)="board().resizeTable(t.id, t.rows + 1, t.cols)"></tc-button>
-          <tc-button size="sm" variant="ghost" label="Remove row" [disabled]="t.rows === 1" (click)="board().resizeTable(t.id, t.rows - 1, t.cols)"></tc-button>
-          <tc-button size="sm" variant="ghost" label="Add column" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"></tc-button>
-          <tc-button size="sm" variant="ghost" label="Remove column" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"></tc-button>
-        </div>
-      }
-      @if (canReact() && oneImage()) {
-        <tc-button
-          size="sm"
-          [variant]="pinning() ? 'primary' : 'ghost'"
-          [label]="pinning() ? 'Click the image…' : 'Pin a comment'"
-          title="Click a spot on the image to comment on it (Esc to stop)"
-          (click)="pinning.set(!pinning())"
-        ></tc-button>
+      <span class="sep" aria-hidden="true"></span>
+      @if (!readOnly() && selectedNoteIds().length) {
+        <tc-menu-morph [open]="tagOpen()" (tc-open-change)="tagOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Tags" data-tip="Tags"><app-icon name="tag" /></button>
+          <div data-menu class="app-menu tag-menu" aria-label="Tags">
+            <form class="tag-tools" (submit)="$event.preventDefault(); addTag(tagInput)">
+              <input #tagInput class="tag-input" placeholder="Add a tag" aria-label="Add a tag to the selected notes" maxlength="30" list="board-tags" />
+              <datalist id="board-tags">
+                @for (tag of tags(); track tag) {
+                  <option [value]="tag"></option>
+                }
+              </datalist>
+            </form>
+            @for (tag of selectedTags(); track tag) {
+              <button type="button" class="app-menu-item" role="menuitem" [attr.aria-label]="'Remove tag ' + tag" (click)="board().removeTag(selectedNoteIds(), tag)">
+                <span class="app-menu-label">#{{ tag }}</span><app-icon name="close" />
+              </button>
+            }
+          </div>
+        </tc-menu-morph>
       }
       @if (canReact() && oneNote(); as id) {
-        <div class="react-picker" role="group" aria-label="React to the selected note">
-          @for (emoji of reactionChoices; track emoji) {
-            <button type="button" class="icon-btn small" [attr.aria-label]="'React: ' + reactionLook(emoji).label" [attr.data-tip]="reactionLook(emoji).label" (click)="toggleReaction(id, emoji)"><app-icon [name]="reactionLook(emoji).icon" /></button>
-          }
-        </div>
-      }
-      @if (!readOnly() && selectedNoteIds().length) {
-        <form class="tag-tools" (submit)="$event.preventDefault(); addTag(tagInput)">
-          @for (tag of selectedTags(); track tag) {
-            <button type="button" class="tag-chip" [attr.aria-label]="'Remove tag ' + tag" (click)="board().removeTag(selectedNoteIds(), tag)">#{{ tag }} <app-icon name="close" /></button>
-          }
-          <input #tagInput class="tag-input" placeholder="Add tag" aria-label="Add a tag to the selected notes" maxlength="30" list="board-tags" />
-          <datalist id="board-tags">
-            @for (tag of tags(); track tag) {
-              <option [value]="tag"></option>
+        <tc-menu-morph [open]="reactOpen()" (tc-open-change)="reactOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="React" data-tip="React"><app-icon name="react" /></button>
+          <div data-menu class="app-menu" aria-label="React to the note">
+            @for (emoji of reactionChoices; track emoji) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="reactOpen.set(false); toggleReaction(id, emoji)">
+                <app-icon [name]="reactionLook(emoji).icon" /><span class="app-menu-label">{{ reactionLook(emoji).label }}</span>
+              </button>
             }
-          </datalist>
-        </form>
+          </div>
+        </tc-menu-morph>
       }
-      @if (!readOnly() && pair()) {
-        <tc-button size="sm" variant="ghost" label="Connect" title="An arrow from the first selected to the second" (click)="connect()"></tc-button>
+      @if (canReact() && bar.count === 1) {
+        <button
+          type="button"
+          class="icon-btn"
+          [attr.aria-label]="oneImage() ? 'Pin a comment on the image' : 'Comment'"
+          [attr.data-tip]="oneImage() ? (pinning() ? 'Click the image…' : 'Pin a comment') : 'Comment'"
+          [attr.aria-pressed]="pinning()"
+          (click)="commentOnSelection()"
+        >
+          <app-icon name="comment" />
+        </button>
       }
       @if (!readOnly()) {
-        <button type="button" class="icon-btn small" [attr.aria-label]="deleteLabel()" [attr.data-tip]="deleteLabel() + ' (Delete)'" (click)="deleteSelection()"><app-icon name="trash" /></button>
+        <button type="button" class="icon-btn" [attr.aria-label]="allLocked() ? 'Unlock' : 'Lock'" [attr.data-tip]="allLocked() ? 'Unlock' : 'Lock'" [attr.aria-pressed]="allLocked()" (click)="toggleLock()">
+          <app-icon [name]="allLocked() ? 'lock' : 'unlock'" />
+        </button>
+        <span class="sep" aria-hidden="true"></span>
+        <tc-menu-morph align="end" [open]="moreOpen()" (tc-open-change)="moreOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="More" data-tip="More"><app-icon name="more" /></button>
+          <div data-menu class="app-menu" aria-label="More">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="copy" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
+            @if (pair()) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); connect()"><app-icon name="arrow" /><span class="app-menu-label">Connect with an arrow</span></button>
+            }
+            @if (oneTable(); as t) {
+              <hr />
+              <button type="button" class="app-menu-item" role="menuitem" (click)="board().resizeTable(t.id, t.rows + 1, t.cols)"><span class="app-menu-label">Add a row</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" [disabled]="t.rows === 1" (click)="board().resizeTable(t.id, t.rows - 1, t.cols)"><span class="app-menu-label">Remove a row</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"><span class="app-menu-label">Add a column</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"><span class="app-menu-label">Remove a column</span></button>
+            }
+            @if (oneImage(); as image) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askImage.emit(image)"><app-icon name="sparkles" /><span class="app-menu-label">Ask about the image</span></button>
+            }
+            <hr />
+            <button type="button" class="app-menu-item danger" role="menuitem" (click)="moreOpen.set(false); deleteSelection()"><app-icon name="trash" /><span class="app-menu-label">{{ deleteLabel() }}</span><kbd>Del</kbd></button>
+          </div>
+        </tc-menu-morph>
       }
-      <span class="selection-count">{{ bar.count }} selected</span>
     </div>
   }
 
@@ -493,7 +545,7 @@
       <button type="button" class="icon-btn" data-menu-trigger aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts" data-tip-side="top"><app-icon name="help" /></button>
       <div data-menu class="app-menu" aria-label="Keyboard shortcuts">
         @for (k of shortcuts; track k.label) {
-          <div class="app-menu-item" role="menuitem" tabindex="-1"><span class="label">{{ k.label }}</span><kbd>{{ k.keys }}</kbd></div>
+          <div class="app-menu-item" role="menuitem" tabindex="-1"><span class="app-menu-label">{{ k.label }}</span><kbd>{{ k.keys }}</kbd></div>
         }
       </div>
     </tc-menu-morph>
@@ -510,20 +562,20 @@
         <tc-menu-morph [open]="createOpen()" (tc-open-change)="createOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Create" data-tip="Create" data-tip-side="right"><app-icon name="create" /></button>
           <div data-menu class="app-menu" aria-label="Create">
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="label">Table</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="label">Link</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="label">Images and files</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="app-menu-label">Table</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="app-menu-label">Link</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>
             <hr />
-            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('tasks')"><app-icon name="kanban" /><span class="label">Kanban</span><span class="hint">Action items</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('gantt')"><app-icon name="timeline" /><span class="label">Timeline</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('matrix')"><app-icon name="matrix" /><span class="label">Matrix</span><span class="hint">Value and effort</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('tasks')"><app-icon name="kanban" /><span class="app-menu-label">Kanban</span><span class="app-menu-hint">Action items</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('gantt')"><app-icon name="timeline" /><span class="app-menu-label">Timeline</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="openViewFromRail('matrix')"><app-icon name="matrix" /><span class="app-menu-label">Matrix</span><span class="app-menu-hint">Value and effort</span></button>
           </div>
         </tc-menu-morph>
         <tc-menu-morph [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Note templates" data-tip="Note templates" data-tip-side="right"><app-icon name="template" /></button>
           <div data-menu class="app-menu" aria-label="Note templates">
             @for (t of noteTemplates; track t.id) {
-              <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); insertTemplate(t)"><span class="label">{{ t.name }}</span><span class="hint">{{ t.hint }}</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); insertTemplate(t)"><span class="app-menu-label">{{ t.name }}</span><span class="app-menu-hint">{{ t.hint }}</span></button>
             }
           </div>
         </tc-menu-morph>
@@ -532,12 +584,12 @@
         <tc-menu-morph [open]="shapesOpen()" (tc-open-change)="shapesOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Shapes and arrows" data-tip="Shapes and arrows" data-tip-side="right" [attr.aria-pressed]="shapeTool()"><app-icon name="shapes" /></button>
           <div data-menu class="app-menu" aria-label="Shapes and arrows">
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('connect')"><app-icon name="arrow" /><span class="label">Arrow</span><kbd>L</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('connect')"><app-icon name="arrow" /><span class="app-menu-label">Arrow</span><kbd>L</kbd></button>
             <hr />
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('rect')"><app-icon name="rect" /><span class="label">Rectangle</span><kbd>R</kbd></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('ellipse')"><app-icon name="oval" /><span class="label">Oval</span><kbd>O</kbd></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('diamond')"><app-icon name="rhombus" /><span class="label">Rhombus</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('triangle')"><app-icon name="triangle" /><span class="label">Triangle</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('rect')"><app-icon name="rect" /><span class="app-menu-label">Rectangle</span><kbd>R</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('ellipse')"><app-icon name="oval" /><span class="app-menu-label">Oval</span><kbd>O</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('diamond')"><app-icon name="rhombus" /><span class="app-menu-label">Rhombus</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('triangle')"><app-icon name="triangle" /><span class="app-menu-label">Triangle</span></button>
           </div>
         </tc-menu-morph>
         <button type="button" class="icon-btn" aria-label="Pen" data-tip="Pen  P" data-tip-side="right" [attr.aria-pressed]="tool() === 'pen'" (click)="pickTool('pen')"><app-icon name="pen" /></button>

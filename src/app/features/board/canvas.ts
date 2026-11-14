@@ -1,5 +1,5 @@
 import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { Icon } from '../../shared/icon';
+import { Icon, type IconName } from '../../shared/icon';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
 import { unfurlControllerPreview } from '../../api/generated/fn/boards/unfurl-controller-preview';
@@ -51,11 +51,11 @@ const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: '
 const DRAG_MIN = 8;
 
 const SHAPE_NAMES: Record<ShapeKind, string> = { rect: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', triangle: 'Triangle' };
-const TEXT_SIZE_NAMES: { id: TextSize; label: string }[] = [
-  { id: 'sm', label: 'S' },
-  { id: 'md', label: 'M' },
-  { id: 'lg', label: 'L' },
-  { id: 'xl', label: 'XL' },
+const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
+  { id: 'sm', label: 'S', name: 'Small' },
+  { id: 'md', label: 'M', name: 'Medium' },
+  { id: 'lg', label: 'L', name: 'Large' },
+  { id: 'xl', label: 'XL', name: 'Extra large' },
 ];
 
 
@@ -187,6 +187,34 @@ export class Canvas {
   /** With the arrow tool, the thing the arrow starts from. */
   readonly #connectFrom = signal<string | null>(null);
   protected readonly createOpen = signal(false);
+  protected readonly colourOpen = signal(false);
+  protected readonly shapeOpen = signal(false);
+  protected readonly sizeOpen = signal(false);
+  protected readonly tagOpen = signal(false);
+  protected readonly reactOpen = signal(false);
+  protected readonly moreOpen = signal(false);
+  protected readonly shapeIcons: Record<ShapeKind, IconName> = { rect: 'rect', ellipse: 'oval', diamond: 'rhombus', triangle: 'triangle' };
+  /** The colour of the first selected note or shape, for the selection bar's swatch. */
+  protected readonly barColour = computed<NoteColor>(() => {
+    const sel = this.selection();
+    const note = this.board().notes().find((n) => sel.has(n.id));
+    if (note) return note.color;
+    const shape = this.board().items().find((i) => i.kind === 'shape' && sel.has(i.id));
+    return shape && shape.kind === 'shape' ? shape.color : this.#noteColor();
+  });
+
+  /** The selection bar's comment: the comments on the one thing selected, or a pin on an image. */
+  protected commentOnSelection(): void {
+    const [id] = this.selection();
+    if (!id) return;
+    if (this.oneImage()) this.pinning.set(!this.pinning());
+    else this.pinOpen.emit(id);
+  }
+
+  protected duplicateSelection(): void {
+    const copies = this.board().duplicate(this.selection(), 24, 24);
+    this.selection.set(new Set(copies));
+  }
   protected readonly templatesOpen = signal(false);
   protected readonly shapesOpen = signal(false);
   /** The rail's views, opened beside the board. */
@@ -305,7 +333,8 @@ export class Canvas {
 
   /** Where the bar over the selection goes, in screen space: above the selection, or null when there's nothing to act on. */
   protected readonly selectionBar = computed(() => {
-    if (this.editing() || this.itemEditing() || this.marquee() || this.selection().size === 0) return null;
+    // Shown while a note is written in, too, so its colour can change without leaving it.
+    if (this.itemEditing() || this.marquee() || this.selection().size === 0) return null;
     const chosen = boardBoxes(this.board()).filter((b) => this.selection().has(b.id));
     if (!chosen.length) return null;
     const r = rectAround(chosen);
@@ -314,7 +343,7 @@ export class Canvas {
     const canArrange = !this.readOnly() && chosen.length > 1;
     const canAsk = notes > 0 && this.canReact();
     if (!canArrange && !canAsk && this.readOnly()) return null;
-    return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(8, r.y * zoom + y - 44), count: chosen.length, notes };
+    return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(8, r.y * zoom + y - 56), count: chosen.length, notes };
   });
 
   /** Whether everything selected is locked: the bar offers Unlock then, else Lock. */
