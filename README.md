@@ -13,23 +13,40 @@ npm install
 npm start          # http://localhost:4300; /api goes to the API on :3700 (set API_URL to change)
 ```
 
-There's no sign-in: pick who you are, or add yourself (a name and an email). Only run Corkboard locally or somewhere private.
+Locally, the API's development picker is on: pick who you are, or add yourself (a name and an email). Deployed (`NODE_ENV=production` on the API), people sign up and in with passkeys instead, and add more under Settings. Deploying: see the API's [operations guide](https://github.com/adamstavely/corkboard-api/blob/main/docs/OPERATIONS.md).
 
 ## Using the board
 
-- **Add a note:** double-click empty space, or use Add note in the toolbar. Double-click a note (or select it and press Enter) to write in it. Select text to format it.
-- **Select:** click a note, Shift-click to add more, or drag a box on the background. ⌘/Ctrl-A selects all.
-- **Move and recolour:** drag selected notes; pick a colour in the toolbar. Delete or Backspace removes them.
-- **Pan and zoom:** scroll to pan, or hold Space (or the middle button) and drag. Pinch or ⌘/Ctrl-scroll to zoom.
-- **Undo:** ⌘/Ctrl-Z, and ⇧⌘Z or Ctrl-Y to redo.
-- **Light and dark:** follows the OS until you change it under Dark mode in the account menu.
-- **Together:** everyone on a board sees changes as they happen, along with each other's pointers, which notes they have selected, who is writing where, and their carets inside a note. When more than one person is on a board, their avatars stack in its top-right corner and fan out on hover.
-- **Workspaces:** admins invite people by email from Members, change roles and remove people; anyone can leave. Invites show up on the boards page when the invited person signs in with that email, and you can switch between workspaces you belong to there.
-- **Assistant:** the Assistant button opens a panel beside the board, built on Trench Coat's writing assistant (with dictation). Ask about the board, or about just the notes you've selected, or tell it to add or recolour notes. Its changes appear for everyone. It uses the workspace's models; pick one if there are several.
-- **AI models:** admins connect models from AI models on the boards page: Claude, or any OpenAI-compatible server. The page uses Trench Coat's connection panel, with a test. Keys are entered once, encrypted on the server, and never shown again.
-- **Search:** ⌘K, or the field in the header, finds boards by title or by what their notes say.
+The board fills the window. Its controls float over it: the menu, title and board menu top left; facilitation, chat,
+comments, who's here, notifications, Present and Share top right; the tools down the left; zoom and the map bottom
+right; and the assistant's **Ask AI** launcher in the corner.
 
-Changes go to the server as you make them, and it saves them. Offline edits are kept and sent when you reconnect.
+- **Tools:** pick one in the rail, or press its key: Select (V), Sticky note (N adds one at once), Text (T),
+  Rectangle (R), Oval (O), Arrow (L), Pen (P), Frame (F), Comment (C). A placing tool puts its thing where you click,
+  or the size you drag, then goes back to Select; Esc puts a tool down. Create has tables, links, files and the
+  kanban, timeline and matrix views; note templates sit under their own button.
+- **Arrows:** straight, right-angle or curved, 1–6 px, solid, dashed or dotted. A small style bar shows while the
+  arrow tool is picked, and over an arrow you select.
+- **What's selected:** a toolbar over it changes colour (sticky notes and shapes), shape or text size, arranges
+  several, asks AI about them, tags, reacts, comments, locks, and under More duplicates, connects and deletes. It
+  stays while you write in a note.
+- **Pan and zoom:** scroll to pan, or hold Space (or the middle button) and drag; pinch or ⌘/Ctrl-scroll to zoom;
+  ⇧1 fits everything. The ? in the bottom right lists every shortcut.
+- **Undo:** ⌘/Ctrl-Z, and ⇧⌘Z or Ctrl-Y to redo; also below the rail.
+- **Search:** ⌘K opens search and the board's commands; ⌘F finds on the board.
+- **Assistant:** Ask AI (or ⌘.) opens Trench Coat's assistant beside the board, with starters and dictation. It
+  reads the board, or the notes you've selected, and can add notes, group them into frames, draft action items and
+  more; what it changed can be undone from History. An empty board offers starters at the bottom too.
+- **Together:** everyone on a board sees changes as they happen, with each other's pointers and selections.
+- **Workspaces:** owners invite people from Members; each invite makes a link to send them, and they join through
+  it. Roles: readers see boards, commenters also comment, updaters also change them, owners also manage members,
+  sharing and AI models.
+- **AI models:** owners connect Claude, or any OpenAI-compatible server, from AI models.
+- **Light and dark:** follows the OS until you change Dark mode in the account menu.
+
+Changes go to the server as you make them, and it saves them. Until the server has them they're also kept in this
+browser, so edits made offline survive leaving the board or reloading, and are sent when it's next open; leaving with
+unsent edits asks first.
 
 ## How it fits together
 
