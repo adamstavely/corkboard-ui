@@ -1,70 +1,128 @@
 <div class="page">
-  <div class="bar">
-    <tc-button size="sm" variant="ghost" label="All boards" (click)="back()"></tc-button>
-    <input
-      class="title"
-      aria-label="Board title"
-      maxlength="200"
-      [readOnly]="!canEdit()"
-      [value]="title()"
-      (input)="title.set($any($event.target).value)"
-      (blur)="rename()"
-      (keydown)="onTitleKey($event)"
-    />
-    @if (previous.hasValue() && previous.value(); as prev) {
-      <a class="continues" [href]="'/boards/' + prev.id" (click)="$event.preventDefault(); go('/boards/' + prev.id)" [title]="'This board carries on from ' + prev.title">
-        ← {{ prev.title }}
-      </a>
-    }
-    @if (canRun()) {
-      <tc-button size="sm" [variant]="facilitating() ? 'primary' : 'secondary'" label="Facilitate" [disabled]="!connection()" (click)="facilitating.set(!facilitating())"></tc-button>
-    }
-    <tc-button size="sm" [variant]="presenting() ? 'primary' : 'secondary'" [label]="presenting() ? 'Presenting' : 'Present'" [disabled]="!connection()" (click)="togglePresenting()"></tc-button>
-    <tc-button size="sm" variant="secondary" label="Chat" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())"></tc-button>
-    <tc-button
-      size="sm"
-      variant="secondary"
-      [label]="openThreads() ? 'Comments (' + openThreads() + ')' : 'Comments'"
-      [disabled]="!meta.hasValue()"
-      (click)="togglePanel('comments')"
-    ></tc-button>
-    <!-- The board's other views, and ways to take it elsewhere: menus, so the bar stays short. -->
-    <tc-menu-morph class="menu" [open]="viewsOpen()" (tc-open-change)="viewsOpen.set($event.detail.open)">
-      <button type="button" class="menu-trigger" data-menu-trigger [disabled]="!connection()">Views ▾</button>
-      <div data-menu class="menu-list" aria-label="Board views">
-        @for (view of views; track view.id) {
-          <button type="button" role="menuitem" [attr.aria-checked]="panel() === view.id" (click)="openView(view.id)">
-            <strong>{{ view.label }}</strong><span>{{ view.hint }}</span>
-          </button>
-        }
-      </div>
-    </tc-menu-morph>
-    <tc-menu-morph class="menu" [open]="exportOpen()" (tc-open-change)="exportOpen.set($event.detail.open)">
-      <button type="button" class="menu-trigger" data-menu-trigger [disabled]="!board()">Export ▾</button>
-      <div data-menu class="menu-list" aria-label="Export the board">
-        <button type="button" role="menuitem" (click)="exportPng()"><strong>Image (PNG)</strong><span>The whole board as a picture</span></button>
-        <button type="button" role="menuitem" (click)="exportMarkdown()"><strong>Markdown</strong><span>Frames as headings, notes as bullets</span></button>
-        <button type="button" role="menuitem" (click)="exportPdf()"><strong>Print or PDF</strong><span>Opens your browser's print dialog</span></button>
-      </div>
-    </tc-menu-morph>
-    <tc-button size="sm" variant="secondary" label="Share" [disabled]="!meta.hasValue()" (click)="togglePanel('share')"></tc-button>
-    @if (canEdit()) {
-      <tc-button
-        size="sm"
-        variant="ghost"
-        label="Next session"
-        title="A new board with the same frames, carrying over the tasks and action items still open"
-        [loading]="startingNext()"
-        (click)="nextSession()"
-      ></tc-button>
-    }
-    <span class="status" [class.offline]="status() === 'offline'" role="status">{{ statusText() }}</span>
-    @if (isOwner()) {
-      <tc-button size="sm" variant="ghost" label="Delete" (click)="confirmDelete.set(true)"></tc-button>
-    }
-  </div>
-
   <div class="stage">
+    <!-- The board fills the window; its controls float over it in two panels, like the tools in the left rail. -->
+    <div class="app-island island-left">
+      <tc-menu-morph [open]="mainOpen()" (tc-open-change)="mainOpen.set($event.detail.open)">
+        <button type="button" class="icon-btn" data-menu-trigger aria-label="Main menu" data-tip="Menu"><app-icon name="menu" /></button>
+        <div data-menu class="app-menu" aria-label="Main menu">
+          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); back()"><span class="label">All boards</span></button>
+          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); openSearch()"><span class="label">Search</span><kbd>{{ modKey }}K</kbd></button>
+          <hr />
+          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/models')"><span class="label">AI models</span></button>
+          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/members')"><span class="label">Members</span></button>
+          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/integrations')"><span class="label">Integrations</span></button>
+          <button type="button" class="item" role="menuitem" (click)="mainOpen.set(false); go('/account')"><span class="label">Settings</span></button>
+        </div>
+      </tc-menu-morph>
+      <a class="brand" href="/" (click)="$event.preventDefault(); back()">Corkboard</a>
+      <span class="sep" aria-hidden="true"></span>
+      <span class="sync" [class.offline]="status() === 'offline'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
+        <app-icon [name]="status() === 'offline' ? 'cloudOff' : 'cloud'" />
+      </span>
+      <input
+        class="title"
+        aria-label="Board title"
+        maxlength="200"
+        [readOnly]="!canEdit()"
+        [value]="title()"
+        [style.width.ch]="titleWidth()"
+        (input)="title.set($any($event.target).value)"
+        (blur)="rename()"
+        (keydown)="onTitleKey($event)"
+      />
+      @if (previous.hasValue() && previous.value(); as prev) {
+        <a class="continues" [href]="'/boards/' + prev.id" (click)="$event.preventDefault(); go('/boards/' + prev.id)" [title]="'This board carries on from ' + prev.title">
+          ← {{ prev.title }}
+        </a>
+      }
+      <!-- The board's views, the next session and deleting: one menu, so the panel stays short. -->
+      <tc-menu-morph [open]="viewsOpen()" (tc-open-change)="viewsOpen.set($event.detail.open)">
+        <button type="button" class="icon-btn" data-menu-trigger aria-label="Board menu" data-tip="Board menu" [disabled]="!connection()"><app-icon name="more" /></button>
+        <div data-menu class="app-menu" aria-label="Board menu">
+          @for (view of views; track view.id) {
+            <button type="button" class="item" role="menuitemcheckbox" [attr.aria-checked]="panel() === view.id" (click)="openView(view.id)">
+              <span class="label">{{ view.label }}</span><span class="hint">{{ view.hint }}</span>
+            </button>
+          }
+          @if (canEdit() || isOwner()) {
+            <hr />
+          }
+          @if (canEdit()) {
+            <button type="button" class="item" role="menuitem" title="A new board with the same frames, carrying over the tasks and action items still open" (click)="viewsOpen.set(false); nextSession()">
+              <span class="label">{{ startingNext() ? 'Starting the next session…' : 'Start the next session' }}</span>
+            </button>
+          }
+          @if (isOwner()) {
+            <button type="button" class="item danger" role="menuitem" (click)="viewsOpen.set(false); confirmDelete.set(true)"><span class="label">Delete board</span></button>
+          }
+        </div>
+      </tc-menu-morph>
+      <tc-menu-morph [open]="exportOpen()" (tc-open-change)="exportOpen.set($event.detail.open)">
+        <button type="button" class="icon-btn" data-menu-trigger aria-label="Export" data-tip="Export" [disabled]="!board()"><app-icon name="export" /></button>
+        <div data-menu class="app-menu" aria-label="Export the board">
+          <button type="button" class="item" role="menuitem" (click)="exportPng()"><span class="label">Image (PNG)</span><span class="hint">The whole board</span></button>
+          <button type="button" class="item" role="menuitem" (click)="exportMarkdown()"><span class="label">Markdown</span><span class="hint">Frames and notes</span></button>
+          <button type="button" class="item" role="menuitem" (click)="exportPdf()"><span class="label">Print or PDF</span></button>
+        </div>
+      </tc-menu-morph>
+      <!-- Search folds to its icon; ⌘K or the icon opens it. -->
+      <div class="search">
+        <button type="button" class="icon-btn" aria-label="Search" [attr.data-tip]="'Search (' + modKey + 'K)'" (click)="openSearch()"><app-icon name="search" /></button>
+        <app-board-search />
+      </div>
+    </div>
+
+    <div class="app-island island-right">
+      @if (canRun()) {
+        <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, hidden writing" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="facilitating.set(!facilitating())">
+          <app-icon name="timer" />
+        </button>
+      }
+      <button type="button" class="icon-btn" aria-label="Chat" data-tip="Chat" [attr.aria-pressed]="chatOpen()" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())">
+        <app-icon name="chat" />
+      </button>
+      <button
+        type="button"
+        class="icon-btn"
+        [attr.aria-label]="openThreads() ? 'Comments, ' + openThreads() + ' open' : 'Comments'"
+        data-tip="Comments"
+        [attr.aria-pressed]="panel() === 'comments'"
+        [disabled]="!meta.hasValue()"
+        (click)="togglePanel('comments')"
+      >
+        <app-icon name="comments" />
+        @if (openThreads()) {
+          <span class="count" aria-hidden="true">{{ openThreads() }}</span>
+        }
+      </button>
+      <span class="sep" aria-hidden="true"></span>
+      <!-- Who's here, once there's more than one of you: Trench Coat's stack, fanning out leftward on hover. -->
+      @if (people().length > 1) {
+        <tc-stack-spread class="people" dir="rtl" max="4" [label]="people().length + ' people on this board'">
+          @for (person of people(); track person.id) {
+            <span class="person" role="img" [class.me]="person.me" [style.background]="person.color" [title]="person.name" [attr.aria-label]="person.name">
+              {{ person.initials }}
+            </span>
+          }
+        </tc-stack-spread>
+      }
+      <app-account-nav [apps]="false" [separator]="false" />
+      <span class="sep" aria-hidden="true"></span>
+      <button
+        type="button"
+        class="icon-btn filled"
+        [attr.aria-label]="presenting() ? 'Stop presenting' : 'Present'"
+        [attr.data-tip]="presenting() ? 'Stop presenting' : 'Present'"
+        [attr.aria-pressed]="presenting()"
+        [disabled]="!connection()"
+        (click)="togglePresenting()"
+      >
+        <app-icon name="play" />
+      </button>
+      <button type="button" class="share" [attr.aria-pressed]="panel() === 'share'" [disabled]="!meta.hasValue()" (click)="togglePanel('share')">
+        <app-icon name="users" />Share
+      </button>
+    </div>
     @if (status() === 'denied' || meta.error()) {
       <p class="problem" role="alert">This board couldn't be opened. It may have been deleted, or you may not have access.</p>
     } @else if (status() !== 'connecting' && board() && connection()) {
@@ -259,17 +317,6 @@
           (closed)="panel.set(null)"
           (changed)="meta.reload()"
         />
-      }
-      <!-- Who's here, once there's more than one of you: Trench Coat's stack in the board's top-right corner. Right to
-           left, so you sit at the corner and it fans out leftward, staying on screen. -->
-      @if (people().length > 1) {
-        <tc-stack-spread class="people" dir="rtl" max="5" [label]="people().length + ' people on this board'">
-          @for (person of people(); track person.id) {
-            <span class="person" role="img" [class.me]="person.me" [style.background]="person.color" [title]="person.name" [attr.aria-label]="person.name">
-              {{ person.initials }}
-            </span>
-          }
-        </tc-stack-spread>
       }
     } @else {
       <tc-skeleton aria-label="Loading board"></tc-skeleton>

@@ -1,7 +1,8 @@
 /* Along the top middle of the board, over the canvas. */
 .strip {
   position: absolute;
-  top: var(--tc-space-3);
+  /* Under the board's top panels. */
+  top: calc(var(--tc-space-3) + 52px);
   left: 50%;
   z-index: 3;
   display: flex;

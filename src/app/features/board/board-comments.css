@@ -1,7 +1,7 @@
 /* Docked at the board's upper right, like sharing. */
 .comments {
   position: absolute;
-  top: calc(var(--tc-space-4) + 40px);
+  top: calc(var(--tc-space-3) + 52px);
   right: var(--tc-space-4);
   z-index: 3;
   display: flex;

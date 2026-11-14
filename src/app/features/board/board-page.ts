@@ -1,8 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, HostListener, inject, input, resource, signal, untracked, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, HostListener, inject, input, resource, signal, untracked, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { html } from 'lit';
-import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
@@ -57,6 +56,9 @@ import { imagePins, openCounts } from './comments';
 import { commentsControllerList } from '../../api/generated/fn/comments/comments-controller-list';
 import { atLeast, type Role } from '../../core/roles';
 import { colorFor, type PresenceUser } from './presence';
+import { Icon } from '../../shared/icon';
+import { BoardSearch } from '../search/board-search';
+import { AccountNav } from '../../shell/account-nav';
 
 const STATUS_TEXT: Record<ConnectionStatus, string> = {
   connecting: 'Connecting…',
@@ -77,7 +79,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -252,8 +254,21 @@ export class BoardPage {
     this.chatRequest.update((r) => ({ text, n: (r?.n ?? 0) + 1 }));
   }
 
+  protected readonly mainOpen = signal(false);
   protected readonly viewsOpen = signal(false);
   protected readonly exportOpen = signal(false);
+  /** ⌘ on Apple devices, Ctrl elsewhere, for the shortcuts shown. */
+  protected readonly modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl ';
+  /** The title field grows with the title, within limits, so the panel stays snug. */
+  protected readonly titleWidth = computed(() => Math.min(36, Math.max(8, this.title().length + 2)));
+  readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  /** Opens the folded search in the top-left panel, as ⌘K does. */
+  protected openSearch(): void {
+    const field = this.#host.nativeElement.querySelector<HTMLInputElement>('.search .ui-cm__search input');
+    field?.focus();
+    field?.select();
+  }
   protected readonly views = [
     { id: 'matrix', label: 'Prioritise', hint: 'Value against effort' },
     { id: 'tasks', label: 'Tasks', hint: 'Action items on a kanban' },
