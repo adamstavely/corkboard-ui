@@ -22,6 +22,8 @@ export interface StoredTask {
   noteId?: string;
   /** ISO time. */
   created: string;
+  /** The issue it was sent to an issue tracker as (written by the API). */
+  external?: { kind: string; key: string; url: string };
 }
 
 export const TASK_STATUSES: TaskStatus[] = [
@@ -41,7 +43,8 @@ export function toTask(t: StoredTask, now = Date.now()): Task {
   const dueIn = t.due ? Math.round((Date.parse(t.due) - dayStart(now)) / DAY) : undefined;
   return {
     id: t.id,
-    key: t.key,
+    // A task sent to a tracker shows its issue too: "T-3 · ENG-12".
+    key: t.external ? `${t.key} · ${t.external.key}` : t.key,
     title: t.title,
     status: t.status,
     priority: t.priority,
@@ -59,7 +62,8 @@ export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now
   const status = (['todo', 'doing', 'done'] as const).find((s) => s === task.status) ?? 'todo';
   return {
     id: task.id,
-    key: task.key,
+    // The card's key may carry the issue's ("T-3 · ENG-12"); the board's own stays as it was.
+    key: was?.key ?? task.key.split(' · ')[0],
     title: task.title,
     status,
     priority: task.priority,
@@ -70,6 +74,7 @@ export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now
     ...(task.assignee ? { assignee: task.assignee } : {}),
     ...(task.dueIn !== undefined ? { due: isoDay(dayStart(now) + task.dueIn * DAY) } : {}),
     ...(was?.noteId ? { noteId: was.noteId } : {}),
+    ...(was?.external ? { external: was.external } : {}),
   };
 }
 

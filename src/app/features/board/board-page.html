@@ -190,6 +190,7 @@
           [feed]="tasks()!"
           [selection]="selection()"
           [canEdit]="canEdit()"
+          [orgId]="meta.value().orgId"
           (closed)="panel.set(null)"
         />
       }
