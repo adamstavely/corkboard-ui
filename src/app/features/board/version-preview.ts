@@ -10,6 +10,7 @@ import { Auth } from '../../core/auth';
 import { BoardDoc } from './board-doc';
 import { Canvas } from './canvas';
 import { changesSince, unchanged } from './versions';
+import { Icon } from '../../shared/icon';
 
 const when = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
@@ -19,7 +20,7 @@ const when = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'nume
  */
 @Component({
   selector: 'app-version-preview',
-  imports: [Button, Canvas, Skeleton],
+  imports: [Button, Canvas, Skeleton, Icon],
   template: `
     <div class="preview" role="region" [attr.aria-label]="'Version: ' + version().label">
       <div class="bar">
@@ -61,7 +62,7 @@ const when = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'nume
                 <h3>{{ c.edited.length }} note{{ c.edited.length === 1 ? '' : 's' }} edited</h3>
                 <ul>
                   @for (e of c.edited; track $index) {
-                    <li><del>{{ e.before }}</del> <span aria-hidden="true">→</span><span class="sr-only">now</span> <ins>{{ e.after }}</ins></li>
+                    <li><del>{{ e.before }}</del> <app-icon name="arrowRight" /><span class="sr-only">now</span> <ins>{{ e.after }}</ins></li>
                   }
                 </ul>
               }

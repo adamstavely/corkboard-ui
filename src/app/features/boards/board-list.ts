@@ -25,11 +25,13 @@ import { organiseControllerUnstar } from '../../api/generated/fn/organise/organi
 import { filterBoards, type BoardFilter } from './organise';
 import { Session } from '../../core/session';
 import { edited } from './edited';
+import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
+import { Icon, iconMarkup } from '../../shared/icon';
 
 /** The workspace's boards, most recently changed first, and the way to start a new one. */
 @Component({
   selector: 'app-board-list',
-  imports: [Button, CollectionCard, Dialog, FirstUse, Select, Skeleton],
+  imports: [Button, CollectionCard, Dialog, FirstUse, Select, Skeleton, Icon],
   templateUrl: './board-list.html',
   styleUrl: './board-list.css',
 })
@@ -141,7 +143,7 @@ export class BoardList {
     const card = (name: string, description: string, columns: readonly string[], template?: CreateBoardDto['template']) =>
       html`<tc-preview-card heading=${name} description=${description} @tc-open=${() => void this.create(template, template ? name : undefined)}>
         <div class="cb-template-preview" aria-hidden="true">
-          ${columns.length ? columns.map((c) => html`<span class="cb-template-column"><b>${c}</b><i></i><i></i></span>`) : html`<span class="cb-template-blank">+</span>`}
+          ${columns.length ? columns.map((c) => html`<span class="cb-template-column"><b>${c}</b><i></i><i></i></span>`) : html`<span class="cb-template-blank">${unsafeSVG(iconMarkup('plus', 28))}</span>`}
         </div>
       </tc-preview-card>`;
     return html`<div class="cb-templates">

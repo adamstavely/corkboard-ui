@@ -2,6 +2,7 @@ import { Component, computed, input, output, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import type { BoardDoc, Frame } from './board-doc';
 import type { Peer } from './presence';
+import { Icon } from '../../shared/icon';
 
 /**
  * The board's outline: its frames in order, how much is in each, and who's looking where. Click a frame to go there;
@@ -9,7 +10,7 @@ import type { Peer } from './presence';
  */
 @Component({
   selector: 'app-board-outline',
-  imports: [Button],
+  imports: [Button, Icon],
   template: `
     <aside class="panel" aria-label="Outline">
       <div class="head">
@@ -18,9 +19,9 @@ import type { Peer } from './presence';
       </div>
       @if (rows().length) {
         <div class="present" role="group" aria-label="Present frames in order">
-          <tc-button size="sm" variant="ghost" label="◀" aria-label="Previous frame" [disabled]="step() <= 0" (click)="go(step() - 1)"></tc-button>
+          <button type="button" class="icon-btn small" aria-label="Previous frame" [disabled]="step() <= 0" (click)="go(step() - 1)"><app-icon name="arrowLeft" /></button>
           <tc-button size="sm" variant="secondary" [label]="step() < 0 ? 'Present in this order' : 'Frame ' + (step() + 1) + ' of ' + rows().length" (click)="go(step() < 0 ? 0 : step())"></tc-button>
-          <tc-button size="sm" variant="ghost" label="▶" aria-label="Next frame" [disabled]="step() >= rows().length - 1" (click)="go(step() + 1)"></tc-button>
+          <button type="button" class="icon-btn small" aria-label="Next frame" [disabled]="step() >= rows().length - 1" (click)="go(step() + 1)"><app-icon name="arrowRight" /></button>
         </div>
         <ol>
           @for (row of rows(); track row.frame.id; let i = $index) {
@@ -31,8 +32,8 @@ import type { Peer } from './presence';
               </button>
               @if (canEdit()) {
                 <span class="order">
-                  <button type="button" [attr.aria-label]="'Move ' + (row.frame.title || 'frame') + ' up'" [disabled]="i === 0" (click)="move(i, -1)">↑</button>
-                  <button type="button" [attr.aria-label]="'Move ' + (row.frame.title || 'frame') + ' down'" [disabled]="i === rows().length - 1" (click)="move(i, 1)">↓</button>
+                  <button type="button" [attr.aria-label]="'Move ' + (row.frame.title || 'frame') + ' up'" [disabled]="i === 0" (click)="move(i, -1)"><app-icon name="up" /></button>
+                  <button type="button" [attr.aria-label]="'Move ' + (row.frame.title || 'frame') + ' down'" [disabled]="i === rows().length - 1" (click)="move(i, 1)"><app-icon name="chevron" /></button>
                 </span>
               }
             </li>

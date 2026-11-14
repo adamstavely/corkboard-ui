@@ -51,7 +51,11 @@
   color: var(--tc-text-muted);
 }
 .dot {
-  color: var(--tc-accent-text);
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tc-accent-text);
 }
 .divider {
   width: 1px;
@@ -84,4 +88,8 @@
   align-items: center;
   gap: var(--tc-space-1);
   font-size: var(--tc-font-size-sm);
+}
+
+.strip app-icon {
+  --icon-size: 14px;
 }

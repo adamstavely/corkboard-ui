@@ -1,4 +1,5 @@
 import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { Icon } from '../../shared/icon';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
 import { unfurlControllerPreview } from '../../api/generated/fn/boards/unfurl-controller-preview';
@@ -25,7 +26,7 @@ import { safeUrl, shapePath } from './items';
 import type { NoteReaction } from './reactions';
 import type { Media } from './board-doc';
 import { fileSize } from './file-cache';
-import { REACTIONS } from './reactions';
+import { REACTIONS, reactionLook } from './reactions';
 import type { PresentedView } from './presence';
 import { clampZoom, contains, intersects, rectFrom, toWorld, zoomAt, type Point, type Rect, type Viewport } from './viewport';
 
@@ -34,7 +35,20 @@ type Gesture =
   | { kind: 'drag'; last: Point; moved: boolean; ids: Set<string>; start: Point; applied: Point; box: Rect | null; others: LayoutBox[] }
   | { kind: 'resize'; id: string; start: Point; size: { w: number; h: number }; item?: boolean }
   | { kind: 'marquee'; start: Point; base: Set<string> }
-  | { kind: 'draw'; points: number[] };
+  | { kind: 'draw'; points: number[] }
+  | { kind: 'place'; tool: PlacingTool; start: Point };
+
+/**
+ * What a click on the board does: select (the default), or place something, draw, join two things with an arrow, or
+ * comment. A placing tool goes back to Select once it's used; Pen stays until it's put down.
+ */
+export type Tool = 'select' | 'note' | 'text' | ShapeKind | 'frame' | 'table' | 'pen' | 'connect' | 'comment';
+type PlacingTool = Extract<Tool, 'note' | 'text' | ShapeKind | 'frame' | 'table'>;
+const PLACING: ReadonlySet<Tool> = new Set<Tool>(['note', 'text', 'rect', 'ellipse', 'diamond', 'triangle', 'frame', 'table']);
+/** Single keys that pick a tool, as the rail shows them. N adds a note straight away (see onKeyDown). */
+const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: 'rect', o: 'ellipse', f: 'frame', p: 'pen', l: 'connect', c: 'comment' };
+/** A drag smaller than this, on screen, is a click: the thing gets its usual size. */
+const DRAG_MIN = 8;
 
 const SHAPE_NAMES: Record<ShapeKind, string> = { rect: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', triangle: 'Triangle' };
 const TEXT_SIZE_NAMES: { id: TextSize; label: string }[] = [
@@ -86,9 +100,9 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon],
   templateUrl: './canvas.html',
-  styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css'],
+  styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
 export class Canvas {
   readonly board = input.required<BoardDoc>();
@@ -161,7 +175,80 @@ export class Canvas {
   protected readonly safeUrl = safeUrl;
   protected readonly insertOpen = signal(false);
   /** Drawing with the pen: a drag on the board draws instead of selecting. */
-  protected readonly pen = signal(false);
+  /** The tool in hand (see Tool). */
+  readonly tool = signal<Tool>('select');
+  protected readonly pen = computed(() => this.tool() === 'pen');
+  protected readonly placing = computed(() => PLACING.has(this.tool()));
+  protected readonly shapeTool = computed(() => ['rect', 'ellipse', 'diamond', 'triangle', 'connect'].includes(this.tool()));
+  /** ⌘ on Apple devices, Ctrl elsewhere, for the shortcuts shown. */
+  protected readonly modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl ';
+  /** The colour new notes get: the one last picked. */
+  readonly #noteColor = signal<NoteColor>('yellow');
+  /** With the arrow tool, the thing the arrow starts from. */
+  readonly #connectFrom = signal<string | null>(null);
+  protected readonly createOpen = signal(false);
+  protected readonly templatesOpen = signal(false);
+  protected readonly shapesOpen = signal(false);
+  /** The rail's views, opened beside the board. */
+  readonly openView = output<'tasks' | 'gantt' | 'matrix'>();
+  /** The ✦ button: the assistant. */
+  readonly assistant = output<void>();
+
+  /** Picks a tool from the rail or a key. Frame, with notes selected, frames them at once. */
+  pickTool(tool: Tool): void {
+    this.createOpen.set(false);
+    this.templatesOpen.set(false);
+    this.shapesOpen.set(false);
+    this.#connectFrom.set(null);
+    if (tool === 'frame' && this.hasNotesSelected()) {
+      this.addFrame();
+      this.tool.set('select');
+      return;
+    }
+    this.tool.set(this.tool() === tool && tool !== 'select' ? 'select' : tool);
+  }
+
+  protected openViewFromRail(view: 'tasks' | 'gantt' | 'matrix'): void {
+    this.createOpen.set(false);
+    this.openView.emit(view);
+  }
+
+  protected undo(): void {
+    this.board().undo.undo();
+  }
+
+  protected redo(): void {
+    this.board().undo.redo();
+  }
+
+  /** What an armed tool makes where it was clicked, or in the box dragged out for it. */
+  #placeWith(tool: PlacingTool, box: Rect): void {
+    const zoom = this.viewport().zoom;
+    const sized = box.w * zoom >= DRAG_MIN || box.h * zoom >= DRAG_MIN;
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const w = Math.max(box.w, 40);
+    const h = Math.max(box.h, 30);
+    const board = this.board();
+    if (tool === 'note') {
+      const id = board.addNote(cx, cy, this.#noteColor());
+      this.selection.set(new Set([id]));
+      this.#edit(id);
+    } else if (tool === 'frame') {
+      const id = board.addFrame(cx, cy);
+      if (sized) board.resizeFrame(id, w, h);
+      this.selection.set(new Set([id]));
+      this.#rename(id);
+    } else if (tool === 'table') {
+      this.selection.set(new Set([board.addTable(cx, cy)]));
+    } else {
+      const id = tool === 'text' ? board.addText(cx, cy) : board.addShape(cx, cy, tool);
+      if (sized) board.resizeItem(id, w, h);
+      this.selection.set(new Set([id]));
+      this.#editItem(id);
+    }
+    board.undo.stopCapturing();
+  }
   /** The stroke being drawn, in board points. */
   protected readonly draft = signal<number[] | null>(null);
   protected readonly linkPrompt = signal(false);
@@ -256,7 +343,7 @@ export class Canvas {
   }
 
   togglePen(): void {
-    this.pen.set(!this.pen());
+    this.pickTool('pen');
   }
 
   /** The note just added next to another (Tab, ⌘Enter or a + handle), open to write in, joined by an arrow if asked. */
@@ -671,12 +758,22 @@ export class Canvas {
       this.draft.set([p.x, p.y]);
       return;
     }
+    // An armed tool: a click places its thing there, a drag sizes it.
+    const tool = this.tool();
+    if (PLACING.has(tool) && e.button === 0 && !this.spaceHeld() && !this.readOnly()) {
+      const p = toWorld(this.viewport(), this.#screenPoint(e));
+      this.#gesture = { kind: 'place', tool: tool as PlacingTool, start: p };
+      this.marquee.set({ x: p.x, y: p.y, w: 0, h: 0 });
+      return;
+    }
     // Pinning a comment: the click on the image says where.
-    const pinImage = this.pinning() ? target.closest<HTMLElement>('[data-media-id]') : null;
+    const commenting = tool === 'comment' && this.canReact();
+    const pinImage = this.pinning() || commenting ? target.closest<HTMLElement>('[data-media-id]') : null;
     if (pinImage && e.button === 0) {
       const r = pinImage.getBoundingClientRect();
       const anchor = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
       this.pinning.set(false);
+      this.tool.set('select');
       this.pinPlaced.emit({ nodeId: `${pinImage.dataset['mediaId']}@${crypto.randomUUID()}`, anchor });
       return;
     }
@@ -688,6 +785,33 @@ export class Canvas {
     const frameId = frameEl && !(onFrameBody && e.shiftKey) ? frameEl.dataset['frameId'] : undefined;
     const id = noteEl?.dataset['noteId'] ?? noteEl?.dataset['mediaId'] ?? noteEl?.dataset['itemId'] ?? frameId;
     const itemId = noteEl?.dataset['itemId'];
+    // The comment tool opens the comments on whatever's clicked.
+    if (commenting && e.button === 0) {
+      if (id) {
+        e.preventDefault();
+        this.pinOpen.emit(id);
+        this.tool.set('select');
+      }
+      return;
+    }
+    // The arrow tool: the first click picks where it starts, the second where it ends.
+    if (tool === 'connect' && e.button === 0 && !this.readOnly()) {
+      const from = this.#connectFrom();
+      if (!id) {
+        this.#connectFrom.set(null);
+        return;
+      }
+      if (!from || from === id) {
+        this.#connectFrom.set(id);
+        this.selection.set(new Set([id]));
+        return;
+      }
+      const arrow = this.board().connect(from, id);
+      this.#connectFrom.set(null);
+      this.tool.set('select');
+      if (arrow) this.selection.set(new Set([arrow]));
+      return;
+    }
     if (itemId && itemId === this.itemEditing()?.id) return;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
@@ -788,6 +912,8 @@ export class Canvas {
       const h = g.size.h + (screen.y - g.start.y) / zoom;
       if (g.item) this.board().resizeItem(g.id, w, h);
       else this.board().resizeFrame(g.id, w, h);
+    } else if (g.kind === 'place') {
+      this.marquee.set(rectFrom(g.start, toWorld(this.viewport(), screen)));
     } else if (g.kind === 'draw') {
       const p = toWorld(this.viewport(), screen);
       const [lx, ly] = g.points.slice(-2);
@@ -821,6 +947,12 @@ export class Canvas {
       const id = this.board().addDrawing(this.#gesture.points);
       this.draft.set(null);
       if (id) this.board().undo.stopCapturing();
+    }
+    if (this.#gesture?.kind === 'place') {
+      const box = this.marquee();
+      this.marquee.set(null);
+      if (box) this.#placeWith(this.#gesture.tool, box);
+      this.tool.set('select');
     }
     if ((this.#gesture?.kind === 'drag' && this.#gesture.moved) || this.#gesture?.kind === 'resize') this.board().undo.stopCapturing();
     this.#gesture = undefined;
@@ -953,11 +1085,18 @@ export class Canvas {
       this.pinning.set(false);
       return;
     }
-    if (e.key === 'Escape' && this.pen() && !isEditable(e.target)) {
-      this.pen.set(false);
+    if (e.key === 'Escape' && this.tool() !== 'select' && !isEditable(e.target)) {
+      this.pickTool('select');
       return;
     }
     if (isEditable(e.target)) return;
+    // V, T, R, O, F, P, L and C pick a tool, as the rail's tooltips say.
+    const toolKey = !mod && !e.altKey && !e.shiftKey ? TOOL_KEYS[e.key.toLowerCase()] : undefined;
+    if (toolKey && (!this.readOnly() || (toolKey === 'comment' && this.canReact()) || toolKey === 'select')) {
+      e.preventDefault();
+      this.pickTool(toolKey);
+      return;
+    }
     // Of the shortcuts, only selecting and panning are for people who can't edit.
     const editing = (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'Enter' || (mod && ['z', 'y'].includes(e.key.toLowerCase())));
     if (this.readOnly() && editing) return;
@@ -1095,7 +1234,7 @@ export class Canvas {
 
   /** The two notes or frames selected, in the order they were picked, when exactly two are. */
   protected readonly pair = computed(() => {
-    const ids = new Set([...this.board().notes(), ...this.board().frames()].map((n) => n.id));
+    const ids = new Set([...this.board().notes(), ...this.board().frames(), ...this.board().items(), ...this.board().media()].map((n) => n.id));
     const picked = [...this.selection()].filter((id) => ids.has(id));
     return picked.length === 2 ? (picked as [string, string]) : null;
   });
@@ -1141,6 +1280,7 @@ export class Canvas {
   }
 
   protected readonly reactionChoices = REACTIONS;
+  protected readonly reactionLook = reactionLook;
   /** The one note selected, for reacting to it from the toolbar. */
   protected readonly oneNote = computed(() => {
     const [id] = this.selection();
@@ -1184,6 +1324,7 @@ export class Canvas {
   }
 
   protected setColor(color: NoteColor): void {
+    this.#noteColor.set(color);
     this.board().setColor(this.selection(), color);
   }
 

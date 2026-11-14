@@ -42,6 +42,15 @@ describe('export', () => {
     board.destroy();
   });
 
+  it('draws arrows between shapes and images too', () => {
+    const board = new BoardDoc();
+    const shape = board.addShape(100, 100);
+    const image = board.addMedia({ id: 'f1', name: 'photo.png', mime: 'image/png', size: 10 }, 600, 100, { w: 200, h: 100 });
+    board.connect(shape, image);
+    expect(arrowLines(board)).toHaveLength(1);
+    board.destroy();
+  });
+
   it('names files after the board', () => {
     expect(fileName('Sprint 12: retro!')).toBe('sprint-12-retro');
     expect(fileName('???')).toBe('board');

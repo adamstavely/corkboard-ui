@@ -101,10 +101,12 @@
   transition: transform 80ms linear;
   z-index: 1;
 }
-.peer-pointer svg path {
-  fill: var(--peer-color);
-  stroke: var(--tc-surface-raised);
-  stroke-width: 1.5;
+/* Lucide's pointer, filled in their colour and outlined in the board's. */
+.peer-pointer app-icon {
+  --icon-size: 20px;
+  --icon-fill: var(--peer-color);
+  --icon-stroke: 1.5;
+  color: var(--tc-surface-raised);
 }
 .peer-name {
   position: absolute;
@@ -184,6 +186,11 @@
   white-space: nowrap;
 }
 
+.frame-comments app-icon {
+  --icon-size: 12px;
+  vertical-align: -2px;
+  margin-right: 3px;
+}
 .frame-comments {
   position: absolute;
   top: -9px;

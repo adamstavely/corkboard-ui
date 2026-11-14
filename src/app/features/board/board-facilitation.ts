@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Icon } from '../../shared/icon';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { Api } from '../../api/generated/api';
@@ -26,7 +27,7 @@ const TIMES_UP_MS = 60_000;
  */
 @Component({
   selector: 'app-board-facilitation',
-  imports: [Button, Select],
+  imports: [Button, Select, Icon],
   templateUrl: './board-facilitation.html',
   styleUrl: './board-facilitation.css',
 })

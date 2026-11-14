@@ -160,6 +160,11 @@ body {
   outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
   outline-offset: 1px;
 }
+.icon-btn.small {
+  width: 28px;
+  height: 28px;
+  --icon-size: 16px;
+}
 /* A count on a button, such as open comments. */
 .icon-btn .count {
   position: absolute;
@@ -218,21 +223,21 @@ body {
   /* tc-menu-morph sets the trigger's width inline as the least; an icon is narrower than any row. */
   min-width: 220px !important;
 }
-.app-menu .item .label {
+.app-menu .app-menu-item .label {
   flex: 1;
 }
-.app-menu .item .hint,
-.app-menu .item kbd {
+.app-menu .app-menu-item .hint,
+.app-menu .app-menu-item kbd {
   margin-left: var(--tc-space-4);
   color: var(--tc-text-muted);
   font: inherit;
   font-size: var(--tc-font-size-xs, 12px);
 }
-[data-ui='mmo'] > .app-menu .item[aria-checked='true'] .label {
+[data-ui='mmo'] > .app-menu .app-menu-item[aria-checked='true'] .label {
   color: var(--tc-accent-text);
   font-weight: var(--tc-font-weight-medium);
 }
-[data-ui='mmo'] > .app-menu .item.danger {
+[data-ui='mmo'] > .app-menu .app-menu-item.danger {
   color: var(--tc-status-danger-fg);
 }
 .app-menu hr {

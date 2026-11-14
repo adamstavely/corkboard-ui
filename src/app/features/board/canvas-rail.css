@@ -1,0 +1,56 @@
+/* The tool rail down the board's left side, vertically centred, with the assistant above it and undo below. */
+.rail-stack {
+  position: absolute;
+  top: 50%;
+  left: var(--tc-space-3);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tc-space-2);
+  transform: translateY(-50%);
+}
+
+/* The assistant: a yellow button of its own. */
+.ai {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid var(--tc-surface-raised);
+  border-radius: 12px;
+  background: #fbd84a;
+  color: #1a1a1a;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+  --icon-size: 22px;
+}
+.ai:hover {
+  background: #f7cd2a;
+}
+.ai:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}
+
+/* A tool picked: the board takes a crosshair until it's used. */
+.surface.placing {
+  cursor: crosshair;
+}
+
+
+/* Icons in the rail's menus. */
+.app-menu .app-menu-item app-icon {
+  --icon-size: 18px;
+  color: var(--tc-text-secondary, var(--tc-text-muted));
+}
+
+/*
+ * tc-menu-morph opens under its trigger; the rail's menus belong beside it, level with the button. The menu's own
+ * positioning stays; this moves it right by a button and up by one.
+ */
+.rail > tc-menu-morph > [data-menu] {
+  translate: 48px -40px;
+}

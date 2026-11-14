@@ -1,7 +1,19 @@
 import { signal } from '@angular/core';
 import * as Y from 'yjs';
 
+import type { IconName } from '../../shared/icon';
+
+/** The reactions, by the key the API stores (an emoji); shown with a Lucide icon and a word, not the emoji. */
 export const REACTIONS = ['👍', '❤️', '🎉', '❓', '👀'] as const;
+export const REACTION_LOOK: Record<(typeof REACTIONS)[number], { icon: IconName; label: string }> = {
+  '👍': { icon: 'thumbsUp', label: 'Agree' },
+  '❤️': { icon: 'heart', label: 'Love' },
+  '🎉': { icon: 'party', label: 'Celebrate' },
+  '❓': { icon: 'help', label: 'Question' },
+  '👀': { icon: 'eye', label: 'Looking' },
+};
+/** How a reaction looks, for any key (an unknown one falls back to a question). */
+export const reactionLook = (key: string) => REACTION_LOOK[key as (typeof REACTIONS)[number]] ?? REACTION_LOOK['❓'];
 
 /** A note's reactions as it shows them: each emoji someone used, how many, and whether this person did. */
 export interface NoteReaction {
