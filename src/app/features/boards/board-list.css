@@ -90,7 +90,10 @@ h1 {
   color: var(--tc-text-muted);
 }
 
-/* Under each card: star it for yourself, or file it in a folder. */
+/* The star sits in each card's top right; the folder picker goes under the card. */
+.grid > li {
+  position: relative;
+}
 .card-actions {
   display: flex;
   align-items: center;
@@ -98,6 +101,10 @@ h1 {
   margin-top: var(--tc-space-1);
 }
 .star {
+  position: absolute;
+  top: var(--tc-space-2);
+  right: var(--tc-space-2);
+  z-index: 1;
   width: 28px;
   height: 28px;
   padding: 0;
@@ -106,10 +113,11 @@ h1 {
   background: transparent;
   color: var(--tc-text-muted);
   font-size: 18px;
+  line-height: 1;
   cursor: pointer;
 }
 .star.on {
-  color: var(--tc-status-warning-fg, #b8860b);
+  color: var(--tc-amber-400, #f5b301);
 }
 .star:hover,
 .star:focus-visible {

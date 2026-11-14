@@ -71,7 +71,7 @@
   } @else if (boards.error()) {
     <p role="alert">Boards couldn't be loaded. Refresh to try again.</p>
   } @else if (cards().length === 0 && !isFilter('all')) {
-    <p class="note">{{ isFilter('starred') ? 'No starred boards yet: star one below its card.' : isFilter('recent') ? "Boards you open show up here." : 'No boards in this folder yet: choose it under a board’s card.' }}</p>
+    <p class="note">{{ isFilter('starred') ? 'No starred boards yet: star one from its card.' : isFilter('recent') ? "Boards you open show up here." : 'No boards in this folder yet: choose it under a board’s card.' }}</p>
   } @else if (cards().length === 0) {
     <div class="empty">
       @if (canCreate()) {
@@ -92,14 +92,14 @@
             action-label="Open board"
             (tc-open)="open($event, board.href)"
           ></tc-collection-card>
-          <div class="card-actions">
-            <button type="button" class="star" [class.on]="board.starred" [attr.aria-pressed]="board.starred" [attr.aria-label]="(board.starred ? 'Unstar ' : 'Star ') + board.title" (click)="toggleStar(board.id, board.starred)">
-              {{ board.starred ? '★' : '☆' }}
-            </button>
-            @if (board.canFile && folderList().length) {
+          <button type="button" class="star" [class.on]="board.starred" [attr.aria-pressed]="board.starred" [attr.aria-label]="(board.starred ? 'Unstar ' : 'Star ') + board.title" (click)="toggleStar(board.id, board.starred)">
+            {{ board.starred ? '★' : '☆' }}
+          </button>
+          @if (board.canFile && folderList().length) {
+            <div class="card-actions">
               <tc-select label="Folder" [labelVisible]="false" [options]="folderOptions()" [value]="board.folderId ?? ''" (tc-value-change)="moveTo(board.id, $event.detail.value)"></tc-select>
-            }
-          </div>
+            </div>
+          }
         </li>
       }
     </ul>
