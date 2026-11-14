@@ -22,6 +22,8 @@ export interface Note {
   z: number;
   color: NoteColor;
   text: Y.XmlFragment;
+  /** Who wrote it, when a signed writing round put it here; anonymous and ordinary notes have none. */
+  authorName?: string;
   /** Where it sits on the value-vs-effort matrix (0–10 each), once someone has placed it there. */
   value?: number;
   effort?: number;
@@ -396,6 +398,7 @@ export class BoardDoc {
         z: (node.get('z') as number) ?? 0,
         color: NOTE_COLORS.includes(color) ? color : 'yellow',
         text: node.get('text') as Y.XmlFragment,
+        ...(typeof node.get('authorName') === 'string' ? { authorName: node.get('authorName') as string } : {}),
         ...scores(node),
       });
     });

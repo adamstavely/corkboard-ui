@@ -35,6 +35,20 @@
       </div>
     }
 
+    @if (writing().open) {
+      <div class="item">
+        <span class="dot" aria-hidden="true">●</span>
+        <span>
+          Hidden writing{{ writing().anonymous ? ' (anonymous)' : '' }} · {{ writing().notes }} note{{ writing().notes === 1 ? '' : 's' }} from
+          {{ writing().writers }} {{ writing().writers === 1 ? 'person' : 'people' }}
+        </span>
+        @if (canRun()) {
+          <tc-button size="sm" variant="secondary" label="Reveal notes" (click)="reveal()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Cancel" (click)="cancelWriting()"></tc-button>
+        }
+      </div>
+    }
+
     @if (presenting()) {
       <div class="item presenting">
         <span>You're presenting: everyone following sees what you see</span>
@@ -56,6 +70,15 @@
         <span class="divider" aria-hidden="true"></span>
         <tc-select label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
         <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
+        @if (!writing().open) {
+          <span class="divider" aria-hidden="true"></span>
+          <span class="muted">Hidden writing</span>
+          <label class="check"><input type="checkbox" [checked]="anonymous()" (change)="anonymous.set($any($event.target).checked)" /> Anonymous</label>
+          @if (frames().length) {
+            <tc-select label="Where revealed notes go" [labelVisible]="false" [options]="frameOptions()" [value]="into()" (tc-value-change)="into.set($event.detail.value)"></tc-select>
+          }
+          <tc-button size="sm" variant="secondary" label="Start writing" (click)="startWriting()"></tc-button>
+        }
       </div>
     }
 

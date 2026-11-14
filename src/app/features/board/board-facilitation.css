@@ -77,3 +77,10 @@
     transform: scale(1.04);
   }
 }
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tc-space-1);
+  font-size: var(--tc-font-size-sm);
+}

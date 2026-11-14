@@ -52,16 +52,29 @@ export function ranking(votes: ReadonlyMap<string, readonly string[]>): { id: st
   return [...counts].map(([id, n]) => ({ id, votes: n })).sort((a, b) => b.votes - a.votes);
 }
 
-/** The board's dot voting and timer, live from its document. Only the API writes them. */
+/** A hidden writing round: whether it's on, and how many notes from how many people. Never what they say. */
+export interface Writing {
+  open: boolean;
+  anonymous: boolean;
+  round: string | null;
+  frameId: string | null;
+  startedBy: string;
+  notes: number;
+  writers: number;
+}
+
+/** The board's dot voting, timer and hidden writing, live from its document. Only the API writes them. */
 export class FacilitationFeed {
   readonly #voting: Y.Map<unknown>;
   readonly #votes: Y.Map<string[]>;
   readonly #timer: Y.Map<unknown>;
+  readonly #writing: Y.Map<unknown>;
 
-  readonly #state = signal<{ voting: Voting; votes: ReadonlyMap<string, readonly string[]>; timer: Timer }>({
+  readonly #state = signal<{ voting: Voting; votes: ReadonlyMap<string, readonly string[]>; timer: Timer; writing: Writing }>({
     voting: { open: false, votesEach: 0, round: 0 },
     votes: new Map(),
     timer: { endsAt: null, seconds: 0, label: '', by: '' },
+    writing: { open: false, anonymous: false, round: null, frameId: null, startedBy: '', notes: 0, writers: 0 },
   });
   readonly state = this.#state.asReadonly();
 
@@ -69,12 +82,13 @@ export class FacilitationFeed {
     this.#voting = doc.getMap('voting');
     this.#votes = doc.getMap('votes');
     this.#timer = doc.getMap('timer');
-    for (const map of [this.#voting, this.#votes, this.#timer]) map.observe(this.#update);
+    this.#writing = doc.getMap('writing');
+    for (const map of [this.#voting, this.#votes, this.#timer, this.#writing]) map.observe(this.#update);
     this.#update();
   }
 
   destroy(): void {
-    for (const map of [this.#voting, this.#votes, this.#timer]) map.unobserve(this.#update);
+    for (const map of [this.#voting, this.#votes, this.#timer, this.#writing]) map.unobserve(this.#update);
   }
 
   readonly #update = () => {
@@ -87,6 +101,15 @@ export class FacilitationFeed {
         seconds: Number(this.#timer.get('seconds') ?? 0),
         label: text(this.#timer.get('label')),
         by: text(this.#timer.get('by')),
+      },
+      writing: {
+        open: this.#writing.get('open') === true,
+        anonymous: this.#writing.get('anonymous') === true,
+        round: text(this.#writing.get('round')) || null,
+        frameId: text(this.#writing.get('frameId')) || null,
+        startedBy: text(this.#writing.get('startedBy')),
+        notes: Number(this.#writing.get('notes') ?? 0),
+        writers: Number(this.#writing.get('writers') ?? 0),
       },
     });
   };

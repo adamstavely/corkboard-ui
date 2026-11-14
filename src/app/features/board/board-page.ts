@@ -16,6 +16,7 @@ import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
 import { VersionPreview } from './version-preview';
+import { WritingTray } from './writing-tray';
 import type { BoardVersionDto } from '../../api/generated/models/board-version-dto';
 import { BoardChat } from './board-chat';
 import { BoardMatrix } from './board-matrix';
@@ -69,7 +70,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, WritingTray, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
