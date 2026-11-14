@@ -10,6 +10,7 @@ import { activityControllerListVersions } from '../../api/generated/fn/activity/
 import { activityControllerRestore } from '../../api/generated/fn/activity/activity-controller-restore';
 import { activityControllerSaveVersion } from '../../api/generated/fn/activity/activity-controller-save-version';
 import type { BoardEventDto } from '../../api/generated/models/board-event-dto';
+import type { BoardVersionDto } from '../../api/generated/models/board-version-dto';
 
 /** Activity as Trench Coat's audit trail shows it. */
 export function auditEvents(events: readonly BoardEventDto[]): AuditEvent[] {
@@ -46,6 +47,7 @@ const problem = (err: unknown, fallback: string) => {
               <li>
                 <span class="label">{{ v.label }}</span>
                 <span class="meta">{{ when(v.at) }}{{ v.by ? ' · ' + v.by : '' }}</span>
+                <tc-button size="sm" variant="ghost" label="Preview" [attr.aria-label]="'Preview ' + v.label" (click)="preview.emit(v)"></tc-button>
                 @if (canEdit()) {
                   <tc-button size="sm" variant="ghost" label="Restore" [loading]="restoring() === v.id" (click)="restore(v.id, v.label)"></tc-button>
                 }
@@ -127,10 +129,20 @@ export class BoardActivity {
 
   readonly boardId = input.required<string>();
   readonly canEdit = input(false);
+  /** Goes up when a version is restored elsewhere (the preview), to reload the list. */
+  readonly refresh = input(0);
   readonly closed = output<void>();
+  /** A version to look at before restoring it. */
+  readonly preview = output<BoardVersionDto>();
 
-  readonly #activity = resource({ params: () => this.boardId(), loader: ({ params: id }) => this.#api.invoke(activityControllerList, { id }) });
-  readonly #versions = resource({ params: () => this.boardId(), loader: ({ params: id }) => this.#api.invoke(activityControllerListVersions, { id }) });
+  readonly #activity = resource({
+    params: () => ({ id: this.boardId(), refresh: this.refresh() }),
+    loader: ({ params }) => this.#api.invoke(activityControllerList, { id: params.id }),
+  });
+  readonly #versions = resource({
+    params: () => ({ id: this.boardId(), refresh: this.refresh() }),
+    loader: ({ params }) => this.#api.invoke(activityControllerListVersions, { id: params.id }),
+  });
   protected readonly events = computed(() => auditEvents(this.#activity.hasValue() ? this.#activity.value() : []));
   protected readonly versions = computed(() => (this.#versions.hasValue() ? this.#versions.value() : []));
   protected readonly saving = signal(false);

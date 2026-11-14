@@ -15,6 +15,8 @@ import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { BoardConnection, type ConnectionStatus } from './board-connection';
 import { BoardDoc } from './board-doc';
+import { VersionPreview } from './version-preview';
+import type { BoardVersionDto } from '../../api/generated/models/board-version-dto';
 import { BoardChat } from './board-chat';
 import { BoardMatrix } from './board-matrix';
 import { BoardTasks } from './board-tasks';
@@ -67,7 +69,7 @@ const initials = (name: string) =>
 /** One board: its title, who else is on it, how syncing is going, and the canvas. */
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
+  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, AwaySummary, BoardShare, BoardComments, Button, Dialog, Skeleton, StackSpread, MenuMorph],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -187,6 +189,10 @@ export class BoardPage {
   protected readonly panel = signal<'share' | 'comments' | 'matrix' | 'tasks' | 'gantt' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
+  /** A saved version shown in place of the board, read-only, until they go back (or restore it). */
+  protected readonly previewing = signal<BoardVersionDto | null>(null);
+  /** Goes up when a version is restored from the preview, so the versions list reloads. */
+  protected readonly versionsChanged = signal(0);
   /** The image being asked about. */
   protected readonly asking = signal<Media | null>(null);
   protected readonly ledger = signal<LedgerFeed | undefined>(undefined);
