@@ -1,4 +1,4 @@
-import { FILE_CARD, TEXT_SIZES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
+import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -345,6 +345,18 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       }
       break;
     }
+    case 'view':
+      // A placed view is live on the board; in an image it's a titled box, as the views draw from data, not shapes.
+      ctx.fillStyle = c.surface;
+      ctx.strokeStyle = c.border;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, item.w, item.h, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = c.text;
+      ctx.font = `600 16px ${c.font}`;
+      ctx.fillText(VIEW_NAMES[item.view], 16, 30, item.w - 32);
+      break;
     case 'link':
       ctx.fillStyle = c.surface;
       ctx.strokeStyle = c.border;

@@ -1,4 +1,5 @@
-import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild, type TemplateRef } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { Icon, type IconName } from '../../shared/icon';
 import { Highlighter, List, ListOrdered, type IconNode } from 'lucide';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
@@ -15,7 +16,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type ViewItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -115,7 +116,7 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -233,7 +234,9 @@ export class Canvas {
   protected readonly templatesOpen = signal(false);
   protected readonly shapesOpen = signal(false);
   /** The rail's views, opened beside the board. */
-  readonly openView = output<'tasks' | 'gantt' | 'matrix'>();
+  /** What a placed view (matrix, kanban, timeline) shows in its body; the board page has what they need. */
+  readonly viewContent = input<TemplateRef<{ $implicit: ViewItem }> | null>(null);
+  protected readonly viewIcons: Record<BoardView, IconName> = { matrix: 'matrix', kanban: 'kanban', timeline: 'timeline' };
 
   /** Picks a tool from the rail or a key. Frame, with notes selected, frames them at once. */
   pickTool(tool: Tool): void {
@@ -249,9 +252,22 @@ export class Canvas {
     this.tool.set(this.tool() === tool && tool !== 'select' ? 'select' : tool);
   }
 
-  protected openViewFromRail(view: 'tasks' | 'gantt' | 'matrix'): void {
+  /**
+   * Puts a matrix, kanban or timeline on the board, in the middle of the view. There's one of each per board (they all
+   * show the whole board's notes or tasks), so if it's already there, this goes to it instead.
+   */
+  placeView(view: BoardView): void {
     this.createOpen.set(false);
-    this.openView.emit(view);
+    const there = this.board().items().find((i) => i.kind === 'view' && i.view === view);
+    if (there) {
+      this.selection.set(new Set([there.id]));
+      this.#reveal(there.id);
+      return;
+    }
+    if (this.readOnly()) return;
+    const at = this.#viewCentre();
+    const id = this.board().addView(at.x, at.y, view);
+    this.selection.set(new Set([id]));
   }
 
   protected undo(): void {
@@ -591,6 +607,8 @@ export class Canvas {
         return `Table, ${item.rows} by ${item.cols}`;
       case 'link':
         return `Link: ${item.title}`;
+      case 'view':
+        return VIEW_NAMES[item.view];
     }
   }
 
@@ -846,6 +864,8 @@ export class Canvas {
   protected onPointerDown(e: PointerEvent): void {
     const target = e.target as HTMLElement;
     if (target.closest('.toolbar') || target.closest('.item-editor, .cell-input')) return;
+    // Inside a placed view, the pointer works the view (drag a point, a card); its title bar moves it.
+    if (target.closest('.view-body')) return;
     // With the pen, a drag on the board draws.
     if (this.pen() && e.button === 0 && !this.spaceHeld() && !this.readOnly()) {
       const p = toWorld(this.viewport(), this.#screenPoint(e));
@@ -1056,6 +1076,7 @@ export class Canvas {
   }
 
   protected onDoubleClick(e: MouseEvent): void {
+    if ((e.target as HTMLElement).closest('.view-body')) return;
     // A link card opens its page, for anyone; a shape, text or cell opens to write in.
     const itemEl = (e.target as HTMLElement).closest<HTMLElement>('[data-item-id]');
     if (itemEl) {
@@ -1088,6 +1109,8 @@ export class Canvas {
 
   protected onWheel(e: WheelEvent): void {
     if ((e.target as HTMLElement).closest('app-note.editing')) return;
+    // Scrolling inside a view scrolls the view; pinching still zooms the board.
+    if ((e.target as HTMLElement).closest('.view-body') && !e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       // Pinch gestures arrive as Ctrl + wheel.
@@ -1102,6 +1125,8 @@ export class Canvas {
 
   @HostListener('document:keydown', ['$event'])
   protected onKeyDown(e: KeyboardEvent): void {
+    // Keys inside a placed view are the view's (arrow keys move a matrix point; Delete isn't the board's).
+    if ((e.target as HTMLElement | null)?.closest?.('.view-body')) return;
     const mod = e.metaKey || e.ctrlKey;
     // Writing in a note: Tab starts the next one beside it, ⌘/Ctrl Enter the next one below (Tab in a list still indents).
     const writing = this.editing();

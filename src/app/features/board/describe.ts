@@ -1,4 +1,4 @@
-import type { BoardDoc } from './board-doc';
+import { VIEW_NAMES, type BoardDoc } from './board-doc';
 import { plainText } from './comments';
 
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -49,6 +49,8 @@ export function describeThing(board: BoardDoc, id: string): string {
         return `table, ${item.rows} by ${item.cols}`;
       case 'link':
         return `link to ${item.title || item.url}`;
+      case 'view':
+        return `${VIEW_NAMES[item.view].toLowerCase()} view`;
     }
   }
   return board.connectors().some((c) => c.id === id) ? 'arrow' : 'something no longer on the board';

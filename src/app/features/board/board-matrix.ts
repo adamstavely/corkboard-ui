@@ -29,13 +29,15 @@ export function matrixItems(notes: readonly { id: string; text: string; value?: 
   selector: 'app-board-matrix',
   imports: [PrioritisationMatrix, Button],
   template: `
-    <aside class="panel" aria-label="Prioritise">
+    <aside class="panel" [class.placed]="placed()" aria-label="Prioritise">
       <div class="head">
         <span class="scope">{{ scope() }}</span>
         @if (canEdit() && unplaced() > 0) {
           <tc-button size="sm" variant="ghost" label="Ask the model to place them" (click)="ask.emit()"></tc-button>
         }
-        <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        @if (!placed()) {
+          <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        }
       </div>
       @if (items().length) {
         <tc-prioritisation-matrix
@@ -51,6 +53,15 @@ export function matrixItems(notes: readonly { id: string; text: string; value?: 
     </aside>
   `,
   styles: `
+    /* Placed on the board: it fills its element there, which does the positioning. */
+    .panel.placed {
+      position: static;
+      inset: auto;
+      width: auto;
+      height: 100%;
+      max-height: none;
+      z-index: auto;
+    }
     .panel {
       position: absolute;
       /* Below the facilitation strip's first row, which sits along the top middle. */
@@ -89,6 +100,8 @@ export class BoardMatrix {
   /** The selected notes (with those in selected frames); empty for every note on the board. */
   readonly selection = input<readonly string[]>([]);
   readonly canEdit = input(false);
+  /** On the board as an element of its own, rather than opened beside it: no Close, and it fills its box. */
+  readonly placed = input(false);
   readonly closed = output<void>();
   /** Ask the model to place the notes that aren't placed yet. */
   readonly ask = output<void>();
