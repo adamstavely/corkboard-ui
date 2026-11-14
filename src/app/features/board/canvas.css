@@ -169,12 +169,11 @@
   right: -9px;
 }
 
-/* Everything on the board in a small box at the lower left; the outlined box is what's in view. */
-/* Above the zoom panel, bottom right, when the map is on. */
+/* Everything on the board in a small box in the bottom-left corner, when the map is on; the outlined box is what's in view. */
 .minimap {
   position: absolute;
-  right: var(--launcher-clear, var(--tc-space-3));
-  bottom: calc(var(--tc-space-3) + 52px);
+  left: var(--tc-space-3);
+  bottom: var(--tc-space-3);
   z-index: 2;
   width: 200px;
   height: 140px;
