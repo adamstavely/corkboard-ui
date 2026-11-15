@@ -80,16 +80,27 @@ export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now
 
 type Run = { insert: unknown; attributes?: Record<string, unknown> };
 
+/** Nodes that hold other blocks or are blocks themselves, as opposed to what sits inline in a paragraph (maths). */
+const BLOCK_NODES = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'codeBlock', 'mathBlock']);
+
 /**
  * A note's lines, each with whether it's all bold: every paragraph and heading, and every list item, however deeply
  * nested ("• " or "1. " before it, indented two spaces a level), so nothing written in a list is lost when the note
  * becomes Markdown, a picture, a task or a timeline.
  */
-export function noteLines(fragment: Y.XmlFragment): { text: string; bold: boolean }[] {
+export function noteLines(fragment: Y.XmlFragment): { text: string; bold: boolean; code?: boolean }[] {
   trackText(fragment);
-  const lines: { text: string; bold: boolean }[] = [];
+  const lines: { text: string; bold: boolean; code?: boolean }[] = [];
+  // A block's text, in order: its runs, and inline maths as $latex$.
+  const runsOf = (block: Y.XmlElement) =>
+    block.toArray().flatMap((c): Run[] => {
+      if (c instanceof Y.XmlText) return c.toDelta() as Run[];
+      if (c instanceof Y.XmlElement && c.nodeName === 'math') return [{ insert: `$${String(c.getAttribute('latex') ?? '')}$` }];
+      if (c instanceof Y.XmlElement && c.nodeName === 'hardBreak') return [{ insert: ' ' }];
+      return [];
+    });
   const line = (block: Y.XmlElement, lead: string) => {
-    const runs = block.toArray().filter((c): c is Y.XmlText => c instanceof Y.XmlText).flatMap((t) => t.toDelta() as Run[]);
+    const runs = runsOf(block);
     const text = runs.map((r) => (typeof r.insert === 'string' ? r.insert : '')).join('').trim();
     if (text) lines.push({ text: lead + text, bold: runs.length > 0 && runs.every((r) => !!r.attributes?.['bold']) });
   };
@@ -99,7 +110,13 @@ export function noteLines(fragment: Y.XmlFragment): { text: string; bold: boolea
       const name = node.nodeName;
       if (name === 'bulletList' || name === 'orderedList') {
         list(node, depth);
-      } else if (node.toArray().some((c) => c instanceof Y.XmlElement)) {
+      } else if (name === 'codeBlock') {
+        // Code keeps its own lines and indentation.
+        const code = runsOf(node).map((r) => (typeof r.insert === 'string' ? r.insert : '')).join('');
+        for (const text of code.replace(/\n+$/, '').split('\n')) lines.push({ text: '  '.repeat(depth) + text, bold: false, code: true });
+      } else if (name === 'mathBlock') {
+        lines.push({ text: `$$${String(node.getAttribute('latex') ?? '')}$$`, bold: false });
+      } else if (node.toArray().some((c) => c instanceof Y.XmlElement && BLOCK_NODES.has(c.nodeName))) {
         blocks(node, depth);
       } else {
         line(node, '  '.repeat(depth));

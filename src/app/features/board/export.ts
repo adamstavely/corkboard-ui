@@ -12,7 +12,11 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
   const placed = new Set<string>();
   // A note is a bullet: its paragraphs joined, with any list it holds nested under it as a Markdown list.
   const bullet = (note: Note) => {
-    const lines = noteLines(note.text);
+    const all = noteLines(note.text);
+    const lines = all.filter((l) => !l.code);
+    // Code goes under the bullet as a fenced block.
+    const code = all.filter((l) => l.code).map((l) => `  ${l.text}`);
+    const fence = code.length ? ['  ```', ...code, '  ```'] : [];
     const item = /^(\s*)(•|\d+\.) (.*)$/;
     const head = lines.filter((l) => !item.test(l.text)).map((l) => (l.bold ? `**${l.text}**` : l.text.trim()));
     const nested = lines.flatMap((l) => {
@@ -21,9 +25,9 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
       const text = l.bold ? `**${m[3]}**` : m[3];
       return [`  ${m[1]}${m[2] === '•' ? '-' : m[2]} ${text}`];
     });
-    if (!head.length && !nested.length) return '';
-    const first = head.length ? head.join(' — ') : nested.shift()!.trim().replace(/^(-|\d+\.) /, '');
-    return [`- ${first}`, ...nested].join('\n');
+    if (!head.length && !nested.length && !fence.length) return '';
+    const first = head.length ? head.join(' — ') : nested.length ? nested.shift()!.trim().replace(/^(-|\d+\.) /, '') : 'Code';
+    return [`- ${first}`, ...nested, ...fence].join('\n');
   };
   const out = [`# ${title}`, ''];
   // Innermost frame wins, so a note in a timeline's column is listed under the column.
@@ -281,8 +285,9 @@ function drawNote(ctx: CanvasRenderingContext2D, n: Note, c: { text: string; fon
   ctx.fillStyle = c.text;
   let y = n.y + 26;
   for (const l of noteLines(n.text)) {
-    ctx.font = `${l.bold ? 600 : 400} 15px ${c.font}`;
-    for (const line of wrap(ctx, l.text, n.w - 24, Math.max(1, Math.floor((n.y + n.h - y) / 21)))) {
+    ctx.font = l.code ? `400 13px ui-monospace, Menlo, monospace` : `${l.bold ? 600 : 400} 15px ${c.font}`;
+    // Code keeps its lines as written; prose wraps.
+    for (const line of l.code ? [l.text] : wrap(ctx, l.text, n.w - 24, Math.max(1, Math.floor((n.y + n.h - y) / 21)))) {
       if (y > n.y + n.h - 8) break;
       ctx.fillText(line, n.x + 12, y);
       y += 21;
