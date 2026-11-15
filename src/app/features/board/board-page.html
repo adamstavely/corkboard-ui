@@ -230,6 +230,7 @@
           [viewContent]="boardView"
           [appContent]="boardApp"
           (editDiagram)="diagramId.set($event); panel.set('diagram')"
+          (editChart)="chartId.set($event); panel.set('chart')"
         />
         @if (slides(); as sl) {
           <div class="slide-bar app-island" role="toolbar" aria-label="Slides">
@@ -334,6 +335,7 @@
             (closed)="facilitating.set(false)"
             (parkingLot)="canvas()?.goToParkingLot()"
             (setEstimate)="setTaskEstimate($event.taskId, $event.estimate)"
+            (chartVotes)="chartVotes($event)"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {
@@ -440,6 +442,9 @@
         }
         @if (panel() === 'diagram' && diagramId() && board()) {
           <app-board-diagram [board]="board()!" [diagramId]="diagramId()!" (closed)="panel.set(null)" />
+        }
+        @if (panel() === 'chart' && chartId() && board()) {
+          <app-board-chart [board]="board()!" [chartId]="chartId()!" (closed)="panel.set(null)" />
         }
         @if (panel() === 'suggestions') {
           <app-board-suggestions [boardId]="id()" [list]="suggestions()" [canEdit]="canEdit()" (preview)="previewSuggestion($event)" (closed)="panel.set(null)" />

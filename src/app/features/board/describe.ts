@@ -1,4 +1,5 @@
 import { diagramTitle } from './diagram';
+import { CHART_NAMES } from './chart';
 import { VIEW_NAMES, type BoardDoc } from './board-doc';
 import { plainText } from './comments';
 
@@ -56,6 +57,8 @@ export function describeThing(board: BoardDoc, id: string): string {
         return `mini-app “${clip(item.title)}”`;
       case 'diagram':
         return diagramTitle(item.source);
+      case 'chart':
+        return `${CHART_NAMES[item.chart].toLowerCase()}${item.title ? ` “${clip(item.title)}”` : ''}`;
     }
   }
   return board.connectors().some((c) => c.id === id) ? 'arrow' : 'something no longer on the board';

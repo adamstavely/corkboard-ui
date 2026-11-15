@@ -34,8 +34,9 @@ import { BoardChat } from './board-chat';
 import { BoardMatrix } from './board-matrix';
 import { BoardTasks } from './board-tasks';
 import { BoardDiagram } from './board-diagram';
+import { BoardChart } from './board-chart';
 import { BoardGantt } from './board-gantt';
-import { TaskFeed, type StoredTask } from './tasks';
+import { noteLines, TaskFeed, type StoredTask } from './tasks';
 import type { BoardView } from './board-doc';
 import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
@@ -101,7 +102,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -223,9 +224,11 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | 'chart' | null>(null);
   /** The diagram whose text is open beside the board. */
   protected readonly diagramId = signal<string | null>(null);
+  /** The chart whose numbers are open beside the board. */
+  protected readonly chartId = signal<string | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** A saved version shown in place of the board, read-only, until they go back (or restore it). */
@@ -698,6 +701,22 @@ export class BoardPage {
   }
 
   /** The facilitator brings everyone to what they're looking at. */
+  /** A finished vote's results as a bar chart on the board: each voted note, by its first line, and its votes. */
+  protected chartVotes(results: readonly { id: string; votes: number }[]): void {
+    const board = this.board();
+    const canvas = this.canvas();
+    if (!board || !canvas || !this.canEdit()) return;
+    const notes = new Map(board.notes().map((n) => [n.id, n]));
+    const rows = results.flatMap((r) => {
+      const note = notes.get(r.id);
+      if (!note) return [];
+      const first = noteLines(note.text)[0]?.text.replace(/^(•|\d+\.) /, '').trim() || 'Untitled note';
+      return [{ label: first.length > 40 ? `${first.slice(0, 39)}…` : first, value: r.votes }];
+    });
+    if (!rows.length) return;
+    canvas.show([canvas.placeChart('Vote results', rows.slice(0, 30))]);
+  }
+
   /** Planning poker's result, written to the task it estimated. */
   protected setTaskEstimate(taskId: string, estimate: string): void {
     const feed = this.tasks();

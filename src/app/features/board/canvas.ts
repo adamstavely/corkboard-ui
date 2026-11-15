@@ -1,9 +1,11 @@
-import { DiagramView } from './diagram-view';
-import { DIAGRAM_STARTERS, diagramTitle, type DiagramKind } from './diagram';
 import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild, type TemplateRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Icon, type IconName } from '../../shared/icon';
 import { Highlighter, List, ListOrdered, type IconNode, SquareCode, Sigma } from 'lucide';
+import { DiagramView } from './diagram-view';
+import { ChartView } from './chart-view';
+import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
+import { DIAGRAM_STARTERS, diagramTitle, type DiagramKind } from './diagram';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -121,7 +123,7 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-frames.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -168,6 +170,8 @@ export class Canvas {
   readonly addFiles = output<void>();
   /** Open a diagram's text to edit it. */
   readonly editDiagram = output<string>();
+  /** Open a chart's numbers to edit them. */
+  readonly editChart = output<string>();
   /** Open the board-template picker. */
   readonly boardTemplates = output<void>();
   readonly askImage = output<Media>();
@@ -389,6 +393,11 @@ export class Canvas {
   protected readonly oneDiagram = computed(() => {
     const [id, ...more] = this.selection();
     return !more.length && this.board().items().some((i) => i.id === id && i.kind === 'diagram') ? id : null;
+  });
+  /** The one chart selected, by itself, to edit its numbers. */
+  protected readonly oneChart = computed(() => {
+    const [id, ...more] = this.selection();
+    return !more.length && this.board().items().some((i) => i.id === id && i.kind === 'chart') ? id : null;
   });
   protected readonly selectedTexts = computed(() => this.board().items().filter((i) => i.kind === 'text' && this.selection().has(i.id)).map((i) => i.id));
   protected readonly oneTable = computed(() => {
@@ -746,7 +755,26 @@ export class Canvas {
         return `App: ${item.title}`;
       case 'diagram':
         return `Diagram: ${diagramTitle(item.source)}`;
+      case 'chart':
+        return `${CHART_NAMES[item.chart]}${item.title ? `: ${item.title}` : ''}`;
     }
+  }
+
+  /** Puts a chart in the middle of the view, selected, and returns its id. */
+  placeChart(title: string, rows: readonly ChartRow[]): string {
+    const at = this.#viewCentre();
+    const id = this.board().addChart(at.x, at.y, 'bar', title, rows);
+    this.selection.set(new Set([id]));
+    return id;
+  }
+
+  /** Puts a bar chart with a few example numbers in the middle of the view, selected, and opens its numbers. */
+  protected addChart(): void {
+    this.createOpen.set(false);
+    const at = this.#viewCentre();
+    const id = this.board().addChart(at.x, at.y, 'bar', 'Untitled chart', STARTER_ROWS);
+    this.selection.set(new Set([id]));
+    this.editChart.emit(id);
   }
 
   /** Puts a starter flowchart or sequence diagram in the middle of the view, selected, and opens its text. */
@@ -1248,6 +1276,7 @@ export class Canvas {
       const item = this.board().items().find((i) => i.id === itemEl.dataset['itemId']);
       if (item?.kind === 'link' && safeUrl(item.url) !== '#') window.open(item.url, '_blank', 'noopener,noreferrer');
       else if (item?.kind === 'diagram' && !this.readOnly()) this.editDiagram.emit(item.id);
+      else if (item?.kind === 'chart' && !this.readOnly()) this.editChart.emit(item.id);
       else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(item.id);
       else if (item?.kind === 'table') {
         const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]')?.dataset['cell'];

@@ -150,6 +150,9 @@
         <span class="dot" aria-hidden="true"></span>
         <span>Vote results: top note has {{ results()[0].votes }} vote{{ results()[0].votes === 1 ? '' : 's' }}</span>
         <tc-button size="sm" variant="ghost" label="Show top voted" (click)="showTop()"></tc-button>
+        @if (canRun()) {
+          <tc-button size="sm" variant="ghost" label="Chart these votes" (click)="chartVotes.emit(results())"></tc-button>
+        }
       </div>
     }
 

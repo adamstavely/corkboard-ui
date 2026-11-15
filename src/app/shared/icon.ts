@@ -90,6 +90,7 @@ import {
   Check,
   Spade,
   Workflow,
+  ChartColumn,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -173,6 +174,7 @@ export const ICONS = {
   vote: Vote,
   mindmap: Network,
   diagram: Workflow,
+  chart: ChartColumn,
   branch: GitBranchPlus,
   unfold: ChevronsRight,
   fold: ChevronsLeft,

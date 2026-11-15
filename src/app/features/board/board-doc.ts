@@ -1,5 +1,6 @@
 import { computed, signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
+import { CHART_KINDS, cleanRows, type ChartKind, type ChartRow } from './chart';
 import { hiddenByFolds, mindChildren, mindLayout, mindLinkOf, type MindLink } from './mindmap';
 
 export const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'gray'] as const;
@@ -194,9 +195,17 @@ export interface DiagramItem extends Placed {
   source: string;
 }
 
-/** The board's other things: shapes, text, pen strokes, tables, link cards, views, mini-apps and diagrams. */
-export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem;
-const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram']);
+/** A bar, line or pie chart of a few labelled numbers, drawn with Trench Coat's charts. */
+export interface ChartItem extends Placed {
+  kind: 'chart';
+  chart: ChartKind;
+  title: string;
+  rows: ChartRow[];
+}
+
+/** The board's other things: shapes, text, pen strokes, tables, link cards, views, mini-apps, diagrams and charts. */
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem | ChartItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram', 'chart']);
 
 /** A ready-made note: a bold heading and prompts to fill in. */
 export interface NoteTemplate {
@@ -860,6 +869,27 @@ export class BoardDoc {
     this.doc.transact(() => node.set('source', source), this);
   }
 
+  /** Puts a chart on the board, centred on a point, and returns its id. */
+  addChart(cx: number, cy: number, chart: ChartKind, title: string, rows: readonly ChartRow[]): string {
+    return this.#place('chart', cx, cy, 520, 380, (n) => {
+      n.set('chart', chart);
+      n.set('title', title);
+      n.set('rows', cleanRows(rows));
+    });
+  }
+
+  /** A chart's kind, title and rows, as one undoable change. */
+  setChart(id: string, chart: { chart: ChartKind; title: string; rows: readonly ChartRow[] }): void {
+    const node = this.#writable(id);
+    if (node?.get('kind') !== 'chart') return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      node.set('chart', chart.chart);
+      node.set('title', chart.title);
+      node.set('rows', cleanRows(chart.rows));
+    }, this);
+  }
+
   /** Fills in a link card once its page's preview arrives; it's not undoable on its own. */
   setLinkPreview(id: string, p: { title: string; description: string; image: string | null; site: string }): void {
     const node = this.#writable(id);
@@ -1410,6 +1440,10 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
     }
     case 'diagram':
       return { ...box, kind: 'diagram', source: str(node.get('source')) };
+    case 'chart': {
+      const chart = node.get('chart') as ChartKind;
+      return { ...box, kind: 'chart', chart: CHART_KINDS.includes(chart) ? chart : 'bar', title: str(node.get('title')), rows: cleanRows(node.get('rows')) };
+    }
     default:
       return null;
   }
