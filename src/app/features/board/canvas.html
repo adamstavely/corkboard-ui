@@ -521,10 +521,12 @@
           </div>
         </tc-menu-morph>
       }
-      @if (!readOnly()) {
+      @if (!readOnly() && canLock()) {
         <button type="button" class="icon-btn" [attr.aria-label]="allLocked() ? 'Unlock' : 'Lock'" [attr.data-tip]="allLocked() ? 'Unlock' : 'Lock'" [attr.aria-pressed]="allLocked()" (click)="toggleLock()">
           <app-icon [name]="allLocked() ? 'lock' : 'unlock'" />
         </button>
+      }
+      @if (!readOnly()) {
         <span class="sep" aria-hidden="true"></span>
         <tc-menu-morph align="end" [open]="moreOpen()" (tc-open-change)="moreOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="More" data-tip="More"><app-icon name="more" /></button>

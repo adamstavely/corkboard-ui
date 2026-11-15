@@ -138,6 +138,8 @@ export class BoardPage {
   protected readonly role = computed<Role | undefined>(() => (this.meta.hasValue() ? this.meta.value().role : undefined));
   protected readonly canEdit = computed(() => atLeast(this.role(), 'updater'));
   protected readonly isOwner = computed(() => this.role() === 'owner');
+  /** Owners and the facilitator lock and unlock things, and change what's locked; the server refuses anyone else. */
+  protected readonly canChangeLocked = computed(() => this.isOwner() || (!!this.meUser() && this.fstate()?.facilitator.userId === this.meUser()!.id));
   protected readonly readOnlyLabel = computed(() => (this.role() === 'commenter' ? 'You can comment' : 'View only'));
   protected readonly meId = computed(() => this.#me()?.id);
 
@@ -693,6 +695,10 @@ export class BoardPage {
     effect(() => {
       if (this.panel() !== null) untracked(() => this.facilitating.set(false));
     });
+    effect(() => {
+      const board = this.board();
+      if (board) board.canChangeLocked = this.canChangeLocked();
+    });
     // A new board starts without the facilitator's controls open.
     effect(() => {
       this.id();
@@ -727,6 +733,8 @@ export class BoardPage {
         void this.checkAway(id, me.name);
         const board = new BoardDoc();
         board.author = { id: me.id, name: me.name };
+        // Until their role and the facilitator's seat are known, nothing here writes to locked things.
+        board.canChangeLocked = false;
         const connection = new BoardConnection(id, board, () => this.#auth.token() ?? '', user);
         const chat = new ChatFeed(board.doc);
         const facilitation = new FacilitationFeed(board.doc);

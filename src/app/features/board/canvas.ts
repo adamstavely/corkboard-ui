@@ -126,6 +126,8 @@ export class Canvas {
   readonly presence = input<Presence | undefined>(undefined);
   /** Readers and commenters look, select and ask; they don't add, move, change or delete anything. */
   readonly readOnly = input(false);
+  /** Whether this person locks and unlocks things (an owner, or the facilitator). */
+  readonly canLock = input(true);
   /** What to call that in the toolbar, e.g. "View only". */
   readonly readOnlyLabel = input('View only');
   /** How many comments each note or frame's open thread has, for badges. */
@@ -291,6 +293,21 @@ export class Canvas {
     const ids = this.board().addLayout(layout, at.x, at.y);
     this.show(ids, false);
     return ids;
+  }
+
+  /** The layout: everything but notes, images, files, pen strokes and arrows. */
+  #layoutIds(): string[] {
+    const b = this.board();
+    return [...b.frames().map((f) => f.id), ...b.items().filter((i) => i.kind === 'text' || i.kind === 'shape' || i.kind === 'table' || i.kind === 'view').map((i) => i.id)];
+  }
+  /** Whether the whole layout is locked. */
+  readonly layoutLocked = computed(() => {
+    const ids = this.#layoutIds();
+    return ids.length > 0 && ids.every((id) => this.board().locked().has(id));
+  });
+  /** Locks or unlocks the layout, so people can only add and move notes around it. */
+  lockLayout(lock: boolean): void {
+    this.board().setLocked(this.#layoutIds(), lock);
   }
 
   /** Goes to the board's parking lot, a frame for what's not for now, making one first if there isn't one. */
@@ -821,6 +838,11 @@ export class Canvas {
   protected readonly values = signal<Record<string, string>>({});
 
   constructor() {
+    // A note someone locks while this person is writing in it: they stop, as the server won't take their typing.
+    effect(() => {
+      const id = this.editing();
+      if (id && !this.canLock() && this.board().locked().has(id)) untracked(() => this.editing.set(null));
+    });
     // Track the surface's size for the minimap.
     effect((onCleanup) => {
       const surface = this.surfaceIfReady()?.nativeElement;

@@ -90,6 +90,11 @@ export class BoardFacilitation {
   readonly show = output<readonly string[]>();
   /** Close the facilitator's controls. */
   readonly closed = output<void>();
+  /** Whether this person may lock the layout, and whether it's locked now. */
+  readonly canLock = input(false);
+  readonly layoutLocked = input(false);
+  /** Lock the layout (frames, text, shapes, tables, views) so people can only add and move notes; or unlock it. */
+  readonly lockLayout = output<boolean>();
   /** Go to the board's parking lot, making one if there isn't one. */
   readonly parkingLot = output<void>();
 

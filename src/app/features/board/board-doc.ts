@@ -308,6 +308,20 @@ export class BoardDoc {
   readonly doc = new Y.Doc();
   /** Who's adding things here, stamped on new notes so they can be filtered by person. */
   author: { id: string; name: string } | null = null;
+  /**
+   * Whether this person may change locked things: a board owner, or the facilitator. The server refuses anyone else's
+   * changes to them (and a refused change leaves this copy out of step), so without it nothing here writes to them.
+   */
+  get canChangeLocked(): boolean {
+    return this.#canChangeLocked;
+  }
+  set canChangeLocked(can: boolean) {
+    if (can === this.#canChangeLocked) return;
+    this.#canChangeLocked = can;
+    // An undo could reach back into something locked since.
+    if (!can && this.#locked().size) this.undo.clear();
+  }
+  #canChangeLocked = true;
   readonly #nodes = this.doc.getMap<Y.Map<unknown>>('nodes');
   /** Moves made within 400ms of each other undo together; adding, recolouring and deleting are each their own step. */
   readonly undo: Y.UndoManager = new Y.UndoManager(this.#nodes, { captureTimeout: 400, trackedOrigins: new Set([null, this]) });
@@ -485,7 +499,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (node?.get('kind') !== 'note') continue;
         const tags = tagsOf(node);
         if (!tags.includes(t)) node.set('tags', [...tags, t]);
@@ -497,7 +511,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (node?.get('kind') !== 'note') continue;
         const tags = tagsOf(node);
         if (tags.includes(tag)) node.set('tags', tags.filter((x) => x !== tag));
@@ -531,7 +545,7 @@ export class BoardDoc {
   }
 
   renameFrame(id: string, title: string): void {
-    const node = this.#nodes.get(id);
+    const node = this.#writable(id);
     if (!node || node.get('kind') !== 'frame' || node.get('title') === title) return;
     this.undo.stopCapturing();
     this.doc.transact(() => node.set('title', title), this);
@@ -539,7 +553,7 @@ export class BoardDoc {
 
   /** Resizes a frame from its bottom-right corner, no smaller than FRAME_MIN. */
   resizeFrame(id: string, w: number, h: number): void {
-    const node = this.#nodes.get(id);
+    const node = this.#writable(id);
     if (!node || node.get('kind') !== 'frame') return;
     this.doc.transact(() => {
       node.set('w', Math.round(Math.max(FRAME_MIN.w, w)));
@@ -567,7 +581,7 @@ export class BoardDoc {
     if (!dx && !dy) return;
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (!node) continue;
         node.set('x', pos(node.get('x')) + dx);
         node.set('y', pos(node.get('y')) + dy);
@@ -579,7 +593,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         const kind = node?.get('kind');
         if (kind === 'note' || kind === 'shape' || kind === 'drawing') node!.set('color', color);
       }
@@ -589,7 +603,7 @@ export class BoardDoc {
   /** Sets when a timeline frame starts and how long each of its columns lasts. */
   setSchedule(frameId: string, schedule: NonNullable<Frame['schedule']>): void {
     this.doc.transact(() => {
-      const node = this.#nodes.get(frameId);
+      const node = this.#writable(frameId);
       if (node?.get('kind') === 'frame') node.set('schedule', { ...schedule });
     }, this);
   }
@@ -598,7 +612,7 @@ export class BoardDoc {
   setScore(id: string, value: number, effort: number): void {
     this.undo.stopCapturing();
     this.doc.transact(() => {
-      const node = this.#nodes.get(id);
+      const node = this.#writable(id);
       if (node?.get('kind') !== 'note') return;
       node.set('value', value);
       node.set('effort', effort);
@@ -627,7 +641,7 @@ export class BoardDoc {
   #restackLayer(layer: readonly (Box & { id: string; z: number })[], chosen: readonly (Box & { id: string; z: number })[], how: Restack): void {
     const rest = layer.filter((n) => !chosen.includes(n));
     const overlaps = (n: Box) => chosen.some((c) => c.x < n.x + n.w && n.x < c.x + c.w && c.y < n.y + n.h && n.y < c.y + c.h);
-    const setZ = (id: string, z: number) => this.#nodes.get(id)?.set('z', z);
+    const setZ = (id: string, z: number) => this.#writable(id)?.set('z', z);
     const k = chosen.length;
     if (how === 'front' || how === 'back') {
       const end = how === 'front' ? layer.slice(-k) : layer.slice(0, k);
@@ -654,7 +668,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (node?.get('kind') !== 'drawing') continue;
         if (change.color && PEN_COLORS.includes(change.color)) node.set('color', change.color);
         if (change.width && (PEN_WIDTHS as readonly number[]).includes(change.width)) node.set('width', change.width);
@@ -667,7 +681,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (node?.get('kind') !== 'frame') continue;
         if (change.fill && FRAME_FILLS.includes(change.fill)) node.set('fill', change.fill);
         if (change.border && FRAME_BORDERS.includes(change.border)) node.set('border', change.border);
@@ -680,6 +694,7 @@ export class BoardDoc {
     const gone = new Set(ids);
     this.undo.stopCapturing();
     this.doc.transact(() => {
+      for (const id of gone) if (!this.#writable(id)) gone.delete(id);
       for (const c of this.connectors()) if (gone.has(c.from) || gone.has(c.to)) gone.add(c.id);
       for (const id of gone) this.#nodes.delete(id);
     }, this);
@@ -791,7 +806,7 @@ export class BoardDoc {
 
   /** Fills in a link card once its page's preview arrives; it's not undoable on its own. */
   setLinkPreview(id: string, p: { title: string; description: string; image: string | null; site: string }): void {
-    const node = this.#nodes.get(id);
+    const node = this.#writable(id);
     if (node?.get('kind') !== 'link') return;
     this.doc.transact(() => {
       node.set('title', p.title);
@@ -803,7 +818,7 @@ export class BoardDoc {
 
   /** A shape's label, or a text item's text. */
   setText(id: string, text: string): void {
-    const node = this.#nodes.get(id);
+    const node = this.#writable(id);
     const key = node?.get('kind') === 'shape' ? 'label' : node?.get('kind') === 'text' ? 'text' : null;
     if (!node || !key || node.get(key) === text) return;
     this.undo.stopCapturing();
@@ -814,7 +829,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (node?.get('kind') === 'shape') node.set('shape', shape);
       }
     }, this);
@@ -824,14 +839,14 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (node?.get('kind') === 'text') node.set('size', size);
       }
     }, this);
   }
 
   setCell(id: string, row: number, col: number, text: string): void {
-    const cells = this.#nodes.get(id)?.get('cells');
+    const cells = this.#writable(id)?.get('cells');
     if (!(cells instanceof Y.Map)) return;
     const key = `${row}:${col}`;
     if ((cells.get(key) ?? '') === text) return;
@@ -841,7 +856,7 @@ export class BoardDoc {
 
   /** Adds or removes a table's last row or column; it grows or shrinks to match. */
   resizeTable(id: string, rows: number, cols: number): void {
-    const node = this.#nodes.get(id);
+    const node = this.#writable(id);
     if (node?.get('kind') !== 'table') return;
     const r = Math.min(50, Math.max(1, rows));
     const c = Math.min(20, Math.max(1, cols));
@@ -863,7 +878,7 @@ export class BoardDoc {
 
   /** Resizes a shape, label, drawing, table or link card from its bottom-right corner. */
   resizeItem(id: string, w: number, h: number): void {
-    const node = this.#nodes.get(id);
+    const node = this.#writable(id);
     if (!node || !ITEM_KINDS.has(String(node.get('kind')))) return;
     this.doc.transact(() => {
       const view = node.get('kind') === 'view';
@@ -909,6 +924,7 @@ export class BoardDoc {
 
   /** Locks or unlocks things in place. */
   setLocked(ids: Iterable<string>, locked: boolean): void {
+    if (!this.canChangeLocked) return;
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
@@ -922,7 +938,7 @@ export class BoardDoc {
 
   /** Sets the frames' order for the outline and for presenting, first to last. */
   setFrameOrder(ids: readonly string[]): void {
-    this.doc.transact(() => ids.forEach((id, i) => this.#nodes.get(id)?.set('order', i)), this);
+    this.doc.transact(() => ids.forEach((id, i) => this.#writable(id)?.set('order', i)), this);
   }
 
   /** The frames in outline order: as set, then (for ones never ordered) top to bottom, left to right. */
@@ -939,7 +955,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const [id, p] of positions) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (!node) continue;
         if (node.get('x') !== p.x) node.set('x', p.x);
         if (node.get('y') !== p.y) node.set('y', p.y);
@@ -992,7 +1008,7 @@ export class BoardDoc {
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of ids) {
-        const node = this.#nodes.get(id);
+        const node = this.#writable(id);
         if (!node || !arrows.has(id)) continue;
         for (const [key, value] of Object.entries(change)) if (value !== undefined) node.set(key, value);
       }
@@ -1012,6 +1028,12 @@ export class BoardDoc {
   destroy(): void {
     this.undo.destroy();
     this.doc.destroy();
+  }
+
+  /** A node to change: undefined when it's not there, or it's locked and this person may not change locked things. */
+  #writable(id: string): Y.Map<unknown> | undefined {
+    const node = this.#nodes.get(id);
+    return node && (this.#canChangeLocked || node.get('locked') !== true) ? node : undefined;
   }
 
   #topZ(): number {
@@ -1044,7 +1066,11 @@ export class BoardDoc {
     this.#connectors.set(connectors);
     this.#media.set(media.sort(order));
     this.#items.set(items.sort(order));
-    if (locked.size !== this.#locked().size || [...locked].some((id) => !this.#locked().has(id))) this.#locked.set(locked);
+    if (locked.size !== this.#locked().size || [...locked].some((id) => !this.#locked().has(id))) {
+      // Something newly locked by someone else: an undo here could reach back into it.
+      if (!this.#canChangeLocked && [...locked].some((id) => !this.#locked().has(id))) this.undo.clear();
+      this.#locked.set(locked);
+    }
   }
 
   /** One node, into the list it belongs in; positions and sizes made safe on the way (see pos and size). */

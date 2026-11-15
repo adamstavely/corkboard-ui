@@ -153,6 +153,7 @@
           [presence]="connection()!.presence"
           [provider]="connection()!.provider"
           [readOnly]="!canEdit()"
+          [canLock]="canChangeLocked()"
           [readOnlyLabel]="readOnlyLabel()"
           [commentCounts]="commentCounts()"
           (selectionChange)="selection.set($event)"
@@ -254,6 +255,9 @@
             (show)="canvas()?.show($event)"
             (closed)="facilitating.set(false)"
             (parkingLot)="canvas()?.goToParkingLot()"
+            [canLock]="canChangeLocked()"
+            [layoutLocked]="canvas()?.layoutLocked() ?? false"
+            (lockLayout)="canvas()?.lockLayout($event)"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {
