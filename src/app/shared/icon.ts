@@ -89,6 +89,7 @@ import {
   type IconNode,
   Check,
   Spade,
+  Workflow,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -171,6 +172,7 @@ export const ICONS = {
   dashedBox: SquareDashed,
   vote: Vote,
   mindmap: Network,
+  diagram: Workflow,
   branch: GitBranchPlus,
   unfold: ChevronsRight,
   fold: ChevronsLeft,

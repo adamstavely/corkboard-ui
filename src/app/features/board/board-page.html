@@ -229,6 +229,7 @@
           (joinFrame)="joinBreakout($event)"
           [viewContent]="boardView"
           [appContent]="boardApp"
+          (editDiagram)="diagramId.set($event); panel.set('diagram')"
         />
         @if (slides(); as sl) {
           <div class="slide-bar app-island" role="toolbar" aria-label="Slides">
@@ -436,6 +437,9 @@
               }
             }
           </div>
+        }
+        @if (panel() === 'diagram' && diagramId() && board()) {
+          <app-board-diagram [board]="board()!" [diagramId]="diagramId()!" (closed)="panel.set(null)" />
         }
         @if (panel() === 'suggestions') {
           <app-board-suggestions [boardId]="id()" [list]="suggestions()" [canEdit]="canEdit()" (preview)="previewSuggestion($event)" (closed)="panel.set(null)" />

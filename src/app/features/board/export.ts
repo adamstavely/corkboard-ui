@@ -1,3 +1,4 @@
+import { renderDiagram, svgUrl } from './diagram';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { shapePath } from './items';
 import { fileSize } from './file-cache';
@@ -51,6 +52,11 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
       if (line) out.push(line);
     }
     out.push('');
+  }
+  const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' && i.source.trim() ? [i.source.trim()] : []));
+  if (diagrams.length) {
+    out.push('## Diagrams', '');
+    for (const d of diagrams) out.push('```mermaid', d, '```', '');
   }
   return `${out.join('\n').trimEnd()}\n`;
 }
@@ -145,6 +151,24 @@ export function dashPattern(style: ArrowStyle): number[] {
 /** The board's images, loaded from their object URLs, to draw; ones that fail are left out. */
 export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, string>): Promise<Map<string, HTMLImageElement>> {
   const loaded = new Map<string, HTMLImageElement>();
+  const image = (key: string, src: string) =>
+    new Promise<void>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        loaded.set(key, img);
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = src;
+    });
+  // Diagrams, drawn from their text, under their item's id.
+  const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' ? [i] : []));
+  await Promise.all(
+    diagrams.map(async (d) => {
+      const drawn = await renderDiagram(d.source);
+      if ('svg' in drawn) await image(d.id, svgUrl(drawn.svg));
+    }),
+  );
   await Promise.all(
     board
       .media()
@@ -317,7 +341,7 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   const stack = board.stack();
   const content = [
     ...board.media().map((m) => ({ id: m.id, draw: () => drawMedia(ctx, m, images.get(m.fileId), colours) })),
-    ...board.items().map((item) => ({ id: item.id, draw: () => drawItem(ctx, item, colours) })),
+    ...board.items().map((item) => ({ id: item.id, draw: () => drawItem(ctx, item, colours, images.get(item.id)) })),
     ...board.notes().map((n) => ({ id: n.id, draw: () => drawNote(ctx, n, colours) })),
   ];
   for (const c of content.sort((a, b) => (stack.get(a.id) ?? 0) - (stack.get(b.id) ?? 0))) c.draw();
@@ -344,7 +368,7 @@ function drawNote(ctx: CanvasRenderingContext2D, n: Note, c: { text: string; fon
 }
 
 /** A shape, text, pen stroke, table or link card as it is on the board. */
-function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: string; border: string; text: string; muted: string; font: string }): void {
+function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: string; border: string; text: string; muted: string; font: string }, image?: HTMLImageElement): void {
   ctx.save();
   ctx.translate(item.x, item.y);
   const centred = (line: string, size: number, weight = 500) => {
@@ -395,6 +419,20 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
             ctx.fillText(cell, col * cw + 6, r * ch + ch / 2, cw - 12);
           }
         }
+      }
+      break;
+    }
+    case 'diagram': {
+      // Drawn as on the board: fitted to its box, on a card.
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, item.w, item.h, 8);
+      ctx.fill();
+      if (image) {
+        const fit = Math.min(item.w / image.naturalWidth, item.h / image.naturalHeight);
+        const w = image.naturalWidth * fit;
+        const h = image.naturalHeight * fit;
+        ctx.drawImage(image, (item.w - w) / 2, (item.h - h) / 2, w, h);
       }
       break;
     }

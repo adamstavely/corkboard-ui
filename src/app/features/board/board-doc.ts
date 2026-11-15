@@ -188,9 +188,15 @@ export interface AppItem extends Placed {
   sources: string[];
 }
 
-/** The board's other things: shapes, text, pen strokes, tables, link cards, views and mini-apps. */
-export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem;
-const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app']);
+/** A diagram written as text in Mermaid (a flowchart or a sequence diagram), drawn on the board from it. */
+export interface DiagramItem extends Placed {
+  kind: 'diagram';
+  source: string;
+}
+
+/** The board's other things: shapes, text, pen strokes, tables, link cards, views, mini-apps and diagrams. */
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram']);
 
 /** A ready-made note: a bold heading and prompts to fill in. */
 export interface NoteTemplate {
@@ -841,6 +847,19 @@ export class BoardDoc {
     });
   }
 
+  /** Puts a diagram on the board from its Mermaid text, centred on a point, and returns its id. */
+  addDiagram(cx: number, cy: number, source: string, w = 480, h = 360): string {
+    return this.#place('diagram', cx, cy, w, h, (n) => n.set('source', source));
+  }
+
+  /** A diagram's new text, as one undoable change. */
+  setDiagram(id: string, source: string): void {
+    const node = this.#writable(id);
+    if (node?.get('kind') !== 'diagram' || node.get('source') === source) return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => node.set('source', source), this);
+  }
+
   /** Fills in a link card once its page's preview arrives; it's not undoable on its own. */
   setLinkPreview(id: string, p: { title: string; description: string; image: string | null; site: string }): void {
     const node = this.#writable(id);
@@ -1389,6 +1408,8 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
         sources: Array.isArray(sources) ? sources.filter((s): s is string => typeof s === 'string') : [],
       };
     }
+    case 'diagram':
+      return { ...box, kind: 'diagram', source: str(node.get('source')) };
     default:
       return null;
   }
