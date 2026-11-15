@@ -6,7 +6,7 @@ import { linksControllerOpen } from '../../api/generated/fn/links/links-controll
 import { BoardConnection } from '../board/board-connection';
 import { BoardDoc, type Media } from '../board/board-doc';
 import { FileCache, openFile } from '../board/file-cache';
-import { Canvas } from '../board/canvas';
+import { Canvas, GUEST_CAPABILITIES } from '../board/canvas';
 import { colorFor } from '../board/presence';
 
 /**
@@ -33,6 +33,7 @@ import { colorFor } from '../board/presence';
             [presence]="connection()!.presence"
             [provider]="connection()!.provider"
             [readOnly]="!canEdit()"
+            [capabilities]="guest"
             readOnlyLabel="View only"
             [fileUrls]="files()?.urls() ?? emptyUrls"
             (openFile)="open($event)"
@@ -83,6 +84,8 @@ import { colorFor } from '../board/presence';
   `,
 })
 export class SharedBoard {
+  /** A guest has none of a member page's extras: no uploads, template picker, views, assistant or side-panel editors. */
+  protected readonly guest = GUEST_CAPABILITIES;
   readonly #api = inject(Api);
 
   /** From the route. */

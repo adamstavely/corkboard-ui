@@ -142,6 +142,14 @@ const CULL_FROM = 300;
  * rename it. A frame is picked up anywhere on it (Shift-drag inside one to box-select instead), carries its notes with
  * it, and resizes from its corner.
  */
+/**
+ * What the page around a canvas can do for it: upload files, open the template picker, draw placed views and apps,
+ * ask the model, and edit diagrams and charts in a side panel. A board page has them all; a guest's shared page none.
+ */
+export type CanvasCapability = 'files' | 'templates' | 'views' | 'assistant' | 'diagrams' | 'charts' | 'imagePins';
+export const MEMBER_CAPABILITIES: ReadonlySet<CanvasCapability> = new Set(['files', 'templates', 'views', 'assistant', 'diagrams', 'charts', 'imagePins']);
+export const GUEST_CAPABILITIES: ReadonlySet<CanvasCapability> = new Set();
+
 @Component({
   selector: 'app-canvas',
   imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView, PdfPages],
@@ -150,6 +158,11 @@ const CULL_FROM = 300;
 })
 export class Canvas {
   readonly board = input.required<BoardDoc>();
+  /** What the page around the canvas handles beyond the board itself; commands needing anything else aren't shown. */
+  readonly capabilities = input<ReadonlySet<CanvasCapability>>(MEMBER_CAPABILITIES);
+  protected can(capability: CanvasCapability): boolean {
+    return this.capabilities().has(capability);
+  }
   /** Who else is here, and where this person's pointer and selection go out to them. */
   readonly presence = input<Presence | undefined>(undefined);
   /** Readers and commenters look, select and ask; they don't add, move, change or delete anything. */
@@ -1316,8 +1329,8 @@ export class Canvas {
     if (itemEl) {
       const item = this.board().items().find((i) => i.id === itemEl.dataset['itemId']);
       if (item?.kind === 'link' && safeUrl(item.url) !== '#') window.open(item.url, '_blank', 'noopener,noreferrer');
-      else if (item?.kind === 'diagram' && !this.readOnly()) this.editDiagram.emit(item.id);
-      else if (item?.kind === 'chart' && !this.readOnly()) this.editChart.emit(item.id);
+      else if (item?.kind === 'diagram' && !this.readOnly() && this.can('diagrams')) this.editDiagram.emit(item.id);
+      else if (item?.kind === 'chart' && !this.readOnly() && this.can('charts')) this.editChart.emit(item.id);
       else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(item.id);
       else if (item?.kind === 'table') {
         const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]')?.dataset['cell'];
@@ -1684,7 +1697,7 @@ export class Canvas {
   });
 
   protected onDragOver(e: DragEvent): void {
-    if (!this.readOnly() && e.dataTransfer?.types.includes('Files')) {
+    if (!this.readOnly() && this.can('files') && e.dataTransfer?.types.includes('Files')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
     }
@@ -1692,7 +1705,7 @@ export class Canvas {
 
   protected onDrop(e: DragEvent): void {
     const files = [...(e.dataTransfer?.files ?? [])];
-    if (this.readOnly() || !files.length) return;
+    if (this.readOnly() || !this.can('files') || !files.length) return;
     e.preventDefault();
     this.filesDropped.emit({ files, at: toWorld(this.viewport(), this.#screenPoint(e)) });
   }
