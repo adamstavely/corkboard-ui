@@ -94,6 +94,20 @@ describe('tasks', () => {
     expect(adaFeed.nextKey()).toBe('T-4');
   });
 
+  it('leaves out a malformed task saved on the board instead of failing to open', () => {
+    const doc = new Y.Doc();
+    const tasks = doc.getMap<unknown>('tasks');
+    tasks.set('bad', {});
+    tasks.set('worse', 'text');
+    tasks.set('ok', { id: 'ok', key: 'T-1', title: 'Real', status: 'todo', priority: 0, labels: [], created: '2026-11-15T10:00:00Z' });
+    tasks.set('mismatch', { id: 'other', key: 'T-2', title: 'Wrong id', status: 'todo', priority: 0, labels: [], created: '2026-11-15T10:00:00Z' });
+    const feed = new TaskFeed(doc);
+    expect(feed.tasks().map((t) => t.key)).toEqual(['T-1']);
+    tasks.set('later', { created: 3 });
+    expect(feed.tasks().map((t) => t.key)).toEqual(['T-1']);
+    feed.destroy();
+  });
+
   it('leaves clashing keys alone for someone who can only read the board', () => {
     const doc = new Y.Doc();
     const tasks = doc.getMap<StoredTask>('tasks');

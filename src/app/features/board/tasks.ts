@@ -217,7 +217,8 @@ export class TaskFeed {
   }
 
   readonly #update = () => {
-    const tasks = [...this.#tasks.values()].sort(byAge);
+    // A malformed task (saved before the API checked them) is left out rather than stopping the board from opening.
+    const tasks = [...this.#tasks.entries()].filter(([id, t]) => isStoredTask(id, t)).map(([, t]) => t).sort(byAge);
     this.#list.set(tasks);
     if (this.editable()) this.#renumberClashes(tasks);
   };
@@ -237,6 +238,24 @@ export class TaskFeed {
       this.#meta.set('taskSeq', seq);
     });
   }
+}
+
+const STATES = new Set(TASK_STATUSES.map((s) => s.id));
+
+/** Whether a value under a task's id is a task the board can show (the API's root-schema.ts checks the rest). */
+export function isStoredTask(id: string, t: unknown): t is StoredTask {
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return false;
+  const v = t as Record<string, unknown>;
+  return (
+    v['id'] === id &&
+    typeof v['key'] === 'string' &&
+    typeof v['title'] === 'string' &&
+    typeof v['created'] === 'string' &&
+    STATES.has(v['status'] as TaskState) &&
+    Number.isInteger(v['priority']) &&
+    Array.isArray(v['labels']) &&
+    v['labels'].every((l) => typeof l === 'string')
+  );
 }
 
 /** Oldest first; ties by id, so everyone orders them the same. */
