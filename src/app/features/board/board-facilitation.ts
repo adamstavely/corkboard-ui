@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
-import { Icon } from '../../shared/icon';
+import { Component, type ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { Icon, type IconName } from '../../shared/icon';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { Api } from '../../api/generated/api';
@@ -34,13 +34,24 @@ interface DraftStep {
   frameId: string;
 }
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
+/** The tools in the facilitator's dock, each opening its setup over it; the room (lead, private mode, parking lot) comes last. */
+type DockTool = 'timer' | 'vote' | 'poll' | 'writing' | 'breakouts' | 'room';
+const TOOLS: { id: Exclude<DockTool, 'room'>; label: string; icon: IconName }[] = [
+  { id: 'timer', label: 'Timer', icon: 'timer' },
+  { id: 'vote', label: 'Dot voting', icon: 'vote' },
+  { id: 'poll', label: 'Poll', icon: 'poll' },
+  { id: 'writing', label: 'Hidden writing', icon: 'hidden' },
+  { id: 'breakouts', label: 'Breakouts', icon: 'users' },
+];
+
 /** "Time's up" stays this long after the timer runs out. */
 const TIMES_UP_MS = 60_000;
 
 /**
  * What the facilitator runs. What's live (the shared timer, a round of dot voting and its results, hidden writing,
- * breakouts, who's presenting) shows along the top of the board for everyone; the controls that start them sit in a
- * panel docked on the right, one section each. Updaters and owners start and stop things; everyone sees them.
+ * breakouts, who's presenting) shows along the top of the board for everyone. The facilitator's tools sit in a dock along
+ * the bottom, each opening its setup over it, and the agenda in a run sheet on the right. Updaters and owners start and
+ * stop things; everyone sees them.
  */
 @Component({
   selector: 'app-board-facilitation',
@@ -99,6 +110,42 @@ export class BoardFacilitation {
   /** Go to the board's parking lot, making one if there isn't one. */
   readonly parkingLot = output<void>();
 
+  protected readonly tools = TOOLS;
+  /** The dock tool whose setup is open, if any, and whether the run sheet is. */
+  protected readonly tool = signal<DockTool | null>(null);
+  protected readonly sheetOpen = signal(false);
+  private readonly pop = viewChild<ElementRef<HTMLElement>>('pop');
+  /** Which dock tools have something under way, to mark them. */
+  protected readonly live = computed<Record<DockTool, boolean>>(() => ({
+    timer: this.timerShown(),
+    vote: this.voting().open,
+    poll: !!this.poll()?.open,
+    writing: this.writing().open,
+    breakouts: this.breakouts().open,
+    room: this.privacy().on || this.facilitating(),
+  }));
+
+  protected toolLabel(tool: DockTool): string {
+    return tool === 'room' ? 'Room' : TOOLS.find((t) => t.id === tool)!.label;
+  }
+
+  protected toolIcon(tool: DockTool): IconName {
+    return tool === 'room' ? 'facilitator' : TOOLS.find((t) => t.id === tool)!.icon;
+  }
+
+  /** Opens a tool's setup over the dock, or closes it if it's open. */
+  protected openTool(tool: DockTool): void {
+    this.problem.set('');
+    this.tool.update((open) => (open === tool ? null : tool));
+  }
+
+  /** Closes the tool's setup and puts focus back on its button in the dock. */
+  protected closeTool(): void {
+    const tool = this.tool();
+    this.tool.set(null);
+    if (tool) document.querySelector<HTMLElement>(`[data-dock-tool="${tool}"]`)?.focus();
+  }
+
   protected readonly timerMinutes = TIMER_MINUTES;
   protected readonly voteOptions = VOTE_OPTIONS;
   protected readonly votesEach = signal('3');
@@ -118,6 +165,8 @@ export class BoardFacilitation {
   /** Now, every second while a timer runs. */
   readonly #now = signal(Date.now());
   constructor() {
+    // A tool's setup takes focus as it opens, so Escape closes it and Tab goes through it.
+    effect(() => this.pop()?.nativeElement.focus());
     effect((onCleanup) => {
       if (this.timer().endsAt === null) return;
       const tick = setInterval(() => this.#now.set(Date.now()), 250);
