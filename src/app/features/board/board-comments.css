@@ -9,6 +9,12 @@
   gap: var(--tc-space-2);
   width: min(380px, calc(100% - 2 * var(--tc-space-4)));
   max-height: calc(100% - 2 * var(--tc-space-4) - 96px);
+  padding: var(--tc-space-2);
+  /* One card behind everything in the panel, so the board never shows through between its parts. */
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
   overflow: auto;
 }
 
