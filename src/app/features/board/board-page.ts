@@ -274,7 +274,7 @@ export class BoardPage {
   protected readonly assistantStarters = ASSISTANT_STARTERS;
   protected readonly dictate = dictate;
   protected readonly models = modelChoice(this.#api, () => (this.meta.hasValue() ? this.meta.value().orgId : ''));
-  protected readonly assistant = computed(() => new AssistantSession(this.#api, this.id(), this.models.modelId, () => this.selection()));
+  protected readonly assistant = computed(() => new AssistantSession(this.#api, this.id(), this.models.modelId, () => this.selection(), (fileId) => this.#fileUrl(fileId)));
   /** What the assistant reads: the selected notes, or the whole board. */
   protected readonly assistantContext = computed(() => {
     const picked = this.selection().length;
@@ -415,6 +415,11 @@ export class BoardPage {
   protected open(media: Media): void {
     const url = this.files()?.urls().get(media.fileId);
     if (url) openFile(url, media);
+  }
+
+  /** One of the board's files, fetched for the assistant to link what it cites. */
+  #fileUrl(fileId: string): Promise<string | undefined> {
+    return this.files()?.urlOf(fileId) ?? Promise.resolve(undefined);
   }
 
   // ── While you were away ──

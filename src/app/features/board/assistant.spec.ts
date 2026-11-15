@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import type { Api } from '../../api/generated/api';
-import { AssistantSession, changesLine } from './assistant';
+import { AssistantSession, changesLine, fileKind } from './assistant';
 
-const result = { reply: 'Two themes.', citedNoteIds: [], framesAdded: 2, notesAdded: 0, notesChanged: 0, notesMoved: 5 };
+const result = { reply: 'Two themes.', citedNoteIds: [], citedFiles: [], framesAdded: 2, notesAdded: 0, notesChanged: 0, notesMoved: 5 };
 
 function fakeApi(answer: (body: unknown) => Promise<unknown>) {
   const sent: unknown[] = [];
@@ -50,5 +50,17 @@ describe('the board assistant', () => {
   it('describes changes in a line, or nothing', () => {
     expect(changesLine({ ...result, framesAdded: 0, notesMoved: 0 })).toBe('');
     expect(changesLine({ ...result, framesAdded: 0, notesMoved: 0, notesAdded: 1 })).toBe('On the board: added 1 note. Undo it from History.');
+  });
+
+  it("cites the board's files an answer drew on, linking the ones the page has", async () => {
+    const cited = { ...result, citedFiles: [{ fileId: 'f1', name: 'budget.pdf' }, { fileId: 'f2', name: 'notes.docx' }] };
+    const { api } = fakeApi(() => Promise.resolve(cited));
+    const session = new AssistantSession(api, 'b1', () => 'm1', () => [], (id) => Promise.resolve(id === 'f1' ? 'blob:f1' : undefined));
+    await session.send('What does the budget say?');
+    expect(session.messages()[1].sources).toEqual([
+      { title: 'budget.pdf', name: 'PDF', href: 'blob:f1' },
+      { title: 'notes.docx', name: 'Word' },
+    ]);
+    expect(['plan.MD', 'data.csv', 'readme', 'x.txt'].map(fileKind)).toEqual(['Markdown', 'CSV', 'File', 'Text']);
   });
 });

@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { computed, signal } from '@angular/core';
+import type { AnswerSource } from '@adamstavely/trenchcoat/ai-answer';
 import type { SidePaneMessage } from '@adamstavely/trenchcoat/ai-side-pane';
 import type { PromptStarter } from '@adamstavely/trenchcoat/prompt-starters';
 import type { Api } from '../../api/generated/api';
@@ -27,6 +28,22 @@ export function changesLine(r: AssistResultDto): string {
   return done.length ? `On the board: ${done.join(', ')}. Undo it from History.` : '';
 }
 
+/** What kind of file a name is, for its citation chip: "PDF", "Word", "Markdown"… */
+export function fileKind(name: string): string {
+  const ext = name.toLowerCase().match(/\.(\w+)$/)?.[1] ?? '';
+  return { pdf: 'PDF', docx: 'Word', md: 'Markdown', markdown: 'Markdown', csv: 'CSV', txt: 'Text' }[ext] ?? 'File';
+}
+
+/** The board's files an answer drew on, as citation chips, each opening its file when the page can fetch it. */
+export async function fileSources(files: readonly { fileId: string; name: string }[], urlOf: (fileId: string) => Promise<string | undefined>): Promise<AnswerSource[]> {
+  return Promise.all(
+    files.map(async (f) => {
+      const href = await urlOf(f.fileId);
+      return { title: f.name, name: fileKind(f.name), ...(href ? { href } : {}) };
+    }),
+  );
+}
+
 /**
  * One board's conversation with its assistant, as Trench Coat's side pane shows it: each question goes to the API with
  * the conversation so far and the notes selected, and the model can answer and change the board.
@@ -43,6 +60,8 @@ export class AssistantSession {
     private readonly modelId: () => string | undefined,
     /** The notes selected on the board: what a question is about, or the whole board when none are. */
     private readonly selection: () => readonly string[],
+    /** Fetches a file of the board's for the page, to link the files an answer cites. */
+    private readonly fileUrl: (fileId: string) => Promise<string | undefined> = () => Promise.resolve(undefined),
   ) {}
 
   async send(text: string, model = this.modelId()): Promise<void> {
@@ -64,7 +83,8 @@ export class AssistantSession {
     }
     try {
       const r = await this.api.invoke(assistControllerAssist, { id: this.boardId, body: { instruction: question, modelId: model, history, ...(noteIds.length ? { noteIds } : {}) } });
-      this.#answer(answerId, { text: [r.reply, changesLine(r)].filter(Boolean).join('\n\n') });
+      const sources = await fileSources(r.citedFiles ?? [], this.fileUrl);
+      this.#answer(answerId, { text: [r.reply, changesLine(r)].filter(Boolean).join('\n\n'), ...(sources.length ? { sources } : {}) });
     } catch (err) {
       const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
       this.#answer(answerId, { error: typeof message === 'string' ? message : "The assistant couldn't answer. Try again." });

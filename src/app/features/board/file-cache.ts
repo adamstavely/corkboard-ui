@@ -10,7 +10,7 @@ export class FileCache {
   readonly #urls = signal<ReadonlyMap<string, string>>(new Map());
   /** Object URLs of the files fetched so far, by file id. */
   readonly urls = this.#urls.asReadonly();
-  readonly #loading = new Set<string>();
+  readonly #loading = new Map<string, Promise<string | undefined>>();
 
   constructor(
     private readonly boardId: string,
@@ -30,16 +30,28 @@ export class FileCache {
 
   /** Fetches the files not fetched yet. */
   load(fileIds: Iterable<string>): void {
-    for (const id of fileIds) {
-      if (this.#urls().has(id) || this.#loading.has(id)) continue;
-      this.#loading.add(id);
-      void fetch(this.#path(id), this.link ? {} : { headers: { Authorization: `Bearer ${this.token()}` } })
+    for (const id of fileIds) void this.urlOf(id);
+  }
+
+  /** A file's object URL, fetching it first if need be; undefined when it can't be had. */
+  urlOf(id: string): Promise<string | undefined> {
+    const have = this.#urls().get(id);
+    if (have) return Promise.resolve(have);
+    let loading = this.#loading.get(id);
+    if (!loading) {
+      loading = fetch(this.#path(id), this.link ? {} : { headers: { Authorization: `Bearer ${this.token()}` } })
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => {
-          if (blob) this.#urls.update((urls) => new Map(urls).set(id, URL.createObjectURL(blob)));
+          if (!blob) return undefined;
+          const url = URL.createObjectURL(blob);
+          this.#urls.update((urls) => new Map(urls).set(id, url));
+          return url;
         })
+        .catch(() => undefined)
         .finally(() => this.#loading.delete(id));
+      this.#loading.set(id, loading);
     }
+    return loading;
   }
 
   /**

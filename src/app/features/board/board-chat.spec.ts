@@ -45,6 +45,16 @@ describe('the board chat', () => {
     ]);
   });
 
+  it('says which of the board\'s files an answer drew on, before what it changed', () => {
+    const files = [
+      { fileId: 'f1', name: 'budget.pdf' },
+      { fileId: 'f2', name: 'interviews.docx' },
+      { fileId: 'f3', name: 'plan.md' },
+    ];
+    expect(threadItems([{ ...answer, files }])[0]).toHaveProperty('text', 'Grouped by theme.\n\nFrom budget.pdf, interviews.docx and plan.md.\n\nMade 3 frames and moved 9 notes into them.');
+    expect(threadItems([{ ...answer, files: files.slice(0, 1), changes: undefined }])[0]).toHaveProperty('text', 'Grouped by theme.\n\nFrom budget.pdf.');
+  });
+
   it("knows who's here and who wrote earlier, once each, and not the model", () => {
     const people = threadPeople([{ id: 'grace', name: 'Grace' }], [ada, answer, { ...ada, id: '3', name: 'Ada L' }]);
     expect(people).toEqual([
