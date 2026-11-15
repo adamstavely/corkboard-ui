@@ -14,9 +14,20 @@ import { writingControllerStart } from '../../api/generated/fn/facilitation/writ
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { facilitationControllerClaimFacilitator } from '../../api/generated/fn/facilitation/facilitation-controller-claim-facilitator';
 import { facilitationControllerReleaseFacilitator } from '../../api/generated/fn/facilitation/facilitation-controller-release-facilitator';
-import { formatRemaining, ranking, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
+import { facilitationControllerGoToStep } from '../../api/generated/fn/facilitation/facilitation-controller-go-to-step';
+import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
+import { formatRemaining, ranking, type Agenda, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
+const STEP_MINUTES = [0, 1, 2, 3, 5, 8, 10, 15, 20, 30, 45, 60];
+
+/** A step of the agenda while it's being edited: minutes and frame as the selects hold them. */
+interface DraftStep {
+  id?: string;
+  title: string;
+  minutes: string;
+  frameId: string;
+}
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
 /** "Time's up" stays this long after the timer runs out. */
 const TIMES_UP_MS = 60_000;
@@ -43,6 +54,8 @@ export class BoardFacilitation {
   readonly breakouts = input.required<Breakouts>();
   /** Who holds the facilitator's seat; this person; and whether they own the board (owners can take the seat over). */
   readonly facilitator = input<Facilitator>({ userId: null, name: '' });
+  /** The session's agenda: its steps and the one it's on. */
+  readonly agenda = input<Agenda>({ steps: [], current: null });
   readonly meId = input<string | undefined>();
   readonly isOwner = input(false);
   /** Bring everyone to what this person is looking at. */
@@ -71,6 +84,8 @@ export class BoardFacilitation {
   readonly show = output<readonly string[]>();
   /** Close the facilitator's controls. */
   readonly closed = output<void>();
+  /** Go to the board's parking lot, making one if there isn't one. */
+  readonly parkingLot = output<void>();
 
   protected readonly timerMinutes = TIMER_MINUTES;
   protected readonly voteOptions = VOTE_OPTIONS;
@@ -114,6 +129,7 @@ export class BoardFacilitation {
   /** Something live to show along the top: the controls themselves sit in their own panel. */
   protected readonly anything = computed(
     () =>
+      this.step() !== null ||
       this.timerShown() ||
       this.voting().open ||
       this.writing().open ||
@@ -167,6 +183,60 @@ export class BoardFacilitation {
   }
 
   protected readonly facilitating = computed(() => !!this.meId() && this.facilitator().userId === this.meId());
+
+  // ── The agenda ──
+
+  protected readonly stepTimes = STEP_MINUTES.map((m) => ({ value: String(m), label: m ? `${m} min` : 'No timer' }));
+  protected readonly stepFrames = computed(() => [{ value: '', label: 'No frame' }, ...this.frames().map((f) => ({ value: f.id, label: f.title || 'Untitled frame' }))]);
+  /** The steps being edited, or null when not editing. */
+  protected readonly drafting = signal<DraftStep[] | null>(null);
+  /** Someone else holds the seat, so only they move the agenda on. */
+  protected readonly othersSeat = computed(() => !!this.facilitator().userId && !this.facilitating());
+  protected readonly step = computed(() => {
+    const { steps, current } = this.agenda();
+    return current === null ? null : { ...steps[current], index: current, count: steps.length };
+  });
+
+  protected minutesOf(seconds: number): string {
+    return seconds ? `${Math.round(seconds / 60)} min` : 'No timer';
+  }
+
+  protected editAgenda(): void {
+    const steps = this.agenda().steps;
+    this.drafting.set(
+      steps.length
+        ? steps.map((s) => ({ id: s.id, title: s.title, minutes: String(Math.round(s.seconds / 60)), frameId: s.frameId ?? '' }))
+        : [{ title: '', minutes: '5', frameId: '' }],
+    );
+  }
+
+  protected addStep(): void {
+    this.drafting.update((steps) => [...(steps ?? []), { title: '', minutes: '5', frameId: '' }]);
+  }
+
+  protected updateStep(i: number, change: Partial<DraftStep>): void {
+    this.drafting.update((steps) => steps && steps.map((s, at) => (at === i ? { ...s, ...change } : s)));
+  }
+
+  protected removeStep(i: number): void {
+    this.drafting.update((steps) => steps && steps.filter((_, at) => at !== i));
+  }
+
+  protected async saveAgenda(): Promise<void> {
+    const steps = (this.drafting() ?? []).filter((s) => s.title.trim());
+    await this.#run(async () => {
+      await this.#api.invoke(facilitationControllerSetAgenda, {
+        id: this.boardId(),
+        body: { steps: steps.map((s) => ({ ...(s.id ? { id: s.id } : {}), title: s.title.trim(), seconds: Number(s.minutes) * 60, frameId: s.frameId || null })) },
+      });
+      this.drafting.set(null);
+    });
+  }
+
+  /** Goes to a step: its timer starts and everyone goes to its frame. Null ends the agenda. */
+  protected async goTo(step: number | null): Promise<void> {
+    await this.#run(() => this.#api.invoke(facilitationControllerGoToStep, { id: this.boardId(), body: { step } }));
+  }
 
   protected async claim(): Promise<void> {
     await this.#run(() => this.#api.invoke(facilitationControllerClaimFacilitator, { id: this.boardId() }));

@@ -233,6 +233,7 @@
             [writing]="f.writing"
             [breakouts]="f.breakouts"
             [facilitator]="f.facilitator"
+            [agenda]="f.agenda"
             [meId]="meUser()?.id"
             [isOwner]="isOwner()"
             (bringEveryone)="bringEveryone()"
@@ -250,6 +251,7 @@
             (stopPresenting)="togglePresenting()"
             (show)="canvas()?.show($event)"
             (closed)="facilitating.set(false)"
+            (parkingLot)="canvas()?.goToParkingLot()"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {
