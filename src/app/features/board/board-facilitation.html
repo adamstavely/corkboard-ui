@@ -1,5 +1,5 @@
 @if (anything()) {
-  <div class="strip" role="region" aria-label="Facilitation">
+  <div class="strip" role="region" aria-label="Facilitation" [class.beside-sheet]="sheetOpen()">
     @if (step(); as st) {
       <div class="item agenda-now" role="status">
         <app-icon name="agenda" />
