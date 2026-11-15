@@ -714,6 +714,15 @@ export class BoardPage {
     }
   }
   protected readonly canvas = viewChild(Canvas);
+
+  /**
+   * The assistant pane opened or closed. Menus and selects inside it fire tc-open-change too, and it bubbles here: only
+   * the pane's own counts. A handler that comes to false would cancel theirs (Angular prevents the default), so this
+   * returns nothing.
+   */
+  protected paneOpenChange(event: Event): void {
+    if (event.target === event.currentTarget) this.assistantOpen.set((event as CustomEvent<{ open: boolean }>).detail.open);
+  }
   /** Whether the board's layout (frames, text, shapes, tables) is locked, for the top bar's lock button. */
   protected readonly layoutLocked = computed(() => {
     const board = this.board();

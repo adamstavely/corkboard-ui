@@ -21,17 +21,38 @@ import { feedbackControllerAnswerPoll } from '../../api/generated/fn/feedback/fe
 import { facilitationControllerAnswerPoll } from '../../api/generated/fn/facilitation/facilitation-controller-answer-poll';
 import { facilitationControllerEndPoll } from '../../api/generated/fn/facilitation/facilitation-controller-end-poll';
 import { facilitationControllerStartPoll } from '../../api/generated/fn/facilitation/facilitation-controller-start-poll';
-import { formatRemaining, pollTally, ranking, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
+import { activityLabel, formatRemaining, pollTally, ranking, type StepActivity, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
 const STEP_MINUTES = [0, 1, 2, 3, 5, 8, 10, 15, 20, 30, 45, 60];
 
-/** A step of the agenda while it's being edited: minutes and frame as the selects hold them. */
+/** A step of the agenda while it's being edited: minutes, frame and activity as the fields hold them. */
 interface DraftStep {
   id?: string;
   title: string;
   minutes: string;
   frameId: string;
+  /** '' for none. */
+  activity: '' | StepActivity['kind'];
+  anonymous: boolean;
+  votesEach: string;
+  question: string;
+  pollKind: 'choice' | 'fist';
+  /** A choice poll's options, separated by commas. */
+  options: string;
+}
+
+const NEW_STEP: Omit<DraftStep, 'title'> = { minutes: '5', frameId: '', activity: '', anonymous: true, votesEach: '3', question: '', pollKind: 'choice', options: '' };
+
+/** A step's activity as the editor holds it, or the reason it can't be saved. */
+function activityFrom(s: DraftStep): StepActivity | null | string {
+  if (s.activity === 'writing') return { kind: 'writing', anonymous: s.anonymous };
+  if (s.activity === 'vote') return { kind: 'vote', votesEach: Number(s.votesEach) };
+  if (s.activity !== 'poll') return null;
+  const options = s.options.split(',').map((o) => o.trim()).filter(Boolean);
+  if (!s.question.trim()) return `“${s.title.trim()}” needs a poll question.`;
+  if (s.pollKind === 'choice' && options.length < 2) return `“${s.title.trim()}” needs two or more poll options, separated by commas.`;
+  return { kind: 'poll', question: s.question.trim(), pollKind: s.pollKind, options: s.pollKind === 'choice' ? options.slice(0, 8) : [] };
 }
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
 /** The tools in the facilitator's dock, each opening its setup over it; the room (lead, private mode, parking lot) comes last. */
@@ -324,17 +345,35 @@ export class BoardFacilitation {
     return seconds ? `${Math.round(seconds / 60)} min` : 'No timer';
   }
 
+  protected readonly activityLabel = activityLabel;
+  protected readonly activityKinds = [
+    { value: '', label: 'No activity' },
+    { value: 'writing', label: 'Hidden writing' },
+    { value: 'vote', label: 'Dot vote' },
+    { value: 'poll', label: 'Poll' },
+  ];
+
   protected editAgenda(): void {
     const steps = this.agenda().steps;
     this.drafting.set(
       steps.length
-        ? steps.map((s) => ({ id: s.id, title: s.title, minutes: String(Math.round(s.seconds / 60)), frameId: s.frameId ?? '' }))
-        : [{ title: '', minutes: '5', frameId: '' }],
+        ? steps.map((s) => ({
+            ...NEW_STEP,
+            id: s.id,
+            title: s.title,
+            minutes: String(Math.round(s.seconds / 60)),
+            frameId: s.frameId ?? '',
+            activity: s.activity?.kind ?? '',
+            ...(s.activity?.kind === 'writing' ? { anonymous: s.activity.anonymous } : {}),
+            ...(s.activity?.kind === 'vote' ? { votesEach: String(s.activity.votesEach) } : {}),
+            ...(s.activity?.kind === 'poll' ? { question: s.activity.question, pollKind: s.activity.pollKind, options: s.activity.options.join(', ') } : {}),
+          }))
+        : [{ ...NEW_STEP, title: '' }],
     );
   }
 
   protected addStep(): void {
-    this.drafting.update((steps) => [...(steps ?? []), { title: '', minutes: '5', frameId: '' }]);
+    this.drafting.update((steps) => [...(steps ?? []), { ...NEW_STEP, title: '' }]);
   }
 
   protected updateStep(i: number, change: Partial<DraftStep>): void {
@@ -347,10 +386,24 @@ export class BoardFacilitation {
 
   protected async saveAgenda(): Promise<void> {
     const steps = (this.drafting() ?? []).filter((s) => s.title.trim());
+    const activities = steps.map(activityFrom);
+    const problem = activities.find((a) => typeof a === 'string');
+    if (problem) {
+      this.problem.set(problem);
+      return;
+    }
     await this.#run(async () => {
       await this.#api.invoke(facilitationControllerSetAgenda, {
         id: this.boardId(),
-        body: { steps: steps.map((s) => ({ ...(s.id ? { id: s.id } : {}), title: s.title.trim(), seconds: Number(s.minutes) * 60, frameId: s.frameId || null })) },
+        body: {
+          steps: steps.map((s, i) => ({
+            ...(s.id ? { id: s.id } : {}),
+            title: s.title.trim(),
+            seconds: Number(s.minutes) * 60,
+            frameId: s.frameId || null,
+            activity: activities[i] as StepActivity | null,
+          })),
+        },
       });
       this.drafting.set(null);
     });

@@ -1,11 +1,20 @@
 import * as Y from 'yjs';
-import { FacilitationFeed, formatRemaining, noteVotes, pollTally, ranking } from './facilitation';
+import { FacilitationFeed, activityLabel, formatRemaining, noteVotes, pollTally, ranking } from './facilitation';
 
 describe('formatRemaining', () => {
   it('shows minutes and seconds, rounding up', () => {
     expect(formatRemaining(245_000)).toBe('4:05');
     expect(formatRemaining(8_100)).toBe('0:09');
     expect(formatRemaining(-50)).toBe('0:00');
+  });
+});
+
+describe('activityLabel', () => {
+  it('says what a step runs in a few words', () => {
+    expect(activityLabel(null)).toBe('');
+    expect(activityLabel({ kind: 'writing', anonymous: true })).toBe('Hidden writing, anonymous');
+    expect(activityLabel({ kind: 'vote', votesEach: 3 })).toBe('Dot vote, 3 each');
+    expect(activityLabel({ kind: 'poll', question: 'Ready?', pollKind: 'fist', options: [] })).toBe('Fist to five: Ready?');
   });
 });
 
@@ -98,7 +107,7 @@ describe('FacilitationFeed', () => {
     feed.destroy();
   });
 
-  it('reads the agenda, and no current step when the step it names is gone', () => {
+  it('reads the agenda (steps saved before activities have none), and no current step when the step it names is gone', () => {
     const doc = new Y.Doc();
     const feed = new FacilitationFeed(doc);
     expect(feed.state().agenda).toEqual({ steps: [], current: null });
@@ -107,7 +116,7 @@ describe('FacilitationFeed', () => {
       doc.getMap('agenda').set('steps', steps);
       doc.getMap('agenda').set('current', 0);
     });
-    expect(feed.state().agenda).toEqual({ steps, current: 0 });
+    expect(feed.state().agenda).toEqual({ steps: [{ ...steps[0], activity: null }], current: 0 });
     doc.getMap('agenda').set('current', 4);
     expect(feed.state().agenda.current).toBeNull();
     feed.destroy();

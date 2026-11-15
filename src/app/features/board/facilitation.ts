@@ -87,12 +87,27 @@ export interface Spotlight {
   view: { cx: number; cy: number; zoom: number } | null;
 }
 
-/** One step of the session's agenda: what it's for, its time (0 for none), and the frame everyone goes to. */
+/** What a step runs when it starts (moving on wraps it up): hidden writing, a dot vote, or a poll. */
+export type StepActivity =
+  | { kind: 'writing'; anonymous: boolean }
+  | { kind: 'vote'; votesEach: number }
+  | { kind: 'poll'; question: string; pollKind: 'choice' | 'fist'; options: string[] };
+
+/** One step of the session's agenda: what it's for, its time (0 for none), the frame everyone goes to, what it runs. */
 export interface AgendaStep {
   id: string;
   title: string;
   seconds: number;
   frameId: string | null;
+  activity: StepActivity | null;
+}
+
+/** A step's activity in a few words, for the run sheet. */
+export function activityLabel(a: StepActivity | null): string {
+  if (!a) return '';
+  if (a.kind === 'writing') return a.anonymous ? 'Hidden writing, anonymous' : 'Hidden writing';
+  if (a.kind === 'vote') return `Dot vote, ${a.votesEach} each`;
+  return a.pollKind === 'fist' ? `Fist to five: ${a.question}` : `Poll: ${a.question}`;
 }
 /** The agenda, and the step it's on (null before it starts and after it ends). */
 export interface Agenda {
@@ -185,7 +200,8 @@ export class FacilitationFeed {
   }
 
   #agendaOf(): Agenda {
-    const steps = Array.isArray(this.#agenda.get('steps')) ? (this.#agenda.get('steps') as AgendaStep[]) : [];
+    // Steps saved before steps had activities have none.
+    const steps = Array.isArray(this.#agenda.get('steps')) ? (this.#agenda.get('steps') as AgendaStep[]).map((s) => ({ ...s, activity: s.activity ?? null })) : [];
     const current = this.#agenda.get('current');
     return { steps, current: typeof current === 'number' && current >= 0 && current < steps.length ? current : null };
   }
