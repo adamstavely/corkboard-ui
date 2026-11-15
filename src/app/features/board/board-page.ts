@@ -56,6 +56,7 @@ import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { activityControllerList } from '../../api/generated/fn/activity/activity-controller-list';
 import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
 import { FILE_CARD, type Media } from './board-doc';
+import { placedFileSize } from './items';
 import { reactionsControllerReact } from '../../api/generated/fn/reactions/reactions-controller-react';
 import { BoardFacilitation } from './board-facilitation';
 import { FacilitationFeed, noteVotes } from './facilitation';
@@ -404,7 +405,7 @@ export class BoardPage {
   protected async place(file: BoardFileDto, local: File | undefined, at = this.canvas()?.viewCentre()): Promise<void> {
     const board = this.board();
     if (!board || !at) return;
-    let size: { w: number; h: number } = FILE_CARD;
+    let size: { w: number; h: number } = placedFileSize(file.mime) ?? FILE_CARD;
     if (file.mime.startsWith('image/') && local) {
       const bitmap = await createImageBitmap(local).catch(() => null);
       if (bitmap) size = imageSize(bitmap.width, bitmap.height);

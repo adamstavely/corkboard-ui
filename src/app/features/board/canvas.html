@@ -88,7 +88,8 @@
         [class.found]="isFound(m.id)"
         [class.found-current]="current() === m.id"
         [class.locked]="board().locked().has(m.id)"
-        [class.file]="m.kind === 'file'"
+        [class.file]="m.kind === 'file' && !playable(m)"
+        [class.playable]="!!playable(m)"
         [attr.data-media-id]="m.id"
         [style.left.px]="m.x"
         [style.top.px]="m.y"
@@ -116,6 +117,25 @@
               {{ pin.n }}
             </button>
           }
+        } @else if (playable(m); as kind) {
+          <!-- Video, audio and PDFs show on the board: picked up by their name bar, used below it. -->
+          <span class="media-bar">
+            <span class="file-name">{{ m.name }}</span>
+            <span class="file-size">{{ fileSize(m.size) }}</span>
+          </span>
+          <span class="media-body" [class.for-pdf]="kind === 'pdf'" (pointerdown)="kind !== 'pdf' && $event.stopPropagation()">
+            @if (kind === 'pdf') {
+              <app-pdf-pages [src]="fileUrls().get(m.fileId)" [name]="m.name" [width]="m.w" [height]="m.h - 28" />
+            } @else if (fileUrls().get(m.fileId); as src) {
+              @if (kind === 'video') {
+                <video [src]="src" controls preload="metadata" [attr.aria-label]="m.name"></video>
+              } @else {
+                <audio [src]="src" controls preload="metadata" [attr.aria-label]="m.name"></audio>
+              }
+            } @else {
+              <span class="media-loading">Loading…</span>
+            }
+          </span>
         } @else {
           <span class="file-icon" aria-hidden="true">{{ (m.name.split('.').pop() ?? '').slice(0, 4).toUpperCase() }}</span>
           <span class="file-text">
@@ -179,6 +199,9 @@
           @case ('shape') {
             <svg class="shape-fill" [attr.viewBox]="'0 0 ' + item.w + ' ' + item.h" preserveAspectRatio="none" aria-hidden="true">
               <path [attr.d]="shapePath(item.shape, item.w, item.h)" [style.fill]="'var(--note-' + item.color + ')'" />
+              @if (shapeDetail(item.shape, item.w, item.h); as detail) {
+                <path class="shape-detail" [attr.d]="detail" />
+              }
             </svg>
             @if (itemEditing()?.id !== item.id) {
               <span class="shape-label">{{ item.label }}</span>

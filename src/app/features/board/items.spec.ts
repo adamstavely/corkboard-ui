@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
-import { BoardDoc, VIEW_MIN, VIEW_SIZE, type DrawingItem, type LinkItem, type ShapeItem, type TableItem, type TextItem, type ViewItem } from './board-doc';
+import { BoardDoc, SHAPES, VIEW_MIN, VIEW_SIZE, type DrawingItem, type LinkItem, type ShapeItem, type TableItem, type TextItem, type ViewItem } from './board-doc';
 import { boardBounds } from './export';
-import { safeUrl, shapePath } from './items';
+import { placedFileSize, playableKind, safeUrl, shapeDetail, shapePath } from './items';
 
 describe('shapes, text, drawings, tables and link cards', () => {
   let board: BoardDoc;
@@ -83,5 +83,35 @@ describe('shapes, text, drawings, tables and link cards', () => {
 
   it('draws each shape as a closed path', () => {
     for (const s of ['rect', 'ellipse', 'diamond', 'triangle'] as const) expect(shapePath(s, 100, 50)).toMatch(/^M .* Z$/);
+  });
+});
+
+describe('shapes', () => {
+  it('each draw a closed outline inside their box', () => {
+    for (const shape of SHAPES) {
+      const d = shapePath(shape, 200, 120);
+      expect(d).toMatch(/^M /);
+      expect(d).toMatch(/Z$/);
+      const numbers = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+      expect(Math.min(...numbers)).toBeGreaterThanOrEqual(0);
+      expect(numbers.some((n) => Number.isNaN(n))).toBe(false);
+    }
+  });
+
+  it('give a cylinder its top rim, and nothing else a detail line', () => {
+    expect(shapeDetail('cylinder', 200, 120)).toMatch(/^M 0 18 A 100 18/);
+    expect(SHAPES.filter((s) => shapeDetail(s, 200, 120))).toEqual(['cylinder']);
+  });
+});
+
+describe('files that show on the board', () => {
+  it('are video, audio and PDFs, each at its own size', () => {
+    expect(playableKind({ kind: 'file', mime: 'video/webm' })).toBe('video');
+    expect(playableKind({ kind: 'file', mime: 'audio/mpeg' })).toBe('audio');
+    expect(playableKind({ kind: 'file', mime: 'application/pdf' })).toBe('pdf');
+    expect(playableKind({ kind: 'file', mime: 'text/plain' })).toBeNull();
+    expect(playableKind({ kind: 'image', mime: 'image/png' })).toBeNull();
+    expect(placedFileSize('video/mp4')).toEqual({ w: 480, h: 300 });
+    expect(placedFileSize('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBeNull();
   });
 });

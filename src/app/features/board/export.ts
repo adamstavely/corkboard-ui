@@ -1,7 +1,7 @@
 import { renderDiagram, svgUrl } from './diagram';
 import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
-import { shapePath } from './items';
+import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
 
@@ -414,6 +414,14 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
     case 'shape':
       ctx.fillStyle = color(`--note-${item.color}`, '#cfe3ff');
       ctx.fill(new Path2D(shapePath(item.shape, item.w, item.h)));
+      {
+        const detail = shapeDetail(item.shape, item.w, item.h);
+        if (detail) {
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke(new Path2D(detail));
+        }
+      }
       if (item.label) centred(item.label, 15);
       break;
     case 'text':

@@ -45,7 +45,13 @@
   height: 100%;
   overflow: visible;
 }
-.item-shape .shape-fill path {
+.item-shape .shape-fill .shape-detail {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.25);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.item-shape .shape-fill path:not(.shape-detail) {
   stroke: color-mix(in srgb, currentColor 15%, transparent);
   stroke-width: 1;
 }

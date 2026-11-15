@@ -4,6 +4,7 @@ import { Icon, type IconName } from '../../shared/icon';
 import { Highlighter, List, ListOrdered, type IconNode, SquareCode, Sigma } from 'lucide';
 import { DiagramView } from './diagram-view';
 import { ChartView } from './chart-view';
+import { PdfPages } from './pdf-pages';
 import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
 import { DIAGRAM_STARTERS, diagramTitle, type DiagramKind } from './diagram';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
@@ -31,7 +32,7 @@ import type { NoteVotes } from './facilitation';
 import { arrowLines, boardBounds, boardBoxes, dashPattern } from './export';
 import { ArrowStyleBar } from './arrow-style';
 import { PenStyleBar } from './pen-style';
-import { safeUrl, shapePath } from './items';
+import { playableKind, safeUrl, shapeDetail, shapePath } from './items';
 import type { NoteReaction } from './reactions';
 import type { Media } from './board-doc';
 import { fileSize } from './file-cache';
@@ -59,7 +60,18 @@ const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: '
 /** A drag smaller than this, on screen, is a click: the thing gets its usual size. */
 const DRAG_MIN = 8;
 
-const SHAPE_NAMES: Record<ShapeKind, string> = { rect: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', triangle: 'Triangle' };
+const SHAPE_NAMES: Record<ShapeKind, string> = {
+  rect: 'Rectangle',
+  ellipse: 'Ellipse',
+  diamond: 'Diamond',
+  triangle: 'Triangle',
+  hexagon: 'Hexagon',
+  star: 'Star',
+  arrow: 'Arrow',
+  cylinder: 'Cylinder',
+  cloud: 'Cloud',
+  callout: 'Speech bubble',
+};
 const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
   { id: 'sm', label: 'S', name: 'Small' },
   { id: 'md', label: 'M', name: 'Medium' },
@@ -123,7 +135,7 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView, PdfPages],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-frames.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -205,6 +217,8 @@ export class Canvas {
   protected readonly shapeNames = SHAPE_NAMES;
   protected readonly textSizeNames = TEXT_SIZE_NAMES;
   protected readonly shapePath = shapePath;
+  protected readonly shapeDetail = shapeDetail;
+  protected readonly playable = playableKind;
   protected readonly safeUrl = safeUrl;
   protected readonly insertOpen = signal(false);
   /** Drawing with the pen: a drag on the board draws instead of selecting. */
@@ -226,7 +240,18 @@ export class Canvas {
   protected readonly tagOpen = signal(false);
   protected readonly reactOpen = signal(false);
   protected readonly moreOpen = signal(false);
-  protected readonly shapeIcons: Record<ShapeKind, IconName> = { rect: 'rect', ellipse: 'oval', diamond: 'rhombus', triangle: 'triangle' };
+  protected readonly shapeIcons: Record<ShapeKind, IconName> = {
+    rect: 'rect',
+    ellipse: 'oval',
+    diamond: 'rhombus',
+    triangle: 'triangle',
+    hexagon: 'hexagon',
+    star: 'star',
+    arrow: 'blockArrow',
+    cylinder: 'cylinder',
+    cloud: 'cloud',
+    callout: 'callout',
+  };
   /** The colour of the first selected note or shape, for the selection bar's swatch. */
   protected readonly barColour = computed<NoteColor>(() => {
     const sel = this.selection();

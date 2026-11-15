@@ -91,6 +91,9 @@ import {
   Spade,
   Workflow,
   ChartColumn,
+  Hexagon,
+  ArrowBigRight,
+  Cylinder,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -175,6 +178,10 @@ export const ICONS = {
   mindmap: Network,
   diagram: Workflow,
   chart: ChartColumn,
+  hexagon: Hexagon,
+  blockArrow: ArrowBigRight,
+  cylinder: Cylinder,
+  callout: MessageSquare,
   branch: GitBranchPlus,
   unfold: ChevronsRight,
   fold: ChevronsLeft,

@@ -11,7 +11,7 @@ import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
 import type { FileCache } from './file-cache';
 import { modelChoice } from './model-choice';
 
-const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', '.pdf', '.txt', '.md', '.csv', '.docx', '.xlsx', '.pptx'];
+const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', '.pdf', '.txt', '.md', '.csv', '.docx', '.xlsx', '.pptx', '.mp4', '.webm', '.mp3', '.m4a', '.ogg', '.wav'];
 
 /** Adding images and files to the board: Trench Coat's dropzone, each upload placed on the board when it lands. */
 @Component({
@@ -20,7 +20,7 @@ const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', '.pdf', '.
   template: `
     <aside class="panel" aria-label="Add images and files">
       <div class="head">
-        <span class="note">Images, PDFs, text and Office documents, up to 10 MB each. You can also drop them straight on the board.</span>
+        <span class="note">Images, PDFs, text, Office documents, video and audio, up to 10 MB each. You can also drop them straight on the board.</span>
         <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
       </div>
       <tc-dropzone name="files" [accept]="accept" [maxSize]="maxSize" [onUpload]="upload" hint="They go in the middle of what you're looking at."></tc-dropzone>
