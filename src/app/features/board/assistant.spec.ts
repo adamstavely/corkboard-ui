@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import type { Api } from '../../api/generated/api';
 import { AssistantSession, changesLine, fileKind, siteOf } from './assistant';
 
-const result = { reply: 'Two themes.', citedNoteIds: [], citedFiles: [], citedPages: [], framesAdded: 2, notesAdded: 0, notesChanged: 0, notesMoved: 5 };
+const result = { reply: 'Two themes.', citedNoteIds: [], citedFiles: [], citedPages: [], suggestionId: null, framesAdded: 2, notesAdded: 0, notesChanged: 0, notesMoved: 5 };
 
 function fakeApi(answer: (body: unknown) => Promise<unknown>) {
   const sent: unknown[] = [];
@@ -74,5 +74,12 @@ describe('the board assistant', () => {
       { title: 'Pilot results', name: 'news.example', href: 'https://www.news.example/pilot' },
     ]);
     expect(siteOf('not a url')).toBe('not a url');
+  });
+
+  it('says a change was only suggested when the model was set to ask first', async () => {
+    const { api } = fakeApi(() => Promise.resolve({ ...result, suggestionId: 's1' }));
+    const session = new AssistantSession(api, 'b1', () => 'm1', () => []);
+    await session.send('Group these');
+    expect(session.messages()[1].text).toBe('Two themes.\n\nSuggested, not made yet: made 2 frames, moved 5 notes into frames. Accept it or turn it down under Suggestions.');
   });
 });

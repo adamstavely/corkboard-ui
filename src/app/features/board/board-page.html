@@ -118,6 +118,21 @@
             <span class="count" aria-hidden="true">{{ openThreads() }}</span>
           }
         </button>
+        @if (suggestions().length || panel() === 'suggestions') {
+          <button
+            type="button"
+            class="icon-btn"
+            [attr.aria-label]="'Suggestions, ' + suggestions().length + ' waiting'"
+            data-tip="Suggestions"
+            [attr.aria-pressed]="panel() === 'suggestions'"
+            (click)="togglePanel('suggestions')"
+          >
+            <app-icon name="suggestion" />
+            @if (suggestions().length) {
+              <span class="count" aria-hidden="true">{{ suggestions().length }}</span>
+            }
+          </button>
+        }
         <button type="button" class="ask" [attr.aria-pressed]="assistantOpen()" [attr.data-tip]="'Ask AI  ' + modKey + '.'" (click)="assistantOpen.set(!assistantOpen())">
           <app-icon name="sparkles" />
           Ask AI
@@ -243,6 +258,16 @@
           @if (w.open && canComment()) {
             <app-writing-tray [boardId]="id()" [writing]="w" />
           }
+        }
+        @if (previewingSuggestion(); as s) {
+          <app-suggestion-preview
+            [boardId]="id()"
+            [suggestion]="s"
+            [current]="board()!"
+            [canEdit]="canEdit()"
+            [fileUrls]="files()?.urls() ?? emptyUrls"
+            (closed)="previewSuggestion(null)"
+          />
         }
         @if (previewing(); as v) {
           <app-version-preview
@@ -392,6 +417,9 @@
               }
             }
           </div>
+        }
+        @if (panel() === 'suggestions') {
+          <app-board-suggestions [boardId]="id()" [list]="suggestions()" [canEdit]="canEdit()" (preview)="previewSuggestion($event)" (closed)="panel.set(null)" />
         }
         @if (panel() === 'history' && ledger()) {
           <app-board-history [boardId]="id()" [feed]="ledger()!" [canEdit]="canEdit()" (closed)="panel.set(null)" />

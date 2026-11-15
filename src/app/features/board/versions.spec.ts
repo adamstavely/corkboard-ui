@@ -3,7 +3,7 @@ import { BoardDoc } from './board-doc';
 import { changesSince, unchanged } from './versions';
 
 describe('comparing a version with the board now', () => {
-  it('lists notes added, removed, edited and moved, and frames and files changed', () => {
+  it('lists notes added, removed, edited, moved and recoloured, and frames and files changed', () => {
     const now = new BoardDoc();
     const keep = now.addNote(0, 0, 'yellow', 'Keep');
     const edit = now.addNote(300, 0, 'yellow', 'Before');
@@ -19,6 +19,7 @@ describe('comparing a version with the board now', () => {
     text.delete(0, 6);
     text.insert(0, 'After');
     now.move([keep], 50, 50);
+    now.setColor([keep], 'pink');
     now.renameFrame(frame, 'New title');
     now.addMedia({ id: 'f1', name: 'photo.png', mime: 'image/png', size: 1 }, 0, 0, { w: 10, h: 10 });
 
@@ -27,6 +28,7 @@ describe('comparing a version with the board now', () => {
       removed: ['Gone soon'],
       edited: [{ before: 'Before', after: 'After' }],
       moved: 1,
+      recoloured: 1,
       framesAdded: [],
       framesRemoved: [],
       framesRenamed: [{ before: 'Old title', after: 'New title' }],

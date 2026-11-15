@@ -1,22 +1,26 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, resource, signal } from '@angular/core';
+import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { Api } from '../../api/generated/api';
+import { meControllerMe } from '../../api/generated/fn/me/me-controller-me';
+import { meControllerUpdate } from '../../api/generated/fn/me/me-controller-update';
 import { passkeysControllerList } from '../../api/generated/fn/auth/passkeys-controller-list';
 import { passkeysControllerRemove } from '../../api/generated/fn/auth/passkeys-controller-remove';
 import type { PasskeyDto } from '../../api/generated/models/passkey-dto';
 import { Auth } from '../../core/auth';
 import { addPasskey, passkeyProblem } from '../../core/passkeys';
 
-/** Your passkeys: add one on this device (or another), and remove ones you no longer use. */
+/** Your settings: passkeys (add one on this device or another, remove ones you no longer use) and how the assistant works for you. */
 @Component({
   selector: 'app-account-page',
-  imports: [Button, DatePipe, Skeleton],
+  imports: [Button, DatePipe, Skeleton, Switch],
   template: `
     <div class="page">
-      <h1>Passkeys</h1>
+      <h1>Settings</h1>
+      <h2>Passkeys</h2>
       <p class="lead">
         You sign in to Corkboard as {{ auth.profile().email }} with any of these. Add one on each device you use, so losing one doesn't lock you out.
       </p>
@@ -53,6 +57,17 @@ import { addPasskey, passkeyProblem } from '../../core/passkeys';
       <div class="actions">
         <tc-button label="Add a passkey on this device" [loading]="adding()" (click)="add()"></tc-button>
       </div>
+
+      <h2>Assistant</h2>
+      @if (me.hasValue()) {
+        <tc-switch
+          label="Ask me before changing a board"
+          description="The assistant suggests its changes instead of making them; you (or another updater) accept them or turn them down. Accepted changes can still be undone from History."
+          [value]="me.value().assistantAsksFirst"
+          [disabled]="saving()"
+          (tc-value-change)="$event.preventDefault(); setAsksFirst($event.detail.value)"
+        ></tc-switch>
+      }
     </div>
   `,
   styles: `
@@ -103,6 +118,15 @@ import { addPasskey, passkeyProblem } from '../../core/passkeys';
     .problem {
       color: var(--tc-status-danger-fg);
     }
+    h2 {
+      margin: var(--tc-space-8) 0 var(--tc-space-2);
+      font-size: var(--tc-font-size-lg);
+      font-weight: var(--tc-font-weight-semibold);
+      color: var(--tc-text-strong);
+    }
+    h2:first-of-type {
+      margin-top: var(--tc-space-4);
+    }
   `,
 })
 export class AccountPage {
@@ -113,6 +137,22 @@ export class AccountPage {
   protected readonly adding = signal(false);
   protected readonly removing = signal<string | null>(null);
   protected readonly problem = signal('');
+  protected readonly me = resource({ loader: () => this.#api.invoke(meControllerMe) });
+  protected readonly saving = signal(false);
+
+  protected async setAsksFirst(on: boolean): Promise<void> {
+    this.saving.set(true);
+    try {
+      this.me.set(await this.#api.invoke(meControllerUpdate, { body: { assistantAsksFirst: on } }));
+      toast.success(on ? 'The assistant will ask first' : 'The assistant will make its changes', {
+        description: on ? 'Its changes wait under Suggestions on the board.' : 'Undo them from History if need be.',
+      });
+    } catch {
+      toast.error("That didn't save. Try again.");
+    } finally {
+      this.saving.set(false);
+    }
+  }
 
   protected async add(): Promise<void> {
     this.problem.set('');

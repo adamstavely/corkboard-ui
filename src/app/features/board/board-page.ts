@@ -40,6 +40,8 @@ import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
 import { BoardClusters, BoardHistory } from './board-insights';
 import { LedgerFeed } from './ledger';
+import { BoardSuggestions, SuggestionPreview } from './board-suggestions';
+import { SuggestionsFeed, type Suggestion } from './suggestions';
 import { ReactionsFeed, reactionsFor } from './reactions';
 import { FileCache, imageSize, openFile } from './file-cache';
 import { BoardFiles, ImageAsk } from './board-files';
@@ -97,7 +99,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -219,7 +221,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** A saved version shown in place of the board, read-only, until they go back (or restore it). */
@@ -229,6 +231,16 @@ export class BoardPage {
   /** The image being asked about. */
   protected readonly asking = signal<Media | null>(null);
   protected readonly ledger = signal<LedgerFeed | undefined>(undefined);
+  protected readonly suggestionsFeed = signal<SuggestionsFeed | undefined>(undefined);
+  protected readonly suggestions = computed(() => this.suggestionsFeed()?.list() ?? []);
+  /** The suggestion shown in place of the board; it closes by itself once someone accepts or turns it down. */
+  readonly #previewingSuggestion = signal<string | null>(null);
+  protected readonly previewingSuggestion = computed(() => this.suggestions().find((s) => s.id === this.#previewingSuggestion()) ?? null);
+  protected previewSuggestion(s: Suggestion | null): void {
+    this.#previewingSuggestion.set(s?.id ?? null);
+  }
+  /** Suggestions already on the board when it opened, or already seen: only new ones for you open the panel. */
+  readonly #seenSuggestions = new Set<string>();
   protected readonly reactionsFeed = signal<ReactionsFeed | undefined>(undefined);
   protected readonly reactions = computed(() => {
     const me = this.#me()?.id;
@@ -479,7 +491,7 @@ export class BoardPage {
     }
   }
 
-  protected togglePanel(which: 'share' | 'comments' | 'summary' | 'history' | 'clusters' | 'files' | 'activity' | 'outline'): void {
+  protected togglePanel(which: 'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'activity' | 'outline'): void {
     this.panel.update((open) => (open === which ? null : which));
   }
 
@@ -707,6 +719,17 @@ export class BoardPage {
   protected readonly deleting = signal(false);
 
   constructor() {
+    // A new suggestion made for you (from Ask AI or the chat) opens the suggestions, so you can decide on it.
+    effect(() => {
+      const list = this.suggestions();
+      const loaded = this.connection()?.status() !== 'connecting';
+      const me = this.meId();
+      untracked(() => {
+        const fresh = list.filter((s) => !this.#seenSuggestions.has(s.id));
+        for (const s of fresh) this.#seenSuggestions.add(s.id);
+        if (loaded && fresh.some((s) => s.forId === me) && this.canEdit()) this.panel.set('suggestions');
+      });
+    });
     // When the facilitator brings everyone, everyone else's view goes there (once each time, not on opening the board).
     let seenSpotlight: number | null = null;
     effect(() => {
@@ -863,6 +886,8 @@ export class BoardPage {
         this.summaryFeed.set(summary);
         const ledger = new LedgerFeed(board.doc);
         this.ledger.set(ledger);
+        const suggestions = new SuggestionsFeed(board.doc);
+        this.suggestionsFeed.set(suggestions);
         const reactions = new ReactionsFeed(board.doc);
         this.reactionsFeed.set(reactions);
         const files = new FileCache(id, () => this.#auth.token() ?? '');
@@ -881,6 +906,9 @@ export class BoardPage {
           summary.destroy();
           this.ledger.set(undefined);
           ledger.destroy();
+          this.suggestionsFeed.set(undefined);
+          suggestions.destroy();
+          this.#previewingSuggestion.set(null);
           this.reactionsFeed.set(undefined);
           reactions.destroy();
           this.files.set(undefined);
