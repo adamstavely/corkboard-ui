@@ -8,6 +8,8 @@ import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { boardCanvas, boardMarkdown, download, fileName, loadImages } from './export';
 import { Api } from '../../api/generated/api';
+import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-controller-templates';
+import { templateCards } from './template-cards';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
 import { boardsControllerRename } from '../../api/generated/fn/boards/boards-controller-rename';
@@ -495,6 +497,21 @@ export class BoardPage {
     return badges;
   });
 
+  // ── Board templates ──
+
+  protected readonly pickingTemplate = signal(false);
+  /** The templates, fetched the first time the picker opens. */
+  protected readonly boardTemplates = resource({
+    params: () => (this.pickingTemplate() ? true : undefined),
+    loader: () => this.#api.invoke(boardsControllerTemplates),
+  });
+  protected readonly templatePicker = computed(() =>
+    templateCards(this.boardTemplates.hasValue() ? this.boardTemplates.value() : [], (t) => {
+      this.pickingTemplate.set(false);
+      if (t) this.canvas()?.placeLayout(t.layout);
+    }, false),
+  );
+
   // ── Recurring boards ──
 
   /** The board this one carries on from, to link back to; null when there's none, or it's gone. */
@@ -593,6 +610,7 @@ export class BoardPage {
         { id: 'fit', label: 'Fit everything in view', run: () => canvas.fitAll() },
         { id: 'chat', label: 'Open the chat', run: () => this.chatOpen.set(true) },
         { id: 'present', label: 'Present this board', run: () => this.togglePresenting() },
+        ...(this.canEdit() ? [{ id: 'templates', label: 'Board templates', run: () => this.pickingTemplate.set(true) }] : []),
         ...(this.canRun() ? [{ id: 'facilitate', label: 'Facilitate: timer, votes, writing, breakouts', run: () => this.toggleFacilitating(true) }] : []),
         view('tasks', 'Tasks on the board'),
         view('matrix', 'Prioritisation matrix on the board'),

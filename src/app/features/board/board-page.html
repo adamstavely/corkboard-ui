@@ -169,6 +169,7 @@
           [fileUrls]="files()?.urls() ?? emptyUrls"
           (filesDropped)="onDropped($event.files, $event.at)"
           (addFiles)="togglePanel('files')"
+          (boardTemplates)="pickingTemplate.set(true)"
           (askImage)="askAbout($event)"
           (openFile)="open($event)"
           [frameBadges]="frameBadges()"
@@ -360,4 +361,14 @@
   [open]="confirmDelete()"
   [actions]="deleteActions()"
   (tc-open-change)="confirmDelete.set($event.detail.open)"
+></tc-dialog>
+
+<tc-dialog
+  size="xl"
+  label="Board templates"
+  description="Lay one out on this board. Undo takes it all away again."
+  close-label="Cancel"
+  [open]="pickingTemplate()"
+  [content]="templatePicker()"
+  (tc-open-change)="pickingTemplate.set($event.detail.open)"
 ></tc-dialog>

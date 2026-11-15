@@ -16,7 +16,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type ViewItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -157,6 +157,8 @@ export class Canvas {
   readonly filesDropped = output<{ files: File[]; at: Point }>();
   /** Open the add-files panel, ask about an image, or open a file. */
   readonly addFiles = output<void>();
+  /** Open the board-template picker. */
+  readonly boardTemplates = output<void>();
   readonly askImage = output<Media>();
   readonly openFile = output<Media>();
   /** Comments pinned to spots on images, by image; a pin opens its thread, and a new one can be placed. */
@@ -268,6 +270,26 @@ export class Canvas {
     const at = this.#viewCentre();
     const id = this.board().addView(at.x, at.y, view);
     this.selection.set(new Set([id]));
+  }
+
+  /**
+   * Lays a template out in the middle of the view, or to the right of everything if that would cover what's there, then
+   * brings it into view. One undo takes it all away.
+   */
+  placeLayout(layout: Layout): void {
+    if (this.readOnly()) return;
+    const things = boardBoxes(this.board());
+    const size = layoutSize(layout);
+    let at = this.#viewCentre();
+    const box = { x: at.x - size.w / 2, y: at.y - size.h / 2, ...size };
+    const covers = things.some((b) => b.x < box.x + box.w && box.x < b.x + b.w && b.y < box.y + box.h && box.y < b.y + b.h);
+    if (covers) {
+      const right = Math.max(...things.map((b) => b.x + b.w)) + 160;
+      const top = Math.min(...things.map((b) => b.y));
+      at = { x: right + size.w / 2, y: top + size.h / 2 };
+    }
+    const ids = this.board().addLayout(layout, at.x, at.y);
+    this.show(ids, false);
   }
 
   protected undo(): void {

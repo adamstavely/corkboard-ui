@@ -654,8 +654,10 @@
           </div>
         </tc-menu-morph>
         <tc-menu-morph side="right" gap="12" [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
-          <button type="button" class="icon-btn" data-menu-trigger aria-label="Note templates" data-tip="Note templates" data-tip-side="right"><app-icon name="template" /></button>
-          <div data-menu class="app-menu" aria-label="Note templates">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Templates" data-tip="Templates" data-tip-side="right"><app-icon name="template" /></button>
+          <div data-menu class="app-menu" aria-label="Templates">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); boardTemplates.emit()"><app-icon name="arrange" /><span class="app-menu-label">Board templates…</span><span class="app-menu-hint">Retros, canvases, maps</span></button>
+            <hr />
             @for (t of noteTemplates; track t.id) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); insertTemplate(t)"><span class="app-menu-label">{{ t.name }}</span><span class="app-menu-hint">{{ t.hint }}</span></button>
             }
