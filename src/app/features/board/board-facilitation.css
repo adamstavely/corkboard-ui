@@ -108,7 +108,8 @@
   display: flex;
   flex-direction: column;
   width: min(340px, calc(100% - 2 * var(--tc-space-4)));
-  max-height: calc(100% - 2 * var(--tc-space-4) - 52px);
+  /* Clear of the top panels above and the zoom panel (and the assistant's launcher) below; it scrolls inside. */
+  max-height: calc(100% - (var(--tc-space-3) + 52px) - (var(--tc-space-4) + 64px));
   overflow: auto;
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-lg);
