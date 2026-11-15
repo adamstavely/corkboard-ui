@@ -195,7 +195,40 @@
   top: calc(var(--tc-space-3) + 52px);
   left: var(--tc-space-4);
   z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--tc-space-2);
   width: min(380px, calc(100% - 2 * var(--tc-space-4)));
+}
+.away tc-away-summary {
+  align-self: stretch;
+}
+/* What a model made of it all: a paragraph, then the few points, each a way to its notes. */
+.catch-up {
+  align-self: stretch;
+  padding: var(--tc-space-3);
+  font-size: var(--tc-font-size-sm);
+}
+.catch-up-summary {
+  display: flex;
+  gap: var(--tc-space-2);
+  margin: 0;
+}
+.catch-up-summary app-icon {
+  flex: none;
+  --icon-size: 16px;
+  color: var(--tc-accent-text);
+}
+.catch-up ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-1);
+  margin: var(--tc-space-2) 0 0;
+  padding-left: var(--tc-space-4);
+}
+.catch-up li span {
+  margin-right: var(--tc-space-1);
 }
 
 /* "← Sprint 12 retro": the board this one carries on from. */

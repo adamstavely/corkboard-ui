@@ -31,11 +31,12 @@ const STARTER_ICONS: Record<string, PromptStarterIconName> = {
   'Draft action items with owners': 'write',
   'Turn this plan into a timeline': 'calendar',
   'Score these by value and effort': 'chart',
+  'Turn action items into tasks': 'list',
   'Summarise this': 'document',
   'What are the open questions?': 'question',
   'Who owns what?': 'search',
 };
-const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn this plan into a timeline', 'Score these by value and effort', 'Summarise this'];
+const SUGGESTIONS = ['Group this retro by theme', 'Draft action items with owners', 'Turn action items into tasks', 'Turn this plan into a timeline', 'Score these by value and effort', 'Summarise this'];
 
 function stored(key: string): string | null {
   try {

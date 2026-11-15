@@ -8,6 +8,8 @@ import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { boardCanvas, boardMarkdown, download, fileName, loadImages } from './export';
 import { Api } from '../../api/generated/api';
+import { summaryControllerCatchUp } from '../../api/generated/fn/summary/summary-controller-catch-up';
+import type { CatchUpDto } from '../../api/generated/models/catch-up-dto';
 import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-controller-templates';
 import { templateCards } from './template-cards';
 import type { BoardTemplateDto } from '../../api/generated/models/board-template-dto';
@@ -45,6 +47,7 @@ import { BoardActivity } from './board-activity';
 import { AwaySummary } from '@adamstavely/trenchcoat/angular/away-summary';
 import type { AwayItem } from '@adamstavely/trenchcoat/away-summary';
 import { toast } from '@adamstavely/trenchcoat/toaster';
+import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { activityControllerList } from '../../api/generated/fn/activity/activity-controller-list';
 import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
 import { FILE_CARD, type Media } from './board-doc';
@@ -94,7 +97,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -417,6 +420,23 @@ export class BoardPage {
 
   /** What others did on the board since this person last had it open; null when there's nothing to say. */
   protected readonly away = signal<{ since: number; items: AwayItem[] } | null>(null);
+  /** What a model made of what others did while this person was away, once they ask. */
+  protected readonly catchUp = signal<CatchUpDto | null>(null);
+  protected readonly catchingUp = signal(false);
+
+  protected async askCatchUp(since: number): Promise<void> {
+    const modelId = this.models.modelId();
+    if (!modelId) return;
+    this.catchingUp.set(true);
+    try {
+      this.catchUp.set(await this.#api.invoke(summaryControllerCatchUp, { id: this.id(), body: { modelId, since } }));
+    } catch (err) {
+      const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+      toast.error("Couldn't catch you up", { description: typeof message === 'string' ? message : 'Try again.' });
+    } finally {
+      this.catchingUp.set(false);
+    }
+  }
   #seenKey = (id: string) => `corkboard.seen.${id}`;
 
   #seen(id: string): number | null {
