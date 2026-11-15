@@ -20,6 +20,9 @@ import { noteExtensions, renderNoteText } from './note-text';
     @if (note().authorName && !hideAuthor()) {
       <span class="note-author">{{ note().participant ? 'Feedback · ' : '' }}{{ note().authorName }}</span>
     }
+    @if (folded()) {
+      <span class="note-folded" [attr.aria-label]="folded() + ' branches folded away'">+{{ folded() }}</span>
+    }
     @if (note().tags.length) {
       <span class="note-tags" [attr.aria-label]="'Tags: ' + note().tags.join(', ')">
         @for (tag of note().tags; track tag) {
@@ -84,6 +87,8 @@ export class NoteView {
   readonly selected = input(false);
   /** Private mode: who wrote it stays hidden. */
   readonly hideAuthor = input(false);
+  /** In a mind map, how many branches are folded away under it. */
+  readonly folded = input(0);
   readonly editing = input(false);
   /** Someone else who has this note selected or is writing in it. */
   readonly peer = input<{ name: string; color: string; editing: boolean } | null>(null);

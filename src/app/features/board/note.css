@@ -378,3 +378,20 @@ app-note mark[data-color='pink'] {
 app-note mark[data-color='purple'] {
   background: var(--hl-purple);
 }
+
+/* A mind map's folded branches: how many, at the note's right edge. */
+app-note .note-folded {
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  min-width: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--tc-border-default);
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  transform: translateY(-50%);
+}
