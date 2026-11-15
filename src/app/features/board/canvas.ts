@@ -16,7 +16,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -121,7 +121,7 @@ const CULL_FROM = 300;
   selector: 'app-canvas',
   imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet],
   templateUrl: './canvas.html',
-  styleUrls: ['./canvas.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
+  styleUrls: ['./canvas.css', './canvas-frames.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
 export class Canvas {
   readonly board = input.required<BoardDoc>();
@@ -304,19 +304,9 @@ export class Canvas {
     return ids;
   }
 
-  /** The layout: everything but notes, images, files, pen strokes and arrows. */
-  #layoutIds(): string[] {
-    const b = this.board();
-    return [...b.frames().map((f) => f.id), ...b.items().filter((i) => i.kind === 'text' || i.kind === 'shape' || i.kind === 'table' || i.kind === 'view').map((i) => i.id)];
-  }
-  /** Whether the whole layout is locked. */
-  readonly layoutLocked = computed(() => {
-    const ids = this.#layoutIds();
-    return ids.length > 0 && ids.every((id) => this.board().locked().has(id));
-  });
   /** Locks or unlocks the layout, so people can only add and move notes around it. */
   lockLayout(lock: boolean): void {
-    this.board().setLocked(this.#layoutIds(), lock);
+    this.board().setLocked(layoutIds(this.board()), lock);
   }
 
   /** Goes to the board's parking lot, a frame for what's not for now, making one first if there isn't one. */
@@ -477,6 +467,10 @@ export class Canvas {
   /** The first selected frame's look, for the bar's swatch and the menu's ticks. */
   protected readonly frameStyle = computed<FrameStyle>(() => this.selectedFrames()[0] ?? DEFAULT_FRAME);
   protected readonly frameFills = FRAME_FILLS.map((fill) => ({ id: fill, label: fill === 'clear' ? 'Clear' : fill === 'solid' ? 'Solid' : COLOR_LABELS[fill] }));
+  protected readonly frameLooks: { id: FrameLook; label: string }[] = FRAME_LOOKS.map((l) => ({
+    id: l,
+    label: { outline: 'Outline', card: 'Card', band: 'Band', tab: 'Tab', zone: 'Zone', drop: 'Drop zone', lane: 'Lane', slide: 'Slide', browser: 'Browser' }[l],
+  }));
   protected readonly frameBorders: { id: FrameBorder; label: string }[] = FRAME_BORDERS.map((b) => ({ id: b, label: { solid: 'Solid border', dashed: 'Dashed border', none: 'No border' }[b] }));
 
   /** A fill as a swatch shows it (inline, so the menu's own button styles don't cover it); clear is hatched. */
@@ -486,7 +480,7 @@ export class Canvas {
     return `color-mix(in srgb, var(--note-${fill}) 45%, var(--tc-surface-raised))`;
   }
 
-  protected restyleFrames(change: { fill?: FrameFill; border?: FrameBorder }): void {
+  protected restyleFrames(change: { fill?: FrameFill; border?: FrameBorder; look?: FrameLook }): void {
     this.board().setFrameStyle(this.selectedFrames().map((f) => f.id), change);
   }
 
@@ -1800,4 +1794,15 @@ function rectAround(boxes: readonly { x: number; y: number; w: number; h: number
   const x = Math.min(...boxes.map((b) => b.x));
   const y = Math.min(...boxes.map((b) => b.y));
   return { x, y, w: Math.max(...boxes.map((b) => b.x + b.w)) - x, h: Math.max(...boxes.map((b) => b.y + b.h)) - y };
+}
+
+/** A board's layout: everything but notes, images, files, pen strokes and arrows. */
+export function layoutIds(b: BoardDoc): string[] {
+  return [...b.frames().map((f) => f.id), ...b.items().filter((i) => i.kind === 'text' || i.kind === 'shape' || i.kind === 'table' || i.kind === 'view').map((i) => i.id)];
+}
+
+/** Whether a board's whole layout is locked. */
+export function layoutLocked(b: BoardDoc): boolean {
+  const ids = layoutIds(b);
+  return ids.length > 0 && ids.every((id) => b.locked().has(id));
 }

@@ -60,7 +60,7 @@ import { FacilitationFeed, noteVotes } from './facilitation';
 import { facilitationControllerVote } from '../../api/generated/fn/facilitation/facilitation-controller-vote';
 import type { PresentedView } from './presence';
 import { ChatFeed } from './chat';
-import { Canvas } from './canvas';
+import { Canvas, layoutLocked } from './canvas';
 import { BoardShare } from './board-share';
 import { BoardComments } from './board-comments';
 import { imagePins, openCounts } from './comments';
@@ -715,7 +715,10 @@ export class BoardPage {
   }
   protected readonly canvas = viewChild(Canvas);
   /** Whether the board's layout (frames, text, shapes, tables) is locked, for the top bar's lock button. */
-  protected readonly layoutLocked = computed(() => this.canvas()?.layoutLocked() ?? false);
+  protected readonly layoutLocked = computed(() => {
+    const board = this.board();
+    return !!board && layoutLocked(board);
+  });
 
   protected readonly title = signal('');
   protected readonly confirmDelete = signal(false);

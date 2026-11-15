@@ -1,0 +1,199 @@
+/* A frame: a titled area under the notes, picked up anywhere on it. Shift-dragging its body boxes notes instead. */
+.frame {
+  position: absolute;
+  cursor: grab;
+  border: 1.5px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: color-mix(in srgb, var(--tc-surface-raised) 60%, transparent);
+}
+/* Frame looks. They come before the fill and border rules, so a chosen fill or border still shows on top. */
+/* A card or a slide: a solid, raised panel with no outline; a slide's corners are tighter. */
+.frame[data-look='card'],
+.frame[data-look='slide'],
+.frame[data-look='browser'] {
+  background: var(--tc-surface-raised);
+}
+.frame[data-look='card'],
+.frame[data-look='slide'] {
+  border-color: transparent;
+  /* The ring keeps a card apart from the board in dark mode, where shadows barely show. */
+  box-shadow:
+    var(--tc-shadow-raised),
+    0 0 0 1px color-mix(in srgb, var(--tc-text-strong) 8%, transparent);
+}
+.frame[data-look='slide'] {
+  border-radius: var(--tc-radius-sm);
+}
+/* The bar across the top of a band or a browser window; the title sits on it. */
+.frame-chrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  border-radius: calc(var(--tc-radius-lg) - 1.5px) calc(var(--tc-radius-lg) - 1.5px) 0 0;
+  pointer-events: none;
+}
+/* A band: the accent colour, or a deeper shade of the frame's tint when it has one, to stand out from its body. */
+.frame[data-look='band'] .frame-chrome {
+  background: var(--tc-accent-solid);
+}
+.frame[data-look='band'] .frame-title {
+  color: var(--tc-text-on-accent);
+}
+.frame[data-look='band']:not([data-fill='clear'], [data-fill='solid']) .frame-chrome {
+  background: color-mix(in srgb, var(--frame-tint) 80%, var(--tc-text-strong));
+}
+.frame[data-look='band']:not([data-fill='clear'], [data-fill='solid']) .frame-title {
+  color: var(--tc-text-strong);
+}
+/* A browser window: three dots and the title in an address bar. */
+.frame[data-look='browser'] .frame-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 16px;
+  border-bottom: 1px solid var(--tc-border-default);
+  background: color-mix(in srgb, var(--tc-text-strong) 6%, var(--tc-surface-raised));
+}
+.frame[data-look='browser']:not([data-fill='clear'], [data-fill='solid']) .frame-chrome {
+  background: color-mix(in srgb, var(--frame-tint) 80%, var(--tc-text-strong));
+}
+.frame-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--note-pink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc-text-strong) 15%, transparent);
+}
+.frame-dot:nth-child(2) {
+  background: var(--note-yellow);
+}
+.frame-dot:nth-child(3) {
+  background: var(--note-green);
+}
+.frame[data-look='browser'] .frame-title,
+.frame[data-look='browser'] .frame-rename {
+  top: 7px;
+  left: 76px;
+  right: 16px;
+  width: auto;
+  max-width: none;
+  padding: 1px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: var(--tc-font-weight-regular);
+  line-height: 28px;
+}
+.frame[data-look='browser'] .frame-title {
+  background: var(--tc-surface-base);
+  color: var(--tc-text-secondary);
+}
+/* A folder tab: the title sticks out above the top edge, in the frame's own border and fill. */
+.frame[data-look='tab'] {
+  border-top-left-radius: 0;
+}
+.frame[data-look='tab'] .frame-title,
+.frame[data-look='tab'] .frame-rename {
+  top: auto;
+  bottom: 100%;
+  left: -1.5px;
+  border-radius: var(--tc-radius-sm) var(--tc-radius-sm) 0 0;
+}
+.frame[data-look='tab'] .frame-title,
+.frame[data-look='tab'] .frame-title:hover {
+  border: 1.5px solid;
+  border-color: inherit;
+  border-style: inherit;
+  border-bottom: none;
+  background: inherit;
+}
+.frame[data-look='tab'] .frame-badge {
+  margin-bottom: 40px;
+}
+/* A soft zone: a gentle wash with round corners and no border. */
+.frame[data-look='zone'] {
+  border-color: transparent;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--tc-text-strong) 5%, transparent);
+}
+/* A drop zone: a heavy dashed border around nothing, with a quiet title. */
+.frame[data-look='drop'] {
+  border: 2.5px dashed color-mix(in srgb, var(--tc-text-strong) 35%, transparent);
+  background: transparent;
+}
+.frame[data-look='drop'] .frame-title {
+  color: var(--tc-text-muted);
+  font-weight: var(--tc-font-weight-regular);
+}
+/* A lane: a wash with a stripe down its left side, in the accent or a deeper shade of its tint. */
+.frame[data-look='lane'] {
+  border-color: transparent;
+  border-left: 6px solid var(--tc-accent-solid);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--tc-text-strong) 4%, transparent);
+}
+.frame[data-look='lane']:not([data-fill='clear'], [data-fill='solid']) {
+  border-left-color: color-mix(in srgb, var(--frame-tint) 70%, var(--tc-text-strong));
+}
+/* Frame styles: a solid or tinted fill, and a dashed border or none (selected frames still show theirs). */
+.frame[data-fill='solid'] {
+  background: var(--tc-surface-raised);
+}
+.frame[data-fill]:not([data-fill='clear'], [data-fill='solid']) {
+  background: color-mix(in srgb, var(--frame-tint) 45%, var(--tc-surface-raised));
+}
+.frame[data-border='dashed'] {
+  border-style: dashed;
+}
+.frame[data-border='none']:not(.selected) {
+  border-color: transparent;
+}
+.frame.selected {
+  border-color: var(--tc-accent-text);
+  box-shadow: 0 0 0 1px var(--tc-accent-text);
+}
+.frame.peer:not(.selected) {
+  border-color: var(--peer-color);
+}
+.frame-title,
+.frame-rename {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  padding: 4px 10px;
+  border-radius: var(--tc-radius-sm);
+  font: inherit;
+  font-size: 18px;
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 24px;
+  color: var(--tc-text-strong);
+}
+.frame-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+  user-select: none;
+}
+.frame-title:hover {
+  background: color-mix(in srgb, var(--tc-text-strong) 6%, transparent);
+}
+.frame-rename {
+  width: min(360px, calc(100% - 24px));
+  border: 1px solid var(--tc-accent-text);
+  background: var(--tc-surface-base);
+  outline: none;
+}
+.frame-resize {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--tc-accent-text);
+  border-radius: 3px;
+  background: var(--tc-surface-raised);
+  cursor: nwse-resize;
+}
