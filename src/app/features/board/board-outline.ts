@@ -22,6 +22,7 @@ import { Icon } from '../../shared/icon';
           <button type="button" class="icon-btn small" aria-label="Previous frame" [disabled]="step() <= 0" (click)="go(step() - 1)"><app-icon name="arrowLeft" /></button>
           <tc-button size="sm" variant="secondary" [label]="step() < 0 ? 'Present in this order' : 'Frame ' + (step() + 1) + ' of ' + rows().length" (click)="go(step() < 0 ? 0 : step())"></tc-button>
           <button type="button" class="icon-btn small" aria-label="Next frame" [disabled]="step() >= rows().length - 1" (click)="go(step() + 1)"><app-icon name="arrowRight" /></button>
+          <tc-button size="sm" variant="ghost" label="As slides" (click)="slides.emit(rows()[step() < 0 ? 0 : step()].frame.id)"></tc-button>
         </div>
         <ol>
           @for (row of rows(); track row.frame.id; let i = $index) {
@@ -148,6 +149,8 @@ export class BoardOutline {
   readonly show = output<string>();
   /** Present this frame: go there as the presenter, so followers see it. */
   readonly present = output<string>();
+  /** Present the frames as slides, full screen, from this one. */
+  readonly slides = output<string>();
 
   protected readonly step = signal(-1);
 
