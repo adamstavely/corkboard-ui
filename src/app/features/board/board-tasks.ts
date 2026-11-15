@@ -246,6 +246,9 @@ export class BoardTasks {
     const { task, change } = e.detail;
     const feed = this.feed();
     if (change === 'delete') feed.remove(task.id);
+    // A card added on the task board comes with the board's own stand-in id and key (t-301, NW-301): it gets a real id
+    // and the board's next key instead, like a task made any other way.
+    else if (change === 'add') feed.put({ ...fromTask(task, undefined), id: crypto.randomUUID(), key: feed.nextKey() });
     else feed.put(fromTask(task, feed.tasks().find((t) => t.id === task.id)));
   }
 }
