@@ -21,7 +21,7 @@
   (tc-new-chat)="assistant().clear()"
   (tc-model-change)="models.choose($event.detail.model)"
 >
-  <div class="page">
+  <div class="page" [class.slides]="!!slides()">
     <div class="stage">
       <!-- The board fills the window; its controls float over it in two panels, like the tools in the left rail. -->
       <div class="app-island island-left">
@@ -140,17 +140,25 @@
         }
         <app-account-nav [apps]="false" [separator]="false" />
         <span class="sep" aria-hidden="true"></span>
-        <button
-          type="button"
-          class="icon-btn filled"
-          [attr.aria-label]="presenting() ? 'Stop presenting' : 'Present'"
-          [attr.data-tip]="presenting() ? 'Stop presenting' : 'Present'"
-          [attr.aria-pressed]="presenting()"
-          [disabled]="!connection()"
-          (click)="togglePresenting()"
-        >
-          <app-icon name="play" />
-        </button>
+        @if (presenting()) {
+          <button type="button" class="icon-btn filled" aria-label="Stop presenting" data-tip="Stop presenting" aria-pressed="true" (click)="togglePresenting()">
+            <app-icon name="play" />
+          </button>
+        } @else {
+          <tc-menu-morph align="end" [open]="presentOpen()" (tc-open-change)="presentOpen.set($event.detail.open)">
+            <button type="button" class="icon-btn filled" data-menu-trigger aria-label="Present" data-tip="Present" [disabled]="!connection()">
+              <app-icon name="play" />
+            </button>
+            <div data-menu class="app-menu" aria-label="Present">
+              <button type="button" class="app-menu-item" role="menuitem" (click)="presentOpen.set(false); startSlides()">
+                <app-icon name="frame" /><span class="app-menu-label">Present as slides</span><span class="app-menu-hint">Each frame, full screen</span>
+              </button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="presentOpen.set(false); togglePresenting()">
+                <app-icon name="users" /><span class="app-menu-label">Share my view</span><span class="app-menu-hint">Others can follow</span>
+              </button>
+            </div>
+          </tc-menu-morph>
+        }
         <button type="button" class="share" [attr.aria-pressed]="panel() === 'share'" [disabled]="!meta.hasValue()" (click)="togglePanel('share')">
           <app-icon name="users" />Share
         </button>
@@ -164,6 +172,7 @@
           [provider]="connection()!.provider"
           [readOnly]="!canEdit()"
           [canLock]="canChangeLocked()"
+          [bare]="!!slides()"
           [privateMode]="privateMode()"
           [readOnlyLabel]="readOnlyLabel()"
           [commentCounts]="commentCounts()"
@@ -192,6 +201,16 @@
           (joinFrame)="joinBreakout($event)"
           [viewContent]="boardView"
         />
+        @if (slides(); as sl) {
+          <div class="slide-bar app-island" role="toolbar" aria-label="Slides">
+            <button type="button" class="icon-btn" aria-label="Previous slide" data-tip="Back  ←" data-tip-side="top" [disabled]="sl.at === 0" (click)="slideTo(sl.at - 1)"><app-icon name="back" /></button>
+            <span class="slide-count" aria-live="polite">{{ sl.at + 1 }} / {{ sl.ids.length }}</span>
+            <span class="slide-title">{{ slideTitle() }}</span>
+            <button type="button" class="icon-btn" aria-label="Next slide" data-tip="Next  →" data-tip-side="top" [disabled]="sl.at === sl.ids.length - 1" (click)="slideTo(sl.at + 1)"><app-icon name="next" /></button>
+            <span class="sep" aria-hidden="true"></span>
+            <button type="button" class="icon-btn" aria-label="End slides" data-tip="End  Esc" data-tip-side="top" (click)="endSlides()"><app-icon name="close" /></button>
+          </div>
+        }
         <!-- What a matrix, kanban or timeline placed on the board shows: live, from the board's notes and tasks. -->
         <ng-template #boardView let-view>
           @switch (view.view) {
@@ -302,6 +321,7 @@
             (closed)="panel.set(null)"
             (show)="canvas()?.show([$event])"
             (present)="presentFrame($event)"
+            (slides)="startSlides($event)"
           />
         }
         @if (panel() === 'comments' && meta.hasValue()) {

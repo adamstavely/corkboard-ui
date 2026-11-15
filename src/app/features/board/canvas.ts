@@ -432,6 +432,8 @@ export class Canvas {
   readonly askAi = output<string>();
   /** Whether the assistant is here to ask (not on a participant's view of a board). */
   readonly canAsk = input(true);
+  /** Presenting slides: the board alone, without its tools. */
+  readonly bare = input(false);
 
   /** Where the bar over the selection goes, in screen space: above the selection, or null when there's nothing to act on. */
   protected readonly selectionBar = computed(() => {
@@ -1381,6 +1383,17 @@ export class Canvas {
     this.editing.set(null);
     if (select) this.selection.set(new Set(notes.map((n) => n.id)));
     this.#fit(notes);
+  }
+
+  /** A frame as a slide: filling the screen (up to twice its size), clear of the slide bar below. */
+  showSlide(id: string): void {
+    const frame = this.board().frames().find((f) => f.id === id);
+    if (!frame) return;
+    this.editing.set(null);
+    this.selection.set(new Set());
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const zoom = clampZoom(Math.min(2, (width - 48) / frame.w, (height - 112) / frame.h));
+    this.viewport.set({ zoom, x: width / 2 - (frame.x + frame.w / 2) * zoom, y: (height - 64) / 2 - (frame.y + frame.h / 2) * zoom });
   }
 
   #fit(notes: readonly { x: number; y: number; w: number; h: number }[]): void {

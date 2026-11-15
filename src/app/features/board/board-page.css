@@ -269,3 +269,31 @@
   font-size: var(--tc-font-size-sm);
   font-variant-numeric: tabular-nums;
 }
+
+/* Slides: the board alone, a slim bar at the bottom to move through them. */
+.page.slides :is(.island-left, .island-right, app-board-facilitation, .away, app-board-start, app-board-chat) {
+  display: none;
+}
+.slide-bar {
+  position: absolute;
+  bottom: var(--tc-space-3);
+  left: 50%;
+  z-index: 30;
+  transform: translateX(-50%);
+}
+.slide-count {
+  min-width: 4.5em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  font-size: var(--tc-font-size-sm);
+  color: var(--tc-text-muted);
+}
+.slide-title {
+  max-width: 32ch;
+  padding: 0 var(--tc-space-2);
+  overflow: hidden;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

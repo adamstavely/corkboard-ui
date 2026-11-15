@@ -299,6 +299,7 @@ export class BoardPage {
   protected readonly mainOpen = signal(false);
   protected readonly viewsOpen = signal(false);
   protected readonly exportOpen = signal(false);
+  protected readonly presentOpen = signal(false);
   /** ⌘ on Apple devices, Ctrl elsewhere, for the shortcuts shown. */
   protected readonly modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl ';
   /** The title field grows with the title, within limits, so the panel stays snug. */
@@ -583,6 +584,91 @@ export class BoardPage {
   }
 
   /** From the outline: show a frame as the presenter, starting to present if need be, so followers see it too. */
+  // ── Slides: the frames, in outline order, one at a time, full screen ──
+
+  /** The frames being shown as slides, and which is on screen; null when not presenting slides. */
+  protected readonly slides = signal<{ ids: string[]; at: number } | null>(null);
+  protected readonly slideTitle = computed(() => {
+    const s = this.slides();
+    const frame = s && this.board()?.frames().find((f) => f.id === s.ids[s.at]);
+    return frame ? frame.title || 'Untitled frame' : '';
+  });
+  /** Whether presenting slides started presenting (so ending them stops it), and went full screen. */
+  #slidesPresent = false;
+  #slidesFullscreen = false;
+
+  /** Shows the frames as slides, in outline order, from one of them (or the first). Everyone following sees them too. */
+  protected startSlides(fromFrame?: string): void {
+    const ids = this.board()?.outline().map((f) => f.id) ?? [];
+    if (!ids.length) {
+      toast.info('Add a frame to present it as a slide', { description: 'Each frame is a slide, in the order of the outline.' });
+      return;
+    }
+    this.#slidesPresent = !this.presenting();
+    if (this.#slidesPresent) this.togglePresenting();
+    this.panel.set(null);
+    this.facilitating.set(false);
+    this.slides.set({ ids, at: 0 });
+    this.slideTo(Math.max(0, fromFrame ? ids.indexOf(fromFrame) : 0));
+    const page = document.documentElement;
+    if (page.requestFullscreen && !document.fullscreenElement) {
+      page.requestFullscreen().then(
+        () => (this.#slidesFullscreen = true),
+        () => undefined,
+      );
+    }
+  }
+
+  protected slideTo(i: number): void {
+    const s = this.slides();
+    if (!s) return;
+    const at = Math.max(0, Math.min(s.ids.length - 1, i));
+    this.slides.set({ ...s, at });
+    // After the chrome has gone, so the frame fills what's left.
+    requestAnimationFrame(() => this.canvas()?.showSlide(s.ids[at]));
+  }
+
+  protected endSlides(): void {
+    if (!this.slides()) return;
+    this.slides.set(null);
+    if (this.#slidesFullscreen && document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    this.#slidesFullscreen = false;
+    if (this.#slidesPresent && this.presenting()) this.togglePresenting();
+    this.#slidesPresent = false;
+  }
+
+  /** Keys while presenting slides, ahead of the board's own: next, back, first, last, and out. */
+  readonly #slideKeys = effect((onCleanup) => {
+    if (!this.slides()) return;
+    const onKey = (e: KeyboardEvent) => {
+      const s = this.slides();
+      if (!s || e.metaKey || e.ctrlKey || e.altKey) return;
+      const next = ['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key);
+      const back = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key);
+      if (next) this.slideTo(s.at + 1);
+      else if (back) this.slideTo(s.at - 1);
+      else if (e.key === 'Home') this.slideTo(0);
+      else if (e.key === 'End') this.slideTo(s.ids.length - 1);
+      else if (e.key === 'Escape') this.endSlides();
+      else return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    // Leaving full screen (the browser's own Esc) ends the slides too.
+    const onFullscreen = () => {
+      if (!document.fullscreenElement && this.#slidesFullscreen) {
+        this.#slidesFullscreen = false;
+        this.endSlides();
+      }
+    };
+    window.addEventListener('keydown', onKey, { capture: true });
+    document.addEventListener('fullscreenchange', onFullscreen);
+    onCleanup(() => {
+      window.removeEventListener('keydown', onKey, { capture: true });
+      document.removeEventListener('fullscreenchange', onFullscreen);
+    });
+  });
+
   protected presentFrame(frameId: string): void {
     if (!this.presenting()) this.togglePresenting();
     this.canvas()?.show([frameId], false);
@@ -652,7 +738,8 @@ export class BoardPage {
         { id: 'find', label: 'Find on this board', hint: '⌘F', run: () => canvas.toggleFind() },
         { id: 'fit', label: 'Fit everything in view', run: () => canvas.fitAll() },
         { id: 'chat', label: 'Open the chat', run: () => this.chatOpen.set(true) },
-        { id: 'present', label: 'Present this board', run: () => this.togglePresenting() },
+        { id: 'slides', label: 'Present as slides', run: () => this.startSlides() },
+        { id: 'present', label: 'Share my view (others can follow)', run: () => this.togglePresenting() },
         ...(this.canEdit() ? [{ id: 'templates', label: 'Board templates', run: () => this.pickingTemplate.set(true) }] : []),
         ...(this.canRun() ? [{ id: 'facilitate', label: 'Facilitate: timer, votes, writing, breakouts', run: () => this.toggleFacilitating(true) }] : []),
         view('tasks', 'Tasks on the board'),

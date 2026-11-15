@@ -322,3 +322,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Slides: the board alone, its tools put away. */
+.surface.bare :is(.zoom-panel, .map-toggle, .minimap-panel, .selection-bar),
+.surface.bare ~ .rail-stack {
+  display: none;
+}
