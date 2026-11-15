@@ -324,7 +324,22 @@
         }
       </svg>
     }
-    @for (note of drawnNotes(); track note.id) {
+    <!-- Zoomed out past reading, notes are drawn as their colour alone: thousands of them stay quick to pan. -->
+    @for (note of farNotes(); track note.id) {
+      <div
+        class="note-far"
+        [class.selected]="selection().has(note.id)"
+        [class.dimmed]="dims(note.id)"
+        [class.found]="isFound(note.id)"
+        [attr.data-note-id]="note.id"
+        [style.transform]="'translate(' + note.x + 'px, ' + note.y + 'px)'"
+        [style.width.px]="note.w"
+        [style.height.px]="note.h"
+        [style.background]="'var(--note-' + note.color + ')'"
+        [style.z-index]="board().stack().get(note.id)"
+      ></div>
+    }
+    @for (note of nearNotes(); track note.id) {
       <app-note
         [hideAuthor]="privateMode()"
         [style.z-index]="board().stack().get(note.id)"
@@ -337,7 +352,7 @@
         [editing]="editing() === note.id"
         [peer]="peerMarks().get(note.id) ?? null"
         [comments]="commentCounts().get(note.id) ?? 0"
-        [reactions]="reactions().get(note.id) ?? []"
+        [reactions]="reactions().get(note.id) ?? noReactions"
         [folded]="foldedCounts().get(note.id) ?? 0"
         [canReact]="canReact()"
         (react)="toggleReaction(note.id, $event)"

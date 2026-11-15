@@ -404,10 +404,19 @@ export class BoardDoc {
     textRevisions.set(this.doc, this.textRevision);
     this.#nodes.observeDeep((events) => {
       if (events.some((e) => !(e.target instanceof Y.Map))) this.#textRevision.update((n) => n + 1);
-      // Typing inside a note changes only its fragment; the list needs rebuilding when nodes or their properties do.
-      if (events.some((e) => e.target === this.#nodes || e.target instanceof Y.Map)) this.#refresh();
+      // Typing inside a note changes only its fragment; the lists need rebuilding when nodes or their properties do,
+      // and then only the nodes that changed are read again.
+      const changed = new Set<string>();
+      for (const e of events) {
+        if (e.target === this.#nodes) for (const key of e.changes.keys.keys()) changed.add(key);
+        else if (e.target instanceof Y.Map) {
+          const id = this.#nodeIdOf(e.target);
+          if (id) changed.add(id);
+        }
+      }
+      if (changed.size) this.#refresh(changed);
     });
-    this.#refresh();
+    this.#refresh(null);
   }
 
   /** Adds a note centred on a point, with text if given (a paragraph a line), and returns its id. */
@@ -1238,22 +1247,52 @@ export class BoardDoc {
     return top;
   }
 
-  #refresh(): void {
+  /** The node a map belongs to: the node itself, or the node a map inside it (a table's cells) is in. */
+  #nodeIdOf(type: Y.AbstractType<any>): string | null {
+    let t: Y.AbstractType<any> | null = type;
+    while (t?._item) {
+      if (t._item.parent === this.#nodes) return t._item.parentSub;
+      t = t._item.parent as Y.AbstractType<any>;
+    }
+    return null;
+  }
+
+  /**
+   * Each node as last read, for as long as it doesn't change: the canvas gets the same object back, so a note that
+   * didn't move or change isn't drawn again. On a board of thousands that's most of them, every time.
+   */
+  #read$ = new Map<string, { node: Y.Map<unknown>; read: NodeRead }>();
+
+  /** Rebuilds the lists, reading again only the nodes that changed (all of them when `changed` is null). */
+  #refresh(changed: ReadonlySet<string> | null): void {
     const notes: Note[] = [];
     const frames: Frame[] = [];
     const connectors: Connector[] = [];
     const media: Media[] = [];
     const items: Item[] = [];
     const locked = new Set<string>();
+    const lists = { notes, frames, connectors, media, items } as Record<NonNullable<NodeRead>['list'], { id: string }[]>;
+    const kept = new Map<string, { node: Y.Map<unknown>; read: NodeRead }>();
     this.#nodes.forEach((node, id) => {
       // Anything the API let through that isn't a node is skipped, not allowed to break the board for everyone.
       if (!(node instanceof Y.Map)) return;
-      try {
-        this.#read(node, id, { notes, frames, connectors, media, items, locked });
-      } catch {
-        // A node that can't be read is left out.
+      const cached = this.#read$.get(id);
+      let read: NodeRead;
+      if (cached && cached.node === node && changed && !changed.has(id)) read = cached.read;
+      else {
+        try {
+          read = this.#read(node, id);
+        } catch {
+          // A node that can't be read is left out.
+          read = null;
+        }
       }
+      kept.set(id, { node, read });
+      if (!read) return;
+      if (read.locked) locked.add(id);
+      lists[read.list].push(read.value);
     });
+    this.#read$ = kept;
     const order = (a: { z: number; id: string }, b: { z: number; id: string }) => a.z - b.z || a.id.localeCompare(b.id);
     this.#notes.set(notes.sort(order));
     this.#frames.set(frames.sort(order));
@@ -1267,17 +1306,15 @@ export class BoardDoc {
     }
   }
 
-  /** One node, into the list it belongs in; positions and sizes made safe on the way (see pos and size). */
-  #read(
-    node: Y.Map<unknown>,
-    id: string,
-    out: { notes: Note[]; frames: Frame[]; connectors: Connector[]; media: Media[]; items: Item[]; locked: Set<string> },
-  ): void {
-    const { notes, frames, connectors, media, items, locked } = out;
-    if (node.get('locked') === true) locked.add(id);
+  /** One node, as the list it belongs in shows it; positions and sizes made safe on the way (see pos and size). */
+  #read(node: Y.Map<unknown>, id: string): NodeRead {
+    const locked = node.get('locked') === true;
     const kind = node.get('kind');
     if (kind === 'image' || kind === 'file') {
-      media.push({
+      return {
+        list: 'media',
+        locked,
+        value: {
         id,
         kind,
         fileId: String(node.get('fileId') ?? ''),
@@ -1288,24 +1325,25 @@ export class BoardDoc {
         y: pos(node.get('y')),
         w: size(node.get('w'), FILE_CARD.w),
         h: size(node.get('h'), FILE_CARD.h),
-        z: num(node.get('z')),
-      });
-      return;
+          z: num(node.get('z')),
+        },
+      };
     }
     if (ITEM_KINDS.has(String(kind))) {
       const item = itemOf(id, node);
-      if (item) items.push(item);
-      return;
+      return item ? { list: 'items', locked, value: item } : null;
     }
     if (node.get('kind') === 'connector') {
       const from = node.get('from');
       const to = node.get('to');
-      if (typeof from === 'string' && typeof to === 'string') connectors.push({ id, from, to, ...arrowStyleOf(node) });
-      return;
+      return typeof from === 'string' && typeof to === 'string' ? { list: 'connectors', locked, value: { id, from, to, ...arrowStyleOf(node) } } : null;
     }
     if (node.get('kind') === 'frame') {
       const title = node.get('title');
-      frames.push({
+      return {
+        list: 'frames',
+        locked,
+        value: {
         id,
         x: pos(node.get('x')),
         y: pos(node.get('y')),
@@ -1314,16 +1352,19 @@ export class BoardDoc {
         z: num(node.get('z')),
         title: typeof title === 'string' ? title : '',
         ...frameStyleOf(node),
-        ...scheduleOf(node),
-      });
-      return;
+          ...scheduleOf(node),
+        },
+      };
     }
-    if (node.get('kind') !== 'note') return;
+    if (node.get('kind') !== 'note') return null;
     const color = node.get('color') as NoteColor;
     const text = node.get('text');
     // A note's words are a rich-text fragment; without one it can't be shown or edited.
-    if (!(text instanceof Y.XmlFragment)) return;
-    notes.push({
+    if (!(text instanceof Y.XmlFragment)) return null;
+    return {
+      list: 'notes',
+      locked,
+      value: {
       id,
       x: pos(node.get('x')),
       y: pos(node.get('y')),
@@ -1340,10 +1381,20 @@ export class BoardDoc {
       ...createdByOf(node),
       tags: tagsOf(node),
       ...(mindLinkOf(node.get('mind')) ? { mind: mindLinkOf(node.get('mind')) } : {}),
-      ...scores(node),
-    });
+        ...scores(node),
+      },
+    };
   }
 }
+
+/** A node as read: the list it goes in and how that list shows it, and whether it's locked; null if it can't be shown. */
+type NodeRead =
+  | { list: 'notes'; locked: boolean; value: Note }
+  | { list: 'frames'; locked: boolean; value: Frame }
+  | { list: 'connectors'; locked: boolean; value: Connector }
+  | { list: 'media'; locked: boolean; value: Media }
+  | { list: 'items'; locked: boolean; value: Item }
+  | null;
 
 /** An arrow's style as stored, anything unknown read as the default. */
 function arrowStyleOf(node: Y.Map<unknown>): ArrowStyle {
