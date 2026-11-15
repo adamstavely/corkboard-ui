@@ -170,6 +170,9 @@
               }
             </div>
           }
+          @case ('diagram') {
+            <app-diagram-view [source]="item.source" [label]="itemLabel(item)" />
+          }
           @case ('shape') {
             <svg class="shape-fill" [attr.viewBox]="'0 0 ' + item.w + ' ' + item.h" preserveAspectRatio="none" aria-hidden="true">
               <path [attr.d]="shapePath(item.shape, item.w, item.h)" [style.fill]="'var(--note-' + item.color + ')'" />
@@ -563,6 +566,9 @@
           <app-icon name="comment" />
         </button>
       }
+      @if (!readOnly() && oneDiagram(); as d) {
+        <button type="button" class="icon-btn" aria-label="Edit diagram" data-tip="Edit diagram" (click)="editDiagram.emit(d)"><app-icon name="diagram" /></button>
+      }
       @if (!readOnly() && !allLocked()) {
         <tc-menu-morph [open]="layerOpen()" (tc-open-change)="layerOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Layer" data-tip="Layer"><app-icon name="layers" /></button>
@@ -589,6 +595,7 @@
             @if (selectedNoteIds().length > 1) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeAppPrompt)"><app-icon name="app" /><span class="app-menu-label">Make an app from these</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeDiagramPrompt)"><app-icon name="diagram" /><span class="app-menu-label">Make a diagram from these</span></button>
             }
             @if (pair()) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); connect()"><app-icon name="arrow" /><span class="app-menu-label">Connect with an arrow</span></button>
@@ -704,6 +711,8 @@
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Create" data-tip="Create" data-tip-side="right"><app-icon name="create" /></button>
           <div data-menu class="app-menu" aria-label="Create">
             <button type="button" class="app-menu-item" role="menuitem" (click)="startMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Mind map</span><span class="app-menu-hint">Tab adds a branch</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Written as text</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="app-menu-label">Table</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="app-menu-label">Link</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>

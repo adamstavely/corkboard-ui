@@ -279,3 +279,13 @@
   padding: var(--tc-space-4);
   color: var(--tc-text-muted);
 }
+
+/* A diagram: Mermaid's drawing on a light card of its own, as it draws in light colours. */
+.item-diagram {
+  padding: var(--tc-space-2);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-md);
+  background: #ffffff;
+  color: #1a1a1a;
+  --tc-text-muted: #5c5c5c;
+}

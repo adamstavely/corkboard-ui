@@ -33,6 +33,7 @@ import type { BoardVersionDto } from '../../api/generated/models/board-version-d
 import { BoardChat } from './board-chat';
 import { BoardMatrix } from './board-matrix';
 import { BoardTasks } from './board-tasks';
+import { BoardDiagram } from './board-diagram';
 import { BoardGantt } from './board-gantt';
 import { TaskFeed, type StoredTask } from './tasks';
 import type { BoardView } from './board-doc';
@@ -100,7 +101,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -222,7 +223,9 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | null>(null);
+  /** The diagram whose text is open beside the board. */
+  protected readonly diagramId = signal<string | null>(null);
   protected readonly files = signal<FileCache | undefined>(undefined);
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** A saved version shown in place of the board, read-only, until they go back (or restore it). */

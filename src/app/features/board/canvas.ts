@@ -1,3 +1,5 @@
+import { DiagramView } from './diagram-view';
+import { DIAGRAM_STARTERS, diagramTitle, type DiagramKind } from './diagram';
 import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild, type TemplateRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Icon, type IconName } from '../../shared/icon';
@@ -119,7 +121,7 @@ const CULL_FROM = 300;
  */
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-frames.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -164,6 +166,8 @@ export class Canvas {
   readonly filesDropped = output<{ files: File[]; at: Point }>();
   /** Open the add-files panel, ask about an image, or open a file. */
   readonly addFiles = output<void>();
+  /** Open a diagram's text to edit it. */
+  readonly editDiagram = output<string>();
   /** Open the board-template picker. */
   readonly boardTemplates = output<void>();
   readonly askImage = output<Media>();
@@ -249,6 +253,7 @@ export class Canvas {
   readonly appContent = input<TemplateRef<{ $implicit: AppItem }> | null>(null);
   /** What "Make an app from these" asks the assistant, about the selected notes. */
   protected readonly makeAppPrompt = 'Make a mini-app that works with these notes: something useful for what they are, like a tally, a chart, a sorter or a quiz.';
+  protected readonly makeDiagramPrompt = 'Make a diagram from these notes: a flowchart of the steps or decisions in them, or a sequence diagram if they describe who sends what to whom.';
   protected readonly viewIcons: Record<BoardView, IconName> = { matrix: 'matrix', kanban: 'kanban', timeline: 'timeline' };
 
   /** Picks a tool from the rail or a key. Frame, with notes selected, frames them at once. */
@@ -380,6 +385,11 @@ export class Canvas {
   /** The shape or text being written in, or the table cell. */
   protected readonly itemEditing = signal<{ id: string; cell?: string } | null>(null);
   protected readonly selectedShapes = computed(() => this.board().items().filter((i) => i.kind === 'shape' && this.selection().has(i.id)).map((i) => i.id));
+  /** The one diagram selected, by itself, to edit its text. */
+  protected readonly oneDiagram = computed(() => {
+    const [id, ...more] = this.selection();
+    return !more.length && this.board().items().some((i) => i.id === id && i.kind === 'diagram') ? id : null;
+  });
   protected readonly selectedTexts = computed(() => this.board().items().filter((i) => i.kind === 'text' && this.selection().has(i.id)).map((i) => i.id));
   protected readonly oneTable = computed(() => {
     if (this.selection().size !== 1) return null;
@@ -734,7 +744,18 @@ export class Canvas {
         return VIEW_NAMES[item.view];
       case 'app':
         return `App: ${item.title}`;
+      case 'diagram':
+        return `Diagram: ${diagramTitle(item.source)}`;
     }
+  }
+
+  /** Puts a starter flowchart or sequence diagram in the middle of the view, selected, and opens its text. */
+  protected addDiagram(kind: DiagramKind): void {
+    this.createOpen.set(false);
+    const at = this.#viewCentre();
+    const id = this.board().addDiagram(at.x, at.y, DIAGRAM_STARTERS[kind]);
+    this.selection.set(new Set([id]));
+    this.editDiagram.emit(id);
   }
 
   protected tableCells(t: TableItem): { key: string; row: number; col: number; text: string }[] {
@@ -1226,6 +1247,7 @@ export class Canvas {
     if (itemEl) {
       const item = this.board().items().find((i) => i.id === itemEl.dataset['itemId']);
       if (item?.kind === 'link' && safeUrl(item.url) !== '#') window.open(item.url, '_blank', 'noopener,noreferrer');
+      else if (item?.kind === 'diagram' && !this.readOnly()) this.editDiagram.emit(item.id);
       else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(item.id);
       else if (item?.kind === 'table') {
         const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]')?.dataset['cell'];
