@@ -24,4 +24,10 @@
   } @else {
     <p class="note">No models yet. An owner of this workspace can add one here.</p>
   }
+
+  @if (session.org(); as org) {
+    <div class="tools">
+      <app-assistant-tools [orgId]="org.id" [canManage]="isOwner()" />
+    </div>
+  }
 </div>

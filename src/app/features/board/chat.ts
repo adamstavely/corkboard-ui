@@ -23,6 +23,8 @@ export interface ChatMessage {
   changes?: { notesAdded: number; notesChanged: number; framesAdded: number; notesMoved: number };
   /** On the model's messages: the board's files the answer drew on. */
   files?: { fileId: string; name: string }[];
+  /** On the model's messages: the web pages the answer read. */
+  pages?: { url: string; title: string }[];
   failed?: boolean;
   /** On a session recap: what was decided, who does what, and what's open. */
   recap?: SessionRecapDto;
@@ -51,17 +53,17 @@ export function scopeLine(notes: number, frames: readonly string[]): string {
   return notes ? `About the ${count} selected` : 'About the whole board';
 }
 
-/** "From budget.pdf and interviews.docx." – the files a model's answer drew on. */
-export function filesLine(files: readonly { name: string }[]): string {
-  if (!files.length) return '';
-  const names = files.map((f) => f.name);
+/** "From budget.pdf and https://news.example/pilot." – the files and pages a model's answer drew on. */
+export function sourcesLine(files: readonly { name: string }[], pages: readonly { url: string }[] = []): string {
+  const names = [...files.map((f) => f.name), ...pages.map((p) => p.url)];
+  if (!names.length) return '';
   return `From ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`;
 }
 
-/** The chat as Trench Coat's thread shows it: the model's messages end with the files it read and what it changed. */
+/** The chat as Trench Coat's thread shows it: the model's messages end with the files and pages it read and what it changed. */
 export function threadItems(messages: readonly ChatMessage[]): MultiplayerItem[] {
   return messages.map((m) => {
-    const after = [filesLine(m.files ?? []), m.changes ? changesLine(m.changes) : ''].filter(Boolean);
+    const after = [sourcesLine(m.files ?? [], m.pages ?? []), m.changes ? changesLine(m.changes) : ''].filter(Boolean);
     const text = m.recap ? recapText(m.recap) : [m.text, ...after].join('\n\n');
     return { id: m.id, authorId: m.authorId, at: m.at, text, ...(m.replyTo ? { replyTo: m.replyTo } : {}) };
   });

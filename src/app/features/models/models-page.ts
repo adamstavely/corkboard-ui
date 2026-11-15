@@ -6,6 +6,7 @@ import { Api } from '../../api/generated/api';
 import { providersControllerList } from '../../api/generated/fn/models/providers-controller-list';
 import { Session } from '../../core/session';
 import { PROVIDERS } from './connection';
+import { AssistantTools } from './assistant-tools';
 import { ModelCard } from './model-card';
 
 const COLUMNS: DataColumn[] = [
@@ -17,7 +18,7 @@ const COLUMNS: DataColumn[] = [
 /** The models this workspace can use on its boards. Admins connect, test and remove them; members see the list. */
 @Component({
   selector: 'app-models-page',
-  imports: [ModelCard, DataTable, Skeleton],
+  imports: [ModelCard, AssistantTools, DataTable, Skeleton],
   templateUrl: './models-page.html',
   styleUrl: './models-page.css',
 })
