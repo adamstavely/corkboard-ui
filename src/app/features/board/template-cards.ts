@@ -56,6 +56,10 @@ function preview(t: BoardTemplateDto): TemplateResult {
           return svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 2} fill=${fillOf(b.color, 'var(--note-yellow)')} />`;
         case 'text':
           return svg`<rect x=${b.x} y=${b.y + b.h / 3} width=${b.w * 0.8} height=${b.h / 3} rx=${stroke} fill="var(--tc-text-muted)" opacity="0.5" />`;
+        case 'view':
+          // A matrix, kanban or timeline: tinted, with a line across like its title bar.
+          return svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 2} fill="var(--tc-accent-subtle)" stroke="var(--tc-accent-text)" stroke-width=${stroke} />
+            <line x1=${b.x} y1=${b.y + b.h / 8} x2=${b.x + b.w} y2=${b.y + b.h / 8} stroke="var(--tc-accent-text)" stroke-width=${stroke} />`;
         default:
           return svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 2} fill="var(--tc-surface-raised)" stroke="var(--tc-border-default)" stroke-width=${stroke} />`;
       }
