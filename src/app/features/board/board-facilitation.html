@@ -24,6 +24,47 @@
       </div>
     }
 
+    @if (poll(); as p) {
+      <div class="item poll-card" role="group" [attr.aria-label]="'Poll: ' + p.question">
+        <div class="poll-head">
+          <app-icon name="poll" />
+          <span class="poll-question">{{ p.question }}</span>
+          <span class="label">{{ p.open ? answered() + ' answered' : 'Result' }}</span>
+          @if (canRun() && p.open) {
+            <tc-button size="sm" variant="secondary" label="Close poll" (click)="endPoll(false)"></tc-button>
+          } @else if (canRun()) {
+            <tc-button size="sm" variant="ghost" label="Clear" (click)="endPoll(true)"></tc-button>
+          }
+        </div>
+        @if (p.open && canVote()) {
+          <div class="answers" role="radiogroup" [attr.aria-label]="p.question">
+            @if (p.kind === 'fist') {
+              @for (n of fingers; track n) {
+                <button type="button" class="answer finger" role="radio" [attr.aria-checked]="myAnswer() === n" [attr.aria-label]="n + ': ' + fingerHints[n]" [attr.data-tip]="fingerHints[n]" (click)="answer(n)">{{ n }}</button>
+              }
+            } @else {
+              @for (o of p.options; track $index; let i = $index) {
+                <button type="button" class="answer" role="radio" [attr.aria-checked]="myAnswer() === i" (click)="answer(i)">{{ o }}</button>
+              }
+            }
+          </div>
+        } @else if (!p.open) {
+          <ul class="result">
+            @for (r of pollResult(); track $index) {
+              <li>
+                <span class="result-label" [attr.title]="r.hint || null">{{ r.label }}</span>
+                <span class="bar" aria-hidden="true"><span [style.width.%]="r.share * 100"></span></span>
+                <span class="count">{{ r.count }}</span>
+              </li>
+            }
+          </ul>
+          @if (pollAverage(); as avg) {
+            <span class="label">Average {{ avg }} of 5</span>
+          }
+        }
+      </div>
+    }
+
     @if (timerShown()) {
       <div class="item timer" [class.up]="timesUp()" role="timer" [attr.aria-label]="timesUp() ? 'Time is up' : clock() + ' left'">
         <app-icon name="timer" />
@@ -209,6 +250,35 @@
         <tc-select class="grow" label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
         <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
       </div>
+    </section>
+
+    <section aria-labelledby="f-poll">
+      <h3 id="f-poll"><app-icon name="poll" /> Poll</h3>
+      @if (poll()?.open) {
+        <p class="hint">Open: {{ answered() }} answered so far. Answers show when you close it.</p>
+        <div class="row"><tc-button size="sm" variant="secondary" label="Close poll" (click)="endPoll(false)"></tc-button></div>
+      } @else {
+        <p class="hint">A quick question for everyone, or a fist-to-five to check agreement.</p>
+        <tc-select label="Kind of poll" [labelVisible]="false" [options]="pollKinds" [value]="pollKind()" (tc-value-change)="pollKind.set($any($event.detail.value))"></tc-select>
+        <input type="text" class="text-input" maxlength="200" [placeholder]="pollKind() === 'fist' ? 'How ready are we to ship?' : 'What should we do first?'" aria-label="Question" [value]="pollQuestion()" (input)="pollQuestion.set($any($event.target).value)" />
+        @if (pollKind() === 'choice') {
+          @for (o of pollOptions(); track $index; let i = $index) {
+            <div class="row">
+              <input type="text" class="text-input grow" maxlength="80" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1)" [value]="o" (input)="setPollOption(i, $any($event.target).value)" />
+              @if (pollOptions().length > 2) {
+                <button type="button" class="icon-btn" [attr.aria-label]="'Remove option ' + (i + 1)" data-tip="Remove" (click)="pollOptions.set(pollOptions().filter((_, at) => at !== i))"><app-icon name="close" /></button>
+              }
+            </div>
+          }
+        }
+        <div class="row">
+          @if (pollKind() === 'choice' && pollOptions().length < 8) {
+            <tc-button size="sm" variant="ghost" label="Add an option" (click)="pollOptions.set([...pollOptions(), ''])"></tc-button>
+          }
+          <span class="grow"></span>
+          <tc-button size="sm" variant="secondary" label="Start poll" [disabled]="!canStartPoll()" (click)="startPoll()"></tc-button>
+        </div>
+      }
     </section>
 
     <section aria-labelledby="f-writing">

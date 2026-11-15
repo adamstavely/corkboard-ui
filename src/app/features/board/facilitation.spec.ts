@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { FacilitationFeed, formatRemaining, noteVotes, ranking } from './facilitation';
+import { FacilitationFeed, formatRemaining, noteVotes, pollTally, ranking } from './facilitation';
 
 describe('formatRemaining', () => {
   it('shows minutes and seconds, rounding up', () => {
@@ -110,6 +110,29 @@ describe('FacilitationFeed', () => {
     expect(feed.state().agenda).toEqual({ steps, current: 0 });
     doc.getMap('agenda').set('current', 4);
     expect(feed.state().agenda.current).toBeNull();
+    feed.destroy();
+  });
+
+  it('reads the poll and its answers, and counts them per answer', () => {
+    const doc = new Y.Doc();
+    const feed = new FacilitationFeed(doc);
+    expect(feed.state().poll).toBeNull();
+    doc.transact(() => {
+      const poll = doc.getMap('poll');
+      poll.set('question', 'Ready?');
+      poll.set('kind', 'fist');
+      poll.set('options', []);
+      poll.set('open', true);
+      poll.set('round', 1);
+      doc.getMap('pollAnswers').set('ada', 4);
+      doc.getMap('pollAnswers').set('bob', 4);
+      doc.getMap('pollAnswers').set('cy', 9);
+    });
+    const { poll, pollAnswers } = feed.state();
+    expect(poll).toEqual({ open: true, round: 1, question: 'Ready?', kind: 'fist', options: [] });
+    // Out-of-range answers aren't counted.
+    expect(pollTally(poll!, pollAnswers)).toEqual([0, 0, 0, 0, 2, 0]);
+    expect(pollTally({ ...poll!, kind: 'choice', options: ['A', 'B'] }, new Map([['ada', 1]]))).toEqual([0, 1]);
     feed.destroy();
   });
 });

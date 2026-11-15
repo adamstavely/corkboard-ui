@@ -100,7 +100,25 @@ export interface Agenda {
   current: number | null;
 }
 
-/** The board's dot voting, timer, hidden writing, breakouts and agenda, live from its document. Only the API writes them. */
+/** A quick poll: a question with options, or a fist-to-five (0–5 fingers). */
+export interface Poll {
+  open: boolean;
+  round: number;
+  question: string;
+  kind: 'choice' | 'fist';
+  options: string[];
+}
+
+/** How many gave each answer, an option's index or a number of fingers, from 0 up to the last. */
+export function pollTally(poll: Poll, answers: ReadonlyMap<string, number>): number[] {
+  const tally = Array.from({ length: poll.kind === 'fist' ? 6 : poll.options.length }, () => 0);
+  answers.forEach((a) => {
+    if (a >= 0 && a < tally.length) tally[a]++;
+  });
+  return tally;
+}
+
+/** The board's dot voting, timer, hidden writing, breakouts, agenda and poll, live from its document. Only the API writes them. */
 export class FacilitationFeed {
   readonly #voting: Y.Map<unknown>;
   readonly #votes: Y.Map<string[]>;
@@ -110,6 +128,8 @@ export class FacilitationFeed {
   readonly #facilitator: Y.Map<unknown>;
   readonly #spotlight: Y.Map<unknown>;
   readonly #agenda: Y.Map<unknown>;
+  readonly #poll: Y.Map<unknown>;
+  readonly #pollAnswers: Y.Map<number>;
 
   readonly #state = signal<{
     voting: Voting;
@@ -120,6 +140,8 @@ export class FacilitationFeed {
     facilitator: Facilitator;
     spotlight: Spotlight;
     agenda: Agenda;
+    poll: Poll | null;
+    pollAnswers: ReadonlyMap<string, number>;
   }>({
     voting: { open: false, votesEach: 0, round: 0 },
     votes: new Map(),
@@ -129,6 +151,8 @@ export class FacilitationFeed {
     facilitator: { userId: null, name: '' },
     spotlight: { n: 0, by: '', view: null },
     agenda: { steps: [], current: null },
+    poll: null,
+    pollAnswers: new Map(),
   });
   readonly state = this.#state.asReadonly();
 
@@ -141,6 +165,8 @@ export class FacilitationFeed {
     this.#facilitator = doc.getMap('facilitator');
     this.#spotlight = doc.getMap('spotlight');
     this.#agenda = doc.getMap('agenda');
+    this.#poll = doc.getMap('poll');
+    this.#pollAnswers = doc.getMap('pollAnswers');
     for (const map of this.#maps()) map.observe(this.#update);
     this.#update();
   }
@@ -150,13 +176,24 @@ export class FacilitationFeed {
   }
 
   #maps(): Y.Map<unknown>[] {
-    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda];
+    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda, this.#poll, this.#pollAnswers as Y.Map<unknown>];
   }
 
   #agendaOf(): Agenda {
     const steps = Array.isArray(this.#agenda.get('steps')) ? (this.#agenda.get('steps') as AgendaStep[]) : [];
     const current = this.#agenda.get('current');
     return { steps, current: typeof current === 'number' && current >= 0 && current < steps.length ? current : null };
+  }
+
+  #pollOf(): Poll | null {
+    if (!this.#poll.has('question')) return null;
+    return {
+      open: this.#poll.get('open') === true,
+      round: Number(this.#poll.get('round') ?? 0),
+      question: text(this.#poll.get('question')),
+      kind: this.#poll.get('kind') === 'fist' ? 'fist' : 'choice',
+      options: Array.isArray(this.#poll.get('options')) ? (this.#poll.get('options') as string[]) : [],
+    };
   }
 
   readonly #update = () => {
@@ -190,6 +227,8 @@ export class FacilitationFeed {
         view: (this.#spotlight.get('view') as Spotlight['view']) ?? null,
       },
       agenda: this.#agendaOf(),
+      poll: this.#pollOf(),
+      pollAnswers: new Map(this.#pollAnswers.entries()),
     });
   };
 }
