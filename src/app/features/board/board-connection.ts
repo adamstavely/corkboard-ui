@@ -63,9 +63,13 @@ export class BoardConnection {
 
   readonly #local: IndexeddbPersistence | undefined;
 
-  constructor(boardId: string, board: BoardDoc, token: () => string, user: PresenceUser) {
+  /**
+   * `boardId` is the document's name: a board, or a participant's read-only view of one (which keeps no local copy,
+   * since it's rebuilt by the server and never edited here).
+   */
+  constructor(boardId: string, board: BoardDoc, token: () => string, user: PresenceUser, { keepLocal = true }: { keepLocal?: boolean } = {}) {
     // Edits left from last time (made offline, then the board was left) load into the board and go to the server.
-    this.#local = typeof indexedDB === 'undefined' ? undefined : new IndexeddbPersistence(`${LOCAL_PREFIX}${boardId}`, board.doc);
+    this.#local = typeof indexedDB === 'undefined' || !keepLocal ? undefined : new IndexeddbPersistence(`${LOCAL_PREFIX}${boardId}`, board.doc);
     this.provider = new HocuspocusProvider({
       url: collabUrl(),
       name: boardId,

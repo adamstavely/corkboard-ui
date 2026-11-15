@@ -430,6 +430,8 @@ export class Canvas {
   protected readonly aiOpen = signal(false);
   /** Ask the model about the selected notes (the chat takes the selection as its scope). */
   readonly askAi = output<string>();
+  /** Whether the assistant is here to ask (not on a participant's view of a board). */
+  readonly canAsk = input(true);
 
   /** Where the bar over the selection goes, in screen space: above the selection, or null when there's nothing to act on. */
   protected readonly selectionBar = computed(() => {

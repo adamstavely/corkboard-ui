@@ -18,7 +18,7 @@ import { noteExtensions, renderNoteText } from './note-text';
   template: `
     <div class="text" #text></div>
     @if (note().authorName && !hideAuthor()) {
-      <span class="note-author">{{ note().authorName }}</span>
+      <span class="note-author">{{ note().participant ? 'Feedback · ' : '' }}{{ note().authorName }}</span>
     }
     @if (note().tags.length) {
       <span class="note-tags" [attr.aria-label]="'Tags: ' + note().tags.join(', ')">

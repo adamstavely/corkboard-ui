@@ -361,6 +361,7 @@
             [boardId]="id()"
             [boardName]="meta.value().title"
             [canManage]="isOwner()"
+            [canManageFeedback]="canChangeLocked()"
             [meId]="meId()"
             (closed)="panel.set(null)"
             (changed)="meta.reload()"

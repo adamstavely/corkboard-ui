@@ -24,6 +24,10 @@ export interface Note {
   text: Y.XmlFragment;
   /** Who wrote it, when a signed writing round put it here; anonymous and ordinary notes have none. */
   authorName?: string;
+  /** Written by someone from outside the team, through the board's feedback link. */
+  participant?: boolean;
+  /** On a participant's view of a board: whose it is ("p4"), to tell their own apart. */
+  by?: string;
   /** Who added it, for filtering by person; notes from before this was kept, or from the model, have none. */
   createdBy?: { id: string; name: string };
   /** Short labels to group and filter notes by: "bug", "q3". */
@@ -1139,6 +1143,10 @@ export class BoardDoc {
       color: NOTE_COLORS.includes(color) ? color : 'yellow',
       text,
       ...(typeof node.get('authorName') === 'string' ? { authorName: node.get('authorName') as string } : {}),
+      // A participant's view names the writer as the board allows ("You", "Participant 4"), in place of who they are.
+      ...(typeof node.get('byline') === 'string' && typeof node.get('authorName') !== 'string' ? { authorName: node.get('byline') as string } : {}),
+      ...(node.get('participant') === true ? { participant: true } : {}),
+      ...(typeof node.get('by') === 'string' ? { by: node.get('by') as string } : {}),
       ...createdByOf(node),
       tags: tagsOf(node),
       ...scores(node),

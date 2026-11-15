@@ -452,7 +452,7 @@
           </div>
         </tc-menu-morph>
       }
-      @if (bar.notes && canReact()) {
+      @if (bar.notes && canReact() && canAsk()) {
         <tc-menu-morph [open]="aiOpen()" (tc-open-change)="aiOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Ask AI" data-tip="Ask AI"><app-icon name="sparkles" /></button>
           <div data-menu class="app-menu" aria-label="Ask the model about the selection">

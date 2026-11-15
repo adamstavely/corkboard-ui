@@ -17,6 +17,7 @@ import { facilitationControllerReleaseFacilitator } from '../../api/generated/fn
 import { facilitationControllerGoToStep } from '../../api/generated/fn/facilitation/facilitation-controller-go-to-step';
 import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
 import { facilitationControllerSetPrivacy } from '../../api/generated/fn/facilitation/facilitation-controller-set-privacy';
+import { feedbackControllerAnswerPoll } from '../../api/generated/fn/feedback/feedback-controller-answer-poll';
 import { facilitationControllerAnswerPoll } from '../../api/generated/fn/facilitation/facilitation-controller-answer-poll';
 import { facilitationControllerEndPoll } from '../../api/generated/fn/facilitation/facilitation-controller-end-poll';
 import { facilitationControllerStartPoll } from '../../api/generated/fn/facilitation/facilitation-controller-start-poll';
@@ -58,6 +59,8 @@ export class BoardFacilitation {
   readonly breakouts = input.required<Breakouts>();
   /** Who holds the facilitator's seat; this person; and whether they own the board (owners can take the seat over). */
   readonly facilitator = input<Facilitator>({ userId: null, name: '' });
+  /** On a participant's view of the board (from outside the team): they answer polls as a participant. */
+  readonly participant = input(false);
   /** Private mode: pointers, selections and names hidden. */
   readonly privacy = input<{ on: boolean; by: string }>({ on: false, by: '' });
   /** The poll, if there is one, and everyone's answers to it. */
@@ -253,7 +256,11 @@ export class BoardFacilitation {
   }
 
   protected async answer(n: number): Promise<void> {
-    await this.#run(() => this.#api.invoke(facilitationControllerAnswerPoll, { id: this.boardId(), body: { answer: n } }));
+    await this.#run(() =>
+      this.participant()
+        ? this.#api.invoke(feedbackControllerAnswerPoll, { id: this.boardId(), body: { answer: n } })
+        : this.#api.invoke(facilitationControllerAnswerPoll, { id: this.boardId(), body: { answer: n } }),
+    );
   }
 
   // ── The agenda ──
