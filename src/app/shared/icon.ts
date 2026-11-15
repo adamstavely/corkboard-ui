@@ -81,6 +81,7 @@ import {
   X,
   Circle,
   Diamond,
+  Lightbulb,
   type IconNode,
 } from 'lucide';
 
@@ -120,6 +121,7 @@ export const ICONS = {
   comment: MessageCircleMore,
   hidden: EyeOff,
   eye: Eye,
+  suggestion: Lightbulb,
   plus: Plus,
   minus: Minus,
   undo: Undo2,

@@ -17,7 +17,7 @@ export const ASSISTANT_STARTERS: PromptStarter[] = [
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** What the model did to the board, in a line after its answer. */
+/** What the model did to the board (or suggested doing), in a line after its answer. */
 export function changesLine(r: AssistResultDto): string {
   const done = [
     r.notesAdded && `added ${plural(r.notesAdded, 'note')}`,
@@ -25,7 +25,8 @@ export function changesLine(r: AssistResultDto): string {
     r.notesMoved && `moved ${plural(r.notesMoved, 'note')} into frames`,
     r.notesChanged && `changed ${plural(r.notesChanged, 'note')}`,
   ].filter(Boolean);
-  return done.length ? `On the board: ${done.join(', ')}. Undo it from History.` : '';
+  if (!done.length) return '';
+  return r.suggestionId ? `Suggested, not made yet: ${done.join(', ')}. Accept it or turn it down under Suggestions.` : `On the board: ${done.join(', ')}. Undo it from History.`;
 }
 
 /** What kind of file a name is, for its citation chip: "PDF", "Word", "Markdown"… */

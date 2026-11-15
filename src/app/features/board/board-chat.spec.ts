@@ -55,6 +55,7 @@ describe('the board chat', () => {
     expect(threadItems([{ ...answer, files: files.slice(0, 1), changes: undefined }])[0]).toHaveProperty('text', 'Grouped by theme.\n\nFrom budget.pdf.');
     const pages = [{ url: 'https://news.example/pilot', title: 'Pilot results' }];
     expect(threadItems([{ ...answer, files: files.slice(0, 1), pages, changes: undefined }])[0]).toHaveProperty('text', 'Grouped by theme.\n\nFrom budget.pdf and https://news.example/pilot.');
+    expect(threadItems([{ ...answer, suggestionId: 's1' }])[0]).toHaveProperty('text', 'Grouped by theme.\n\nSuggested, not made yet: made 3 frames and moved 9 notes into them. See Suggestions.');
   });
 
   it("knows who's here and who wrote earlier, once each, and not the model", () => {

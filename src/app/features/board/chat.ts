@@ -23,6 +23,8 @@ export interface ChatMessage {
   changes?: { notesAdded: number; notesChanged: number; framesAdded: number; notesMoved: number };
   /** On the model's messages: the board's files the answer drew on. */
   files?: { fileId: string; name: string }[];
+  /** On the model's messages: the suggestion it put instead of changing the board. */
+  suggestionId?: string;
   /** On the model's messages: the web pages the answer read. */
   pages?: { url: string; title: string }[];
   failed?: boolean;
@@ -63,7 +65,9 @@ export function sourcesLine(files: readonly { name: string }[], pages: readonly 
 /** The chat as Trench Coat's thread shows it: the model's messages end with the files and pages it read and what it changed. */
 export function threadItems(messages: readonly ChatMessage[]): MultiplayerItem[] {
   return messages.map((m) => {
-    const after = [sourcesLine(m.files ?? [], m.pages ?? []), m.changes ? changesLine(m.changes) : ''].filter(Boolean);
+    const changes = m.changes ? changesLine(m.changes) : '';
+    const done = changes && m.suggestionId ? `Suggested, not made yet: ${changes[0].toLowerCase()}${changes.slice(1)} See Suggestions.` : changes;
+    const after = [sourcesLine(m.files ?? [], m.pages ?? []), done].filter(Boolean);
     const text = m.recap ? recapText(m.recap) : [m.text, ...after].join('\n\n');
     return { id: m.id, authorId: m.authorId, at: m.at, text, ...(m.replyTo ? { replyTo: m.replyTo } : {}) };
   });

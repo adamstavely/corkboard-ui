@@ -11,6 +11,8 @@ export interface BoardChanges {
   edited: { before: string; after: string }[];
   /** Notes that are in a different place. */
   moved: number;
+  /** Notes in a different colour. */
+  recoloured: number;
   framesAdded: string[];
   framesRemoved: string[];
   /** Frames renamed: before and after. */
@@ -34,6 +36,7 @@ export function changesSince(then: BoardDoc, now: BoardDoc): BoardChanges {
 
   const edited: BoardChanges['edited'] = [];
   let moved = 0;
+  let recoloured = 0;
   for (const [id, was] of thenNotes) {
     const is = nowNotes.get(id);
     if (!is) continue;
@@ -41,12 +44,14 @@ export function changesSince(then: BoardDoc, now: BoardDoc): BoardChanges {
     const after = plainText(is.text);
     if (before !== after) edited.push({ before: label(before), after: label(after) });
     if (was.x !== is.x || was.y !== is.y) moved++;
+    if (was.color !== is.color) recoloured++;
   }
   return {
     added: [...nowNotes.values()].filter((n) => !thenNotes.has(n.id)).map((n) => label(plainText(n.text))),
     removed: [...thenNotes.values()].filter((n) => !nowNotes.has(n.id)).map((n) => label(plainText(n.text))),
     edited,
     moved,
+    recoloured,
     framesAdded: [...nowFrames.values()].filter((f) => !thenFrames.has(f.id)).map(title),
     framesRemoved: [...thenFrames.values()].filter((f) => !nowFrames.has(f.id)).map(title),
     framesRenamed: [...thenFrames.values()].flatMap((f) => {
@@ -60,4 +65,4 @@ export function changesSince(then: BoardDoc, now: BoardDoc): BoardChanges {
 
 /** True when the version and the board have the same content. */
 export const unchanged = (c: BoardChanges) =>
-  !c.added.length && !c.removed.length && !c.edited.length && !c.moved && !c.framesAdded.length && !c.framesRemoved.length && !c.framesRenamed.length && !c.mediaAdded.length && !c.mediaRemoved.length;
+  !c.added.length && !c.removed.length && !c.edited.length && !c.moved && !c.recoloured && !c.framesAdded.length && !c.framesRemoved.length && !c.framesRenamed.length && !c.mediaAdded.length && !c.mediaRemoved.length;
