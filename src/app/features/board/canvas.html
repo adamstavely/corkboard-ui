@@ -96,7 +96,7 @@
         [style.width.px]="m.w"
         [style.height.px]="m.h"
         [style.z-index]="board().stack().get(m.id)"
-        (dblclick)="m.kind === 'image' ? askImage.emit(m) : openFile.emit(m)"
+        (dblclick)="m.kind === 'image' && can('assistant') ? askImage.emit(m) : openFile.emit(m)"
       >
         @if (m.kind === 'image') {
           @if (fileUrls().get(m.fileId); as src) {
@@ -173,6 +173,8 @@
             <div class="view-body">
               @if (viewContent(); as content) {
                 <ng-container *ngTemplateOutlet="content; context: { $implicit: item }" />
+              } @else {
+                <p class="app-placeholder">A live view of the board's tasks. Open the board in Corkboard to see it.</p>
               }
             </div>
           }
@@ -549,7 +551,7 @@
           </div>
         </tc-menu-morph>
       }
-      @if (bar.notes && canReact() && canAsk()) {
+      @if (bar.notes && canReact() && canAsk() && can('assistant')) {
         <tc-menu-morph [open]="aiOpen()" (tc-open-change)="aiOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Ask AI" data-tip="Ask AI"><app-icon name="sparkles" /></button>
           <div data-menu class="app-menu" aria-label="Ask the model about the selection">
@@ -607,10 +609,10 @@
           <app-icon name="comment" />
         </button>
       }
-      @if (!readOnly() && oneDiagram(); as d) {
+      @if (!readOnly() && can('diagrams') && oneDiagram(); as d) {
         <button type="button" class="icon-btn" aria-label="Edit diagram" data-tip="Edit diagram" (click)="editDiagram.emit(d)"><app-icon name="diagram" /></button>
       }
-      @if (!readOnly() && oneChart(); as c) {
+      @if (!readOnly() && can('charts') && oneChart(); as c) {
         <button type="button" class="icon-btn" aria-label="Edit chart" data-tip="Edit chart" (click)="editChart.emit(c)"><app-icon name="chart" /></button>
       }
       @if (!readOnly() && !allLocked()) {
@@ -638,8 +640,10 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="copy" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
             @if (selectedNoteIds().length > 1) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
-              <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeAppPrompt)"><app-icon name="app" /><span class="app-menu-label">Make an app from these</span></button>
-              <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeDiagramPrompt)"><app-icon name="diagram" /><span class="app-menu-label">Make a diagram from these</span></button>
+              @if (can('assistant')) {
+                <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeAppPrompt)"><app-icon name="app" /><span class="app-menu-label">Make an app from these</span></button>
+                <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeDiagramPrompt)"><app-icon name="diagram" /><span class="app-menu-label">Make a diagram from these</span></button>
+              }
             }
             @if (pair()) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); connect()"><app-icon name="arrow" /><span class="app-menu-label">Connect with an arrow</span></button>
@@ -651,7 +655,7 @@
               <button type="button" class="app-menu-item" role="menuitem" (click)="board().resizeTable(t.id, t.rows, t.cols + 1)"><span class="app-menu-label">Add a column</span></button>
               <button type="button" class="app-menu-item" role="menuitem" [disabled]="t.cols === 1" (click)="board().resizeTable(t.id, t.rows, t.cols - 1)"><span class="app-menu-label">Remove a column</span></button>
             }
-            @if (oneImage(); as image) {
+            @if (can('assistant') && oneImage(); as image) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askImage.emit(image)"><app-icon name="sparkles" /><span class="app-menu-label">Ask about the image</span></button>
             }
             <hr />
@@ -755,23 +759,33 @@
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Create" data-tip="Create" data-tip-side="right"><app-icon name="create" /></button>
           <div data-menu class="app-menu" aria-label="Create">
             <button type="button" class="app-menu-item" role="menuitem" (click)="startMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Mind map</span><span class="app-menu-hint">Tab adds a branch</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Written as text</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="addChart()"><app-icon name="chart" /><span class="app-menu-label">Chart</span><span class="app-menu-hint">Bar, line or pie</span></button>
+            @if (can('diagrams')) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Written as text</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
+            }
+            @if (can('charts')) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addChart()"><app-icon name="chart" /><span class="app-menu-label">Chart</span><span class="app-menu-hint">Bar, line or pie</span></button>
+            }
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="app-menu-label">Table</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="app-menu-label">Link</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>
-            <hr />
-            <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('kanban')"><app-icon name="kanban" /><span class="app-menu-label">Kanban</span><span class="app-menu-hint">Action items</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('timeline')"><app-icon name="timeline" /><span class="app-menu-label">Timeline</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('matrix')"><app-icon name="matrix" /><span class="app-menu-label">Matrix</span><span class="app-menu-hint">Value and effort</span></button>
+            @if (can('files')) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>
+            }
+            @if (can('views')) {
+              <hr />
+              <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('kanban')"><app-icon name="kanban" /><span class="app-menu-label">Kanban</span><span class="app-menu-hint">Action items</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('timeline')"><app-icon name="timeline" /><span class="app-menu-label">Timeline</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="placeView('matrix')"><app-icon name="matrix" /><span class="app-menu-label">Matrix</span><span class="app-menu-hint">Value and effort</span></button>
+            }
           </div>
         </tc-menu-morph>
         <tc-menu-morph side="right" gap="12" [open]="templatesOpen()" (tc-open-change)="templatesOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Templates" data-tip="Templates" data-tip-side="right"><app-icon name="template" /></button>
           <div data-menu class="app-menu" aria-label="Templates">
-            <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); boardTemplates.emit()"><app-icon name="arrange" /><span class="app-menu-label">Board templates…</span><span class="app-menu-hint">Retros, canvases, maps</span></button>
-            <hr />
+            @if (can('templates')) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); boardTemplates.emit()"><app-icon name="arrange" /><span class="app-menu-label">Board templates…</span><span class="app-menu-hint">Retros, canvases, maps</span></button>
+              <hr />
+            }
             @for (t of noteTemplates; track t.id) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="templatesOpen.set(false); insertTemplate(t)"><span class="app-menu-label">{{ t.name }}</span><span class="app-menu-hint">{{ t.hint }}</span></button>
             }
