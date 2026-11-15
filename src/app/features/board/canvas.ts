@@ -1,7 +1,7 @@
 import { Component, computed, effect, ElementRef, HostListener, inject, input, output, signal, untracked, viewChild, type TemplateRef } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { Icon, type IconName } from '../../shared/icon';
-import { Highlighter, List, ListOrdered, type IconNode } from 'lucide';
+import { Highlighter, List, ListOrdered, type IconNode, SquareCode, Sigma } from 'lucide';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -86,6 +86,9 @@ const FORMAT_ITEMS: SelectionToolbarItem[] = [
   { type: 'separator' },
   { type: 'toggle', id: 'bullets', label: 'Bulleted list', icon: paths(List), shortcut: '- then space' },
   { type: 'toggle', id: 'numbers', label: 'Numbered list', icon: paths(ListOrdered), shortcut: '1. then space' },
+  { type: 'separator' },
+  { type: 'toggle', id: 'codeBlock', label: 'Code block', icon: paths(SquareCode), shortcut: '``` then space' },
+  { type: 'button', id: 'math', label: 'Maths', icon: paths(Sigma), shortcut: '$x^2$' },
 ];
 const MARKS = ['bold', 'italic', 'strike', 'code'] as const;
 
@@ -910,6 +913,7 @@ export class Canvas {
           ...MARKS.filter((m) => editor.isActive(m)),
           ...(editor.isActive('bulletList') ? ['bullets'] : []),
           ...(editor.isActive('orderedList') ? ['numbers'] : []),
+          ...(editor.isActive('codeBlock') ? ['codeBlock'] : []),
         ]);
         this.values.set({ highlight: editor.isActive('highlight') ? String(editor.getAttributes('highlight')['color'] ?? 'yellow') : 'none' });
       };
@@ -1060,6 +1064,9 @@ export class Canvas {
     // On the empty board with nothing selected, a drag moves the view; with something selected (or with shift), it
     // draws a box to select with.
     if (this.selection().size === 0 && !e.shiftKey) {
+      // No text selection across the page as it drags; the board still takes focus, for its keys.
+      e.preventDefault();
+      this.surface().nativeElement.focus({ preventScroll: true });
       this.#gesture = { kind: 'pan', last: screen };
       this.panning.set(true);
       return;
@@ -1654,6 +1661,14 @@ export class Canvas {
     else if (id === 'code') chain.toggleCode().run();
     else if (id === 'bullets') chain.toggleBulletList().run();
     else if (id === 'numbers') chain.toggleOrderedList().run();
+    else if (id === 'codeBlock') chain.toggleCodeBlock().run();
+    else if (id === 'math') {
+      // What's selected becomes maths; with nothing selected, an empty $$ to type into.
+      const { from, to, empty } = editor.state.selection;
+      const latex = editor.state.doc.textBetween(from, to, ' ').trim();
+      if (!empty && latex) chain.insertContentAt({ from, to }, { type: 'math', attrs: { latex } }).run();
+      else chain.insertContent('$$').setTextSelection(from + 1).run();
+    }
     else if (id === 'highlight') chain.setHighlight(typeof value === 'string' && (HIGHLIGHTS as readonly string[]).includes(value) ? (value as HighlightColor) : null).run();
   }
 

@@ -76,6 +76,51 @@ app-note .text :is(code, pre) {
   font-family: var(--tc-font-mono);
   font-size: 0.9em;
 }
+/* A code block: a darker panel on the note, scrolling sideways rather than wrapping. */
+app-note .text pre {
+  margin: 0.3em 0;
+  padding: 0.5em 0.6em;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tc-text-primary) 8%, transparent);
+  white-space: pre;
+}
+app-note .text pre code {
+  font-size: 0.85em;
+}
+/* Syntax colours, from the chart palette so they read in both themes. */
+app-note .text pre :is(.hljs-keyword, .hljs-built_in, .hljs-selector-tag) {
+  color: var(--tc-chart-1);
+}
+app-note .text pre :is(.hljs-string, .hljs-regexp, .hljs-attr) {
+  color: var(--tc-chart-2);
+}
+app-note .text pre :is(.hljs-number, .hljs-literal) {
+  color: var(--tc-chart-3);
+}
+app-note .text pre :is(.hljs-title, .hljs-function, .hljs-name) {
+  color: var(--tc-chart-4);
+}
+app-note .text pre :is(.hljs-comment, .hljs-quote) {
+  color: var(--tc-text-muted);
+  font-style: italic;
+}
+app-note .text pre :is(.hljs-type, .hljs-class, .hljs-variable) {
+  color: var(--tc-chart-5);
+}
+/* Maths, drawn by KaTeX; on its own line, centred. */
+app-note .note-math {
+  cursor: text;
+}
+app-note div.note-math {
+  margin: 0.3em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+app-note .ProseMirror .note-math.ProseMirror-selectednode {
+  outline: 2px solid var(--tc-accent-text);
+  border-radius: 4px;
+}
 app-note .ProseMirror {
   outline: none;
   min-height: 100%;
