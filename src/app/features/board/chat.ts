@@ -21,6 +21,8 @@ export interface ChatMessage {
   cited?: string[];
   asked?: string[];
   changes?: { notesAdded: number; notesChanged: number; framesAdded: number; notesMoved: number };
+  /** On the model's messages: the board's files the answer drew on. */
+  files?: { fileId: string; name: string }[];
   failed?: boolean;
   /** On a session recap: what was decided, who does what, and what's open. */
   recap?: SessionRecapDto;
@@ -49,11 +51,18 @@ export function scopeLine(notes: number, frames: readonly string[]): string {
   return notes ? `About the ${count} selected` : 'About the whole board';
 }
 
-/** The chat as Trench Coat's thread shows it: the model's messages end with what it changed on the board. */
+/** "From budget.pdf and interviews.docx." – the files a model's answer drew on. */
+export function filesLine(files: readonly { name: string }[]): string {
+  if (!files.length) return '';
+  const names = files.map((f) => f.name);
+  return `From ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]}.`;
+}
+
+/** The chat as Trench Coat's thread shows it: the model's messages end with the files it read and what it changed. */
 export function threadItems(messages: readonly ChatMessage[]): MultiplayerItem[] {
   return messages.map((m) => {
-    const changes = m.changes ? changesLine(m.changes) : '';
-    const text = m.recap ? recapText(m.recap) : changes ? `${m.text}\n\n${changes}` : m.text;
+    const after = [filesLine(m.files ?? []), m.changes ? changesLine(m.changes) : ''].filter(Boolean);
+    const text = m.recap ? recapText(m.recap) : [m.text, ...after].join('\n\n');
     return { id: m.id, authorId: m.authorId, at: m.at, text, ...(m.replyTo ? { replyTo: m.replyTo } : {}) };
   });
 }
