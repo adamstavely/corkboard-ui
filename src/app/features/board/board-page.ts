@@ -714,6 +714,8 @@ export class BoardPage {
     }
   }
   protected readonly canvas = viewChild(Canvas);
+  /** Whether the board's layout (frames, text, shapes, tables) is locked, for the top bar's lock button. */
+  protected readonly layoutLocked = computed(() => this.canvas()?.layoutLocked() ?? false);
 
   protected readonly title = signal('');
   protected readonly confirmDelete = signal(false);
