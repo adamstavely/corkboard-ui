@@ -1055,6 +1055,13 @@ export class Canvas {
       return;
     }
 
+    // On the empty board with nothing selected, a drag moves the view; with something selected (or with shift), it
+    // draws a box to select with.
+    if (this.selection().size === 0 && !e.shiftKey) {
+      this.#gesture = { kind: 'pan', last: screen };
+      this.panning.set(true);
+      return;
+    }
     const start = toWorld(this.viewport(), screen);
     const base = e.shiftKey ? new Set(this.selection()) : new Set<string>();
     this.selection.set(base);
