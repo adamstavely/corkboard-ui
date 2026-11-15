@@ -133,7 +133,7 @@
         [style.height.px]="item.h"
         [style.z-index]="board().stack().get(item.id)"
         [attr.aria-label]="itemLabel(item)"
-        [attr.role]="item.kind === 'view' ? 'region' : 'img'"
+        [attr.role]="item.kind === 'view' || item.kind === 'app' ? 'region' : 'img'"
       >
         @switch (item.kind) {
           @case ('view') {
@@ -145,6 +145,20 @@
             <div class="view-body">
               @if (viewContent(); as content) {
                 <ng-container *ngTemplateOutlet="content; context: { $implicit: item }" />
+              }
+            </div>
+          }
+          @case ('app') {
+            <!-- A mini-app: its title bar picks it up; its body runs it (see board-page's boardApp), or says where to use it. -->
+            <div class="view-head">
+              <app-icon name="app" />
+              <span>{{ item.title }}</span>
+            </div>
+            <div class="view-body app-body">
+              @if (appContent(); as content) {
+                <ng-container *ngTemplateOutlet="content; context: { $implicit: item }" />
+              } @else {
+                <p class="app-placeholder">A mini-app made from the board's notes. Open the board in Corkboard to use it.</p>
               }
             </div>
           }
@@ -558,6 +572,7 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="copy" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
             @if (selectedNoteIds().length > 1) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeAppPrompt)"><app-icon name="app" /><span class="app-menu-label">Make an app from these</span></button>
             }
             @if (pair()) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); connect()"><app-icon name="arrow" /><span class="app-menu-label">Connect with an arrow</span></button>

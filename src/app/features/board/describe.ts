@@ -51,6 +51,8 @@ export function describeThing(board: BoardDoc, id: string): string {
         return `link to ${item.title || item.url}`;
       case 'view':
         return `${VIEW_NAMES[item.view].toLowerCase()} view`;
+      case 'app':
+        return `mini-app “${clip(item.title)}”`;
     }
   }
   return board.connectors().some((c) => c.id === id) ? 'arrow' : 'something no longer on the board';

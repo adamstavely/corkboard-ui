@@ -167,9 +167,21 @@ export interface ViewItem extends Placed {
   view: BoardView;
 }
 
-/** The board's other things: shapes, text, pen strokes, tables, link cards and views. */
-export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem;
-const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view']);
+/**
+ * A mini-app the assistant made: a small web page that shows or works with notes, run sandboxed. The code lives in the
+ * API (see AppDto); this names the app, the version shown and the notes it reads (none: the whole board's).
+ */
+export interface AppItem extends Placed {
+  kind: 'app';
+  appId: string;
+  title: string;
+  version: number;
+  sources: string[];
+}
+
+/** The board's other things: shapes, text, pen strokes, tables, link cards, views and mini-apps. */
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app']);
 
 /** A ready-made note: a bold heading and prompts to fill in. */
 export interface NoteTemplate {
@@ -1344,6 +1356,20 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
     case 'view': {
       const view = node.get('view') as BoardView;
       return BOARD_VIEWS.includes(view) ? { ...box, kind: 'view', view } : null;
+    }
+    case 'app': {
+      const appId = node.get('appId');
+      const version = node.get('version');
+      const sources = node.get('sources');
+      if (typeof appId !== 'string') return null;
+      return {
+        ...box,
+        kind: 'app',
+        appId,
+        title: str(node.get('title')) || 'App',
+        version: Number.isInteger(version) && (version as number) > 0 ? (version as number) : 1,
+        sources: Array.isArray(sources) ? sources.filter((s): s is string => typeof s === 'string') : [],
+      };
     }
     default:
       return null;

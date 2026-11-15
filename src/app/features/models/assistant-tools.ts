@@ -44,6 +44,13 @@ export const SEARCH_SERVICES: { value: Service; label: string }[] = [
             [disabled]="busy()"
             (tc-value-change)="$event.preventDefault(); key.set($event.detail.value)"
           ></tc-secret-field>
+          <tc-switch
+            label="Make mini-apps"
+            description="The assistant can make small apps from a board's notes, like a tally or a chart. They run sandboxed, with no network."
+            [value]="miniApps()"
+            [disabled]="busy()"
+            (tc-value-change)="miniApps.set($event.detail.value)"
+          ></tc-switch>
           @if (problem(); as problem) {
             <p class="problem" role="alert">{{ problem }}</p>
           }
@@ -52,6 +59,7 @@ export const SEARCH_SERVICES: { value: Service; label: string }[] = [
           </div>
         } @else {
           <p class="note">{{ state.value().webSearch ? 'The assistant can search the web with ' + serviceName(state.value().searchProvider) + '.' : "The assistant doesn't search the web. An owner can switch it on here." }}</p>
+          <p class="note">{{ state.value().miniApps ? 'It can make mini-apps on boards.' : "It doesn't make mini-apps." }}</p>
         }
       } @else if (state.error()) {
         <p role="alert" class="note">The assistant's tools couldn't be loaded. Refresh to try again.</p>
@@ -98,6 +106,7 @@ export class AssistantTools {
   protected readonly state = resource({ params: () => this.orgId(), loader: ({ params: orgId }) => this.#api.invoke(toolsControllerGet, { orgId }) });
   protected readonly services = SEARCH_SERVICES;
   protected readonly webSearch = signal(false);
+  protected readonly miniApps = signal(true);
   protected readonly service = signal<Service>('brave');
   protected readonly key = signal('');
   protected readonly busy = signal(false);
@@ -108,6 +117,7 @@ export class AssistantTools {
       if (!this.state.hasValue()) return;
       const saved = this.state.value();
       this.webSearch.set(saved.webSearch);
+      this.miniApps.set(saved.miniApps);
       if (saved.searchProvider) this.service.set(saved.searchProvider);
     });
   }
@@ -123,11 +133,11 @@ export class AssistantTools {
       const key = this.key().trim();
       await this.#api.invoke(toolsControllerUpdate, {
         orgId: this.orgId(),
-        body: { webSearch: this.webSearch(), searchProvider: this.service(), ...(key ? { searchKey: key } : {}) },
+        body: { webSearch: this.webSearch(), searchProvider: this.service(), miniApps: this.miniApps(), ...(key ? { searchKey: key } : {}) },
       });
       this.key.set('');
       this.state.reload();
-      toast.success(this.webSearch() ? 'Web search is on' : 'Web search is off');
+      toast.success('Assistant tools saved', { description: `Web search ${this.webSearch() ? 'on' : 'off'}, mini-apps ${this.miniApps() ? 'on' : 'off'}.` });
     } catch (err) {
       const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
       this.problem.set(typeof message === 'string' ? message : "That didn't save. Try again.");

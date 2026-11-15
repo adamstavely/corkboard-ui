@@ -215,6 +215,7 @@
           (pinPlaced)="openPin($event)"
           (joinFrame)="joinBreakout($event)"
           [viewContent]="boardView"
+          [appContent]="boardApp"
         />
         @if (slides(); as sl) {
           <div class="slide-bar app-island" role="toolbar" aria-label="Slides">
@@ -226,6 +227,10 @@
             <button type="button" class="icon-btn" aria-label="End slides" data-tip="End  Esc" data-tip-side="top" (click)="endSlides()"><app-icon name="close" /></button>
           </div>
         }
+        <!-- A mini-app on the board, run sandboxed and sent the notes it works with. -->
+        <ng-template #boardApp let-app>
+          <app-board-app [boardId]="id()" [item]="app" [board]="board()!" [canEdit]="canEdit()" [canAsk]="!!models.modelId()" (askAi)="askAssistant($event)" />
+        </ng-template>
         <!-- What a matrix, kanban or timeline placed on the board shows: live, from the board's notes and tasks. -->
         <ng-template #boardView let-view>
           @switch (view.view) {

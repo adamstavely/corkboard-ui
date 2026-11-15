@@ -82,6 +82,10 @@ import {
   Circle,
   Diamond,
   Lightbulb,
+  AppWindow,
+  CodeXml,
+  Download,
+  History,
   type IconNode,
 } from 'lucide';
 
@@ -122,6 +126,10 @@ export const ICONS = {
   hidden: EyeOff,
   eye: Eye,
   suggestion: Lightbulb,
+  app: AppWindow,
+  code: CodeXml,
+  download: Download,
+  versions: History,
   plus: Plus,
   minus: Minus,
   undo: Undo2,

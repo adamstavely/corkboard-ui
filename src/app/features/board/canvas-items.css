@@ -236,8 +236,9 @@
   cursor: crosshair;
 }
 
-/* A placed matrix, kanban or timeline: a panel on the board, picked up by its title bar. */
-.item-view {
+/* A placed matrix, kanban or timeline, or a mini-app: a panel on the board, picked up by its title bar. */
+.item-view,
+.item-app {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--tc-border-subtle);
@@ -267,4 +268,14 @@
   overflow: auto;
   padding: var(--tc-space-3);
   cursor: auto;
+}
+/* A mini-app runs edge to edge in its panel. */
+.view-body.app-body {
+  padding: 0;
+  overflow: hidden;
+}
+.app-placeholder {
+  margin: 0;
+  padding: var(--tc-space-4);
+  color: var(--tc-text-muted);
 }
