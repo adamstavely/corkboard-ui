@@ -141,7 +141,7 @@
         [style.height.px]="item.h"
         [style.z-index]="board().stack().get(item.id)"
         [attr.aria-label]="itemLabel(item)"
-        [attr.role]="item.kind === 'view' || item.kind === 'app' ? 'region' : 'img'"
+        [attr.role]="item.kind === 'view' || item.kind === 'app' || item.kind === 'chart' ? 'region' : 'img'"
       >
         @switch (item.kind) {
           @case ('view') {
@@ -172,6 +172,9 @@
           }
           @case ('diagram') {
             <app-diagram-view [source]="item.source" [label]="itemLabel(item)" />
+          }
+          @case ('chart') {
+            <app-chart-view [kind]="item.chart" [title]="item.title" [rows]="item.rows" [boxHeight]="item.h" />
           }
           @case ('shape') {
             <svg class="shape-fill" [attr.viewBox]="'0 0 ' + item.w + ' ' + item.h" preserveAspectRatio="none" aria-hidden="true">
@@ -569,6 +572,9 @@
       @if (!readOnly() && oneDiagram(); as d) {
         <button type="button" class="icon-btn" aria-label="Edit diagram" data-tip="Edit diagram" (click)="editDiagram.emit(d)"><app-icon name="diagram" /></button>
       }
+      @if (!readOnly() && oneChart(); as c) {
+        <button type="button" class="icon-btn" aria-label="Edit chart" data-tip="Edit chart" (click)="editChart.emit(c)"><app-icon name="chart" /></button>
+      }
       @if (!readOnly() && !allLocked()) {
         <tc-menu-morph [open]="layerOpen()" (tc-open-change)="layerOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Layer" data-tip="Layer"><app-icon name="layers" /></button>
@@ -713,6 +719,7 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="startMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Mind map</span><span class="app-menu-hint">Tab adds a branch</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Written as text</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="addChart()"><app-icon name="chart" /><span class="app-menu-label">Chart</span><span class="app-menu-hint">Bar, line or pie</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="app-menu-label">Table</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="app-menu-label">Link</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>

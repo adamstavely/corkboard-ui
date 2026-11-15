@@ -144,6 +144,8 @@ export class BoardFacilitation {
   readonly closed = output<void>();
   /** Go to the board's parking lot, making one if there isn't one. */
   readonly parkingLot = output<void>();
+  /** Put the finished vote's results on the board as a chart. */
+  readonly chartVotes = output<readonly { id: string; votes: number }[]>();
   /** Write planning poker's result to the task it estimated. */
   readonly setEstimate = output<{ taskId: string; estimate: string }>();
 

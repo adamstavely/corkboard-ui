@@ -1,4 +1,5 @@
 import { renderDiagram, svgUrl } from './diagram';
+import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { shapePath } from './items';
 import { fileSize } from './file-cache';
@@ -52,6 +53,11 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
       if (line) out.push(line);
     }
     out.push('');
+  }
+  const charts = board.items().flatMap((i) => (i.kind === 'chart' && i.rows.length ? [i] : []));
+  if (charts.length) {
+    out.push('## Charts', '');
+    for (const c of charts) out.push(...chartMarkdown(c.title, c.rows), '');
   }
   const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' && i.source.trim() ? [i.source.trim()] : []));
   if (diagrams.length) {
@@ -161,12 +167,21 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
       img.onerror = () => resolve();
       img.src = src;
     });
-  // Diagrams, drawn from their text, under their item's id.
-  const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' ? [i] : []));
+  // Diagrams and charts, drawn as SVG, under their item's id.
   await Promise.all(
-    diagrams.map(async (d) => {
-      const drawn = await renderDiagram(d.source);
-      if ('svg' in drawn) await image(d.id, svgUrl(drawn.svg));
+    board.items().map(async (item) => {
+      if (item.kind === 'diagram') {
+        const drawn = await renderDiagram(item.source);
+        if ('svg' in drawn) await image(item.id, svgUrl(drawn.svg));
+      } else if (item.kind === 'chart' && item.rows.length) {
+        try {
+          const { renderChartToSVG } = await import('@adamstavely/trenchcoat/charts');
+          const svg = await renderChartToSVG(chartSpec(item.chart, item.title, item.rows), { width: item.w, height: Math.max(80, item.h - 96), tokensCss: pageCss(), theme: pageTheme() });
+          await image(item.id, svgUrl(svg));
+        } catch {
+          // Drawn as a titled card instead.
+        }
+      }
     }),
   );
   await Promise.all(
@@ -188,6 +203,23 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
   );
   return loaded;
 }
+
+/** The page's stylesheets as text: Trench Coat's tokens are among them, for a chart drawn on its own to resolve. */
+function pageCss(): string {
+  const rules = (sheet: CSSStyleSheet): string[] => {
+    try {
+      return [...sheet.cssRules].flatMap((r) => (r instanceof CSSImportRule && r.styleSheet ? rules(r.styleSheet) : [r.cssText]));
+    } catch {
+      // Another origin's stylesheet can't be read; Trench Coat's own are the app's.
+      return [];
+    }
+  };
+  return [...document.styleSheets].flatMap(rules).join('\n');
+}
+
+/** Light or dark, as the page is drawn now. */
+const pageTheme = (): 'light' | 'dark' =>
+  document.documentElement.dataset['tcTheme'] === 'dark' || (!document.documentElement.dataset['tcTheme'] && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 
 /**
  * A theme colour as a canvas can use it. The tokens are often light-dark(…) or var(…), which canvases don't understand,
@@ -422,6 +454,20 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       }
       break;
     }
+    case 'chart':
+      ctx.fillStyle = c.surface;
+      ctx.strokeStyle = c.border;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, item.w, item.h, 12);
+      ctx.fill();
+      ctx.stroke();
+      if (image) ctx.drawImage(image, 0, 0, item.w, item.h);
+      else {
+        ctx.fillStyle = c.text;
+        ctx.font = `600 16px ${c.font}`;
+        ctx.fillText(item.title || 'Chart', 16, 30, item.w - 32);
+      }
+      break;
     case 'diagram': {
       // Drawn as on the board: fitted to its box, on a card.
       ctx.fillStyle = '#ffffff';
