@@ -253,6 +253,46 @@
   white-space: nowrap;
 }
 
+/* Video, audio and PDFs: a name bar to pick them up by, and the player or page under it. */
+.media.playable {
+  display: flex;
+  flex-direction: column;
+}
+.media-bar {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: var(--tc-space-2);
+  height: 28px;
+  padding: 6px var(--tc-space-2) 0;
+  box-sizing: border-box;
+  color: var(--tc-text-muted);
+  font-size: 12px;
+}
+.media-bar .file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+.media-body {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  cursor: default;
+}
+.media-body.for-pdf {
+  cursor: grab;
+}
+.media video {
+  width: 100%;
+  height: 100%;
+  background: #000000;
+}
+.media audio {
+  width: calc(100% - 16px);
+}
+
 /* Slides: the board alone, its tools put away. */
 .surface.bare :is(.zoom-panel, .map-toggle, .minimap-panel, .selection-bar),
 .surface.bare ~ .rail-stack {

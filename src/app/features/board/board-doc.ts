@@ -92,7 +92,7 @@ export interface Media {
   z: number;
 }
 
-export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle'] as const;
+export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout'] as const;
 export type ShapeKind = (typeof SHAPES)[number];
 /** Text label sizes, in px. */
 export const TEXT_SIZES = { sm: 14, md: 20, lg: 32, xl: 48 } as const;
