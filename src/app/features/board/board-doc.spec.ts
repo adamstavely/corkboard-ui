@@ -60,6 +60,29 @@ describe('BoardDoc', () => {
     expect(board.outline().map((f) => f.title)).toEqual(['Bottom', 'Top']);
   });
 
+  it("leaves locked things alone for someone who may not change them, as the server would refuse it", () => {
+    const frame = board.addFrame(0, 0, [], 'Ideas');
+    const note = board.addNote(0, 0);
+    board.setLocked([frame], true);
+    board.move([note], 10, 0);
+    board.canChangeLocked = false;
+    // The move could be undone into the locked frame's era; it's forgotten instead.
+    expect(board.undo.undoStack.length).toBe(0);
+
+    board.move([frame, note], 50, 50);
+    board.renameFrame(frame, 'Mine');
+    board.setFrameStyle([frame], { fill: 'blue' });
+    board.remove([frame, note]);
+    board.setLocked([frame], false);
+    board.setLocked([board.addNote(500, 500)], true);
+    const f = board.frames()[0];
+    expect([f.x, f.title, f.fill]).toEqual([-360, 'Ideas', 'clear']);
+    expect(board.locked().has(frame)).toBe(true);
+    // The unlocked note went; the locked frame stayed.
+    expect(board.notes().map((n) => n.id)).not.toContain(note);
+    expect(board.locked().size).toBe(1);
+  });
+
   it('lays a template out centred on a point, frames under the rest, arrows by key, all in one undo', () => {
     board.addNote(0, 0);
     const ids = board.addLayout(
