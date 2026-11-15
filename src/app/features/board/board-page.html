@@ -348,13 +348,42 @@
           <app-board-activity [boardId]="id()" [canEdit]="canEdit()" [refresh]="versionsChanged()" (preview)="previewing.set($event)" (closed)="panel.set(null)" />
         }
         @if (away(); as a) {
-          <tc-away-summary class="away" heading="While you were away" [since]="a.since" [items]="a.items" (tc-seen)="away.set(null)"></tc-away-summary>
+          <div class="away">
+            <tc-away-summary heading="While you were away" [since]="a.since" [items]="a.items" (tc-seen)="away.set(null); catchUp.set(null)"></tc-away-summary>
+            @if (canComment() && models.modelId()) {
+              @if (catchUp(); as c) {
+                <div class="catch-up app-island" role="region" aria-label="Catch-up">
+                  <p class="catch-up-summary"><app-icon name="sparkles" /> {{ c.summary }}</p>
+                  @if (c.points.length) {
+                    <ul>
+                      @for (p of c.points; track $index) {
+                        <li>
+                          <span>{{ p.text }}</span>
+                          @if (p.noteIds.length) {
+                            <tc-button size="sm" variant="ghost" [label]="'Show ' + p.noteIds.length + ' note' + (p.noteIds.length === 1 ? '' : 's')" (click)="canvas()?.show(p.noteIds)"></tc-button>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+              } @else {
+                <tc-button size="sm" variant="secondary" label="Catch me up" [loading]="catchingUp()" (click)="askCatchUp(a.since)"></tc-button>
+              }
+            }
+          </div>
         }
         @if (panel() === 'history' && ledger()) {
           <app-board-history [boardId]="id()" [feed]="ledger()!" [canEdit]="canEdit()" (closed)="panel.set(null)" />
         }
         @if (panel() === 'clusters') {
-          <app-board-clusters [board]="board()!" (closed)="panel.set(null)" (show)="canvas()?.show($event)" />
+          <app-board-clusters
+            [board]="board()!"
+            [canAsk]="canEdit() && !!models.modelId()"
+            (makeFrames)="panel.set(null); askAssistant('Group the notes on this board into frames by theme: find the few themes they share and put every note in one.')"
+            (closed)="panel.set(null)"
+            (show)="canvas()?.show($event)"
+          />
         }
         @if (panel() === 'share' && meta.hasValue()) {
           <app-board-share

@@ -27,6 +27,20 @@ export const starters = (): PromptStarter[] => [
     icon: iconElement('users'),
     text: 'Set this board up for a workshop: add a prompt note each for Agenda, Warm-up, Ideas, Vote and Next steps, then put each in its own frame with that title.',
   },
+  {
+    id: 'premortem',
+    label: 'Run a pre-mortem',
+    hint: 'Why it failed, warning signs, what to do now',
+    icon: iconElement('help'),
+    text: "Set this board up for a pre-mortem: a heading saying it's six months on and the project failed, then frames for Why it failed, Warning signs and What we do now, each with a prompt note.",
+  },
+  {
+    id: 'journey',
+    label: 'Map a customer journey',
+    hint: 'Stages, and how each one goes',
+    icon: iconElement('map'),
+    text: 'Set this board up to map a customer journey: a table with the stages (Discover, Sign up, First use, Get value, Come back) across the top and rows for Doing, Thinking, Feeling, Pain points and Opportunities, with a heading for who the customer is.',
+  },
 ];
 
 /**

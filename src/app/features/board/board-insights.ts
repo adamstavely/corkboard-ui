@@ -117,7 +117,10 @@ export class BoardHistory {
     <aside class="panel" aria-label="Clusters">
       <div class="head">
         <span class="note">Notes that share words are linked; colours are frames. Select a note to find it on the board.</span>
-        <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
+        @if (canAsk()) {
+          <tc-button size="sm" variant="secondary" label="Make frames from these" (click)="makeFrames.emit()"></tc-button>
+        }
+        <tc-button size="sm" variant="ghost" label="Close" (click)="closed.emit()"></tc-button>
       </div>
       <tc-network-graph
         heading="How the notes connect"
@@ -154,6 +157,10 @@ export class BoardHistory {
 })
 export class BoardClusters {
   readonly board = input.required<BoardDoc>();
+  /** Whether this person can have the assistant group the notes (an updater, with a model connected). */
+  readonly canAsk = input(false);
+  /** Have the assistant sort the notes into frames by theme. */
+  readonly makeFrames = output<void>();
   readonly closed = output<void>();
   readonly show = output<readonly string[]>();
 

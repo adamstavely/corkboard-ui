@@ -4,7 +4,7 @@ import { BoardStart, starters } from './board-start';
 describe('the empty-board start', () => {
   it('offers starters that ask the assistant to set the board up', () => {
     const list = starters();
-    expect(list.map((s) => s.label)).toEqual(['Run a retro', 'Map a process', 'Plan a workshop']);
+    expect(list.map((s) => s.label)).toEqual(['Run a retro', 'Map a process', 'Plan a workshop', 'Run a pre-mortem', 'Map a customer journey']);
     expect(list.every((s) => s.icon instanceof SVGElement)).toBe(true);
   });
 
