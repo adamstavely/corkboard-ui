@@ -15,7 +15,7 @@
   [onDictate]="dictate"
   [open]="assistantOpen()"
   [launcher]="false"
-  (tc-open-change)="$event.target === $event.currentTarget && assistantOpen.set($event.detail.open)"
+  (tc-open-change)="paneOpenChange($event)"
   (tc-send)="assistant().send($event.detail.message, $event.detail.model)"
   (tc-regenerate)="assistant().regenerate($event.detail.id)"
   (tc-new-chat)="assistant().clear()"

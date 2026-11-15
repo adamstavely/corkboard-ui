@@ -371,6 +371,23 @@
                   }
                   <button type="button" class="icon-btn" [attr.aria-label]="'Remove step ' + (i + 1)" data-tip="Remove" (click)="removeStep(i)"><app-icon name="close" /></button>
                 </div>
+                <!-- What the step runs when it starts; moving on wraps it up. -->
+                <div class="row">
+                  <tc-select class="grow" [label]="'Step ' + (i + 1) + ' activity'" [labelVisible]="false" [options]="activityKinds" [value]="st.activity" (tc-value-change)="updateStep(i, { activity: $any($event.detail.value) })"></tc-select>
+                  @if (st.activity === 'vote') {
+                    <tc-select class="grow" [label]="'Step ' + (i + 1) + ' votes each'" [labelVisible]="false" [options]="voteOptions" [value]="st.votesEach" (tc-value-change)="updateStep(i, { votesEach: $event.detail.value })"></tc-select>
+                  } @else if (st.activity === 'writing') {
+                    <label class="check"><input type="checkbox" [checked]="st.anonymous" (change)="updateStep(i, { anonymous: $any($event.target).checked })" /> Anonymous</label>
+                  } @else if (st.activity === 'poll') {
+                    <tc-select class="grow" [label]="'Step ' + (i + 1) + ' kind of poll'" [labelVisible]="false" [options]="pollKinds" [value]="st.pollKind" (tc-value-change)="updateStep(i, { pollKind: $any($event.detail.value) })"></tc-select>
+                  }
+                </div>
+                @if (st.activity === 'poll') {
+                  <input type="text" class="text-input" maxlength="200" placeholder="The poll's question" [attr.aria-label]="'Step ' + (i + 1) + ' poll question'" [value]="st.question" (input)="updateStep(i, { question: $any($event.target).value })" />
+                  @if (st.pollKind === 'choice') {
+                    <input type="text" class="text-input" maxlength="400" placeholder="Options, separated by commas" [attr.aria-label]="'Step ' + (i + 1) + ' poll options'" [value]="st.options" (input)="updateStep(i, { options: $any($event.target).value })" />
+                  }
+                }
               </li>
             }
           </ol>
@@ -384,7 +401,12 @@
           <ol class="steps">
             @for (st of agenda().steps; track st.id; let i = $index) {
               <li [class.now]="agenda().current === i" [attr.aria-current]="agenda().current === i ? 'step' : null">
-                <span class="step-title">{{ st.title }}</span>
+                <span class="step-title">
+                  {{ st.title }}
+                  @if (st.activity) {
+                    <span class="step-activity">{{ activityLabel(st.activity) }}</span>
+                  }
+                </span>
                 <span class="hint">{{ minutesOf(st.seconds) }}</span>
               </li>
             }

@@ -110,7 +110,7 @@
   width: min(340px, calc(100% - 2 * var(--tc-space-4)));
   /* Clear of the top panels above and the zoom panel (and the assistant's launcher) below; it scrolls inside. */
   max-height: calc(100% - (var(--tc-space-3) + 52px) - (var(--tc-space-4) + 64px));
-  overflow: auto;
+  overflow: hidden auto;
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-lg);
   background: var(--tc-surface-raised);
@@ -433,4 +433,14 @@ h3 {
   .dock-pop {
     bottom: calc(var(--tc-space-3) + 108px);
   }
+}
+
+/* What a step runs, under its title in the run sheet. */
+.step-activity {
+  display: block;
+  overflow: hidden;
+  font-size: var(--tc-font-size-xs, 0.75rem);
+  font-weight: normal;
+  color: var(--tc-text-muted);
+  text-overflow: ellipsis;
 }
