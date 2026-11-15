@@ -87,7 +87,20 @@ export interface Spotlight {
   view: { cx: number; cy: number; zoom: number } | null;
 }
 
-/** The board's dot voting, timer, hidden writing and breakouts, live from its document. Only the API writes them. */
+/** One step of the session's agenda: what it's for, its time (0 for none), and the frame everyone goes to. */
+export interface AgendaStep {
+  id: string;
+  title: string;
+  seconds: number;
+  frameId: string | null;
+}
+/** The agenda, and the step it's on (null before it starts and after it ends). */
+export interface Agenda {
+  steps: AgendaStep[];
+  current: number | null;
+}
+
+/** The board's dot voting, timer, hidden writing, breakouts and agenda, live from its document. Only the API writes them. */
 export class FacilitationFeed {
   readonly #voting: Y.Map<unknown>;
   readonly #votes: Y.Map<string[]>;
@@ -96,6 +109,7 @@ export class FacilitationFeed {
   readonly #breakouts: Y.Map<unknown>;
   readonly #facilitator: Y.Map<unknown>;
   readonly #spotlight: Y.Map<unknown>;
+  readonly #agenda: Y.Map<unknown>;
 
   readonly #state = signal<{
     voting: Voting;
@@ -105,6 +119,7 @@ export class FacilitationFeed {
     breakouts: Breakouts;
     facilitator: Facilitator;
     spotlight: Spotlight;
+    agenda: Agenda;
   }>({
     voting: { open: false, votesEach: 0, round: 0 },
     votes: new Map(),
@@ -113,6 +128,7 @@ export class FacilitationFeed {
     breakouts: { open: false, groups: [] },
     facilitator: { userId: null, name: '' },
     spotlight: { n: 0, by: '', view: null },
+    agenda: { steps: [], current: null },
   });
   readonly state = this.#state.asReadonly();
 
@@ -124,6 +140,7 @@ export class FacilitationFeed {
     this.#breakouts = doc.getMap('breakouts');
     this.#facilitator = doc.getMap('facilitator');
     this.#spotlight = doc.getMap('spotlight');
+    this.#agenda = doc.getMap('agenda');
     for (const map of this.#maps()) map.observe(this.#update);
     this.#update();
   }
@@ -133,7 +150,13 @@ export class FacilitationFeed {
   }
 
   #maps(): Y.Map<unknown>[] {
-    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight];
+    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda];
+  }
+
+  #agendaOf(): Agenda {
+    const steps = Array.isArray(this.#agenda.get('steps')) ? (this.#agenda.get('steps') as AgendaStep[]) : [];
+    const current = this.#agenda.get('current');
+    return { steps, current: typeof current === 'number' && current >= 0 && current < steps.length ? current : null };
   }
 
   readonly #update = () => {
@@ -166,6 +189,7 @@ export class FacilitationFeed {
         by: text(this.#spotlight.get('by')),
         view: (this.#spotlight.get('view') as Spotlight['view']) ?? null,
       },
+      agenda: this.#agendaOf(),
     });
   };
 }

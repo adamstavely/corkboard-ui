@@ -276,8 +276,8 @@ export class Canvas {
    * Lays a template out in the middle of the view, or to the right of everything if that would cover what's there, then
    * brings it into view. One undo takes it all away.
    */
-  placeLayout(layout: Layout): void {
-    if (this.readOnly()) return;
+  placeLayout(layout: Layout): string[] {
+    if (this.readOnly()) return [];
     const things = boardBoxes(this.board());
     const size = layoutSize(layout);
     let at = this.#viewCentre();
@@ -290,6 +290,21 @@ export class Canvas {
     }
     const ids = this.board().addLayout(layout, at.x, at.y);
     this.show(ids, false);
+    return ids;
+  }
+
+  /** Goes to the board's parking lot, a frame for what's not for now, making one first if there isn't one. */
+  goToParkingLot(): void {
+    const there = this.board().frames().find((f) => /^parking lot$/i.test(f.title.trim()));
+    if (there) {
+      this.show([there.id]);
+      return;
+    }
+    const [id] = this.placeLayout({
+      frames: [{ title: 'Parking lot', x: 0, y: 0, w: 464, h: 640, fill: 'gray', border: 'dashed' }],
+      notes: [{ text: 'Good, but not for now.', color: 'gray', x: 32, y: 48 }],
+    });
+    if (id) this.selection.set(new Set([id]));
   }
 
   protected undo(): void {

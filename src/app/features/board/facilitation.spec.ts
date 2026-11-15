@@ -97,4 +97,19 @@ describe('FacilitationFeed', () => {
     expect(feed.state().spotlight).toEqual({ n: 2, by: 'Ada', view: { cx: 1, cy: 2, zoom: 0.5 } });
     feed.destroy();
   });
+
+  it('reads the agenda, and no current step when the step it names is gone', () => {
+    const doc = new Y.Doc();
+    const feed = new FacilitationFeed(doc);
+    expect(feed.state().agenda).toEqual({ steps: [], current: null });
+    const steps = [{ id: 'a', title: 'Ideas', seconds: 300, frameId: null }];
+    doc.transact(() => {
+      doc.getMap('agenda').set('steps', steps);
+      doc.getMap('agenda').set('current', 0);
+    });
+    expect(feed.state().agenda).toEqual({ steps, current: 0 });
+    doc.getMap('agenda').set('current', 4);
+    expect(feed.state().agenda.current).toBeNull();
+    feed.destroy();
+  });
 });

@@ -170,3 +170,68 @@ h3 {
   margin: 0 var(--tc-space-4) var(--tc-space-3);
   padding: 0;
 }
+
+/* The agenda: its steps, the one it's on marked. */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.steps li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-1) var(--tc-space-2);
+  border-radius: var(--tc-radius-md);
+  font-size: var(--tc-font-size-sm);
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step) '.';
+  color: var(--tc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.steps li.now {
+  background: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
+  font-weight: var(--tc-font-weight-semibold);
+}
+.step-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.steps.editing li {
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--tc-space-2) 0;
+  border-bottom: 1px solid var(--tc-border-subtle);
+  border-radius: 0;
+}
+.steps.editing li::before {
+  display: none;
+}
+.text-input {
+  height: 32px;
+  padding: 0 var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-base, var(--tc-surface-raised));
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+}
+.text-input:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 1px;
+}
+.agenda-now .step-title {
+  max-width: 24ch;
+  font-weight: var(--tc-font-weight-semibold);
+}

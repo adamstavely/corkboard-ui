@@ -68,6 +68,10 @@ import {
   Upload,
   Users,
   Vote,
+  ListOrdered,
+  SquareParking,
+  ChevronLeft,
+  ChevronRight,
   Megaphone,
   X,
   Circle,
@@ -150,6 +154,10 @@ export const ICONS = {
   dashedBox: SquareDashed,
   vote: Vote,
   facilitator: Megaphone,
+  agenda: ListOrdered,
+  parking: SquareParking,
+  back: ChevronLeft,
+  next: ChevronRight,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

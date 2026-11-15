@@ -10,6 +10,8 @@ import { boardCanvas, boardMarkdown, download, fileName, loadImages } from './ex
 import { Api } from '../../api/generated/api';
 import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-controller-templates';
 import { templateCards } from './template-cards';
+import type { BoardTemplateDto } from '../../api/generated/models/board-template-dto';
+import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
 import { boardsControllerRename } from '../../api/generated/fn/boards/boards-controller-rename';
@@ -508,9 +510,26 @@ export class BoardPage {
   protected readonly templatePicker = computed(() =>
     templateCards(this.boardTemplates.hasValue() ? this.boardTemplates.value() : [], (t) => {
       this.pickingTemplate.set(false);
-      if (t) this.canvas()?.placeLayout(t.layout);
+      if (t) void this.placeTemplate(t);
     }, false),
   );
+
+  /** Lays a template out; if it has an agenda and the board has none yet, the agenda comes too, pointing at its frames. */
+  async placeTemplate(t: BoardTemplateDto): Promise<void> {
+    const ids = this.canvas()?.placeLayout(t.layout) ?? [];
+    if (!t.agenda?.length || !ids.length || !this.canRun() || this.fstate()?.agenda.steps.length) return;
+    // addLayout returns the frames' ids first, in the layout's order.
+    const frameIds = new Map((t.layout.frames ?? []).flatMap((f, i) => (f.key ? [[f.key, ids[i]] as const] : [])));
+    try {
+      await this.#api.invoke(facilitationControllerSetAgenda, {
+        id: this.id(),
+        body: { steps: t.agenda.map((s) => ({ title: s.title, seconds: s.minutes * 60, frameId: (s.frame && frameIds.get(s.frame)) || null })) },
+      });
+      toast.success(`Added its ${t.agenda.length}-step agenda`, { description: 'Run it from Facilitate.' });
+    } catch {
+      // The layout is there; the agenda can be planned by hand.
+    }
+  }
 
   // ── Recurring boards ──
 

@@ -1,5 +1,16 @@
 @if (anything()) {
   <div class="strip" role="region" aria-label="Facilitation">
+    @if (step(); as st) {
+      <div class="item agenda-now" role="status">
+        <app-icon name="agenda" />
+        <span class="label">Step {{ st.index + 1 }} of {{ st.count }}</span>
+        <span class="step-title">{{ st.title }}</span>
+        @if (canRun() && !othersSeat()) {
+          <tc-button size="sm" variant="ghost" label="Back" [disabled]="st.index === 0" (click)="goTo(st.index - 1)"></tc-button>
+          <tc-button size="sm" variant="secondary" [label]="st.index + 1 < st.count ? 'Next' : 'Finish'" (click)="goTo(st.index + 1 < st.count ? st.index + 1 : null)"></tc-button>
+        }
+      </div>
+    }
     @if (facilitator().userId) {
       <div class="item">
         <span class="dot" aria-hidden="true"></span>
@@ -119,6 +130,68 @@
       }
     </section>
 
+    <section aria-labelledby="f-agenda">
+      <h3 id="f-agenda"><app-icon name="agenda" /> Agenda</h3>
+      @if (drafting(); as steps) {
+        <ol class="steps editing">
+          @for (st of steps; track $index; let i = $index) {
+            <li>
+              <input
+                type="text"
+                class="text-input"
+                maxlength="80"
+                placeholder="What happens in this step"
+                [attr.aria-label]="'Step ' + (i + 1)"
+                [value]="st.title"
+                (input)="updateStep(i, { title: $any($event.target).value })"
+              />
+              <div class="row">
+                <tc-select class="grow" [label]="'Step ' + (i + 1) + ' time'" [labelVisible]="false" [options]="stepTimes" [value]="st.minutes" (tc-value-change)="updateStep(i, { minutes: $event.detail.value })"></tc-select>
+                @if (frames().length) {
+                  <tc-select class="grow" [label]="'Step ' + (i + 1) + ' frame'" [labelVisible]="false" [options]="stepFrames()" [value]="st.frameId" (tc-value-change)="updateStep(i, { frameId: $event.detail.value })"></tc-select>
+                }
+                <button type="button" class="icon-btn" [attr.aria-label]="'Remove step ' + (i + 1)" data-tip="Remove" (click)="removeStep(i)"><app-icon name="close" /></button>
+              </div>
+            </li>
+          }
+        </ol>
+        <div class="row">
+          <tc-button size="sm" variant="ghost" label="Add a step" (click)="addStep()"></tc-button>
+          <span class="grow"></span>
+          <tc-button size="sm" variant="ghost" label="Cancel" (click)="drafting.set(null)"></tc-button>
+          <tc-button size="sm" variant="secondary" label="Save" (click)="saveAgenda()"></tc-button>
+        </div>
+      } @else if (agenda().steps.length) {
+        <ol class="steps">
+          @for (st of agenda().steps; track st.id; let i = $index) {
+            <li [class.now]="agenda().current === i" [attr.aria-current]="agenda().current === i ? 'step' : null">
+              <span class="step-title">{{ st.title }}</span>
+              <span class="hint">{{ minutesOf(st.seconds) }}</span>
+            </li>
+          }
+        </ol>
+        @if (othersSeat()) {
+          <p class="hint">{{ facilitator().name }} is facilitating, so they move the agenda on.</p>
+        }
+        <div class="row">
+          @if (!othersSeat()) {
+            @if (step(); as st) {
+              <tc-button size="sm" variant="ghost" label="Back" [disabled]="st.index === 0" (click)="goTo(st.index - 1)"></tc-button>
+              <tc-button size="sm" variant="secondary" [label]="st.index + 1 < st.count ? 'Next step' : 'Finish'" (click)="goTo(st.index + 1 < st.count ? st.index + 1 : null)"></tc-button>
+              <tc-button size="sm" variant="ghost" label="End" (click)="goTo(null)"></tc-button>
+            } @else {
+              <tc-button size="sm" variant="secondary" label="Start" (click)="goTo(0)"></tc-button>
+            }
+          }
+          <span class="grow"></span>
+          <tc-button size="sm" variant="ghost" label="Edit" (click)="editAgenda()"></tc-button>
+        </div>
+      } @else {
+        <p class="hint">Plan the session a step at a time. Each step starts its timer and brings everyone to its frame.</p>
+        <div class="row"><tc-button size="sm" variant="secondary" label="Plan an agenda" (click)="editAgenda()"></tc-button></div>
+      }
+    </section>
+
     <section aria-labelledby="f-timer">
       <h3 id="f-timer"><app-icon name="timer" /> Timer</h3>
       <p class="hint">Everyone sees it count down at the top of the board.</p>
@@ -172,6 +245,12 @@
       } @else {
         <p class="hint">Add two or more frames to split people into groups.</p>
       }
+    </section>
+
+    <section aria-labelledby="f-parking">
+      <h3 id="f-parking"><app-icon name="parking" /> Parking lot</h3>
+      <p class="hint">A frame for what's good but not for now. The recap lists it as open questions.</p>
+      <div class="row"><tc-button size="sm" variant="secondary" label="Go to the parking lot" (click)="parkingLot.emit()"></tc-button></div>
     </section>
 
     @if (problem()) {
