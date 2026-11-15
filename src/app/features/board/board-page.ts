@@ -449,6 +449,12 @@ export class BoardPage {
     this.panel.update((open) => (open === which ? null : which));
   }
 
+  /** The facilitator's controls dock where the right-hand panels do, so opening them closes any of those. */
+  protected toggleFacilitating(open = !this.facilitating()): void {
+    this.facilitating.set(open);
+    if (open) this.panel.set(null);
+  }
+
   /** From the comments panel: go to a note or frame, or (no id) back to the list. */
   protected showNode(id: string): void {
     if (id) this.canvas()?.show([id]);
@@ -587,7 +593,7 @@ export class BoardPage {
         { id: 'fit', label: 'Fit everything in view', run: () => canvas.fitAll() },
         { id: 'chat', label: 'Open the chat', run: () => this.chatOpen.set(true) },
         { id: 'present', label: 'Present this board', run: () => this.togglePresenting() },
-        ...(this.canRun() ? [{ id: 'facilitate', label: 'Facilitate: timer, votes, writing, breakouts', run: () => this.facilitating.set(true) }] : []),
+        ...(this.canRun() ? [{ id: 'facilitate', label: 'Facilitate: timer, votes, writing, breakouts', run: () => this.toggleFacilitating(true) }] : []),
         view('tasks', 'Tasks on the board'),
         view('matrix', 'Prioritisation matrix on the board'),
         view('gantt', 'Timeline on the board'),
@@ -645,6 +651,10 @@ export class BoardPage {
         fitted = board;
         untracked(() => this.canvas()?.fitAll());
       }
+    });
+    // A panel opening on the right takes the place of the facilitator's controls.
+    effect(() => {
+      if (this.panel() !== null) untracked(() => this.facilitating.set(false));
     });
     // A new board starts without the facilitator's controls open.
     effect(() => {

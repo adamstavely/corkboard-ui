@@ -67,6 +67,8 @@ import {
   Undo2,
   Upload,
   Users,
+  Vote,
+  Megaphone,
   X,
   Circle,
   Diamond,
@@ -146,6 +148,8 @@ export const ICONS = {
   toBack: ArrowDownToLine,
   fill: PaintBucket,
   dashedBox: SquareDashed,
+  vote: Vote,
+  facilitator: Megaphone,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

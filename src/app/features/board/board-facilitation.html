@@ -84,40 +84,98 @@
       </div>
     }
 
-    @if (controlsOpen() && canRun()) {
-      <div class="item controls" role="group" aria-label="Start a timer or a vote">
-        @if (!facilitator().userId) {
-          <tc-button size="sm" variant="secondary" label="Facilitate" title="Take the facilitator's seat: only you can bring everyone to your view" (click)="claim()"></tc-button>
+    @if (problem() && !(controlsOpen() && canRun())) {
+      <p class="problem" role="alert">{{ problem() }}</p>
+    }
+  </div>
+}
+
+@if (controlsOpen() && canRun()) {
+  <aside class="controls" aria-labelledby="facilitate-heading">
+    <div class="head">
+      <h2 id="facilitate-heading">Facilitate</h2>
+      <tc-button size="sm" variant="ghost" label="Close" (click)="closed.emit()"></tc-button>
+    </div>
+
+    <section aria-labelledby="f-lead">
+      <h3 id="f-lead"><app-icon name="facilitator" /> Lead the session</h3>
+      @if (facilitating()) {
+        <p class="hint">You're facilitating. Bring everyone to what you're looking at.</p>
+        <div class="row">
+          <tc-button size="sm" variant="secondary" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Step down" (click)="release()"></tc-button>
+        </div>
+      } @else if (facilitator().userId) {
+        <p class="hint">{{ facilitator().name }} is facilitating.</p>
+        @if (isOwner()) {
+          <div class="row"><tc-button size="sm" variant="ghost" label="Take over" (click)="claim()"></tc-button></div>
+        }
+      } @else {
+        <p class="hint">Take the facilitator's seat: only you can bring everyone to your view.</p>
+        <div class="row">
+          <tc-button size="sm" variant="secondary" label="Facilitate" (click)="claim()"></tc-button>
           <tc-button size="sm" variant="ghost" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
-          <span class="divider" aria-hidden="true"></span>
-        }
-        <span class="muted">Timer</span>
+        </div>
+      }
+    </section>
+
+    <section aria-labelledby="f-timer">
+      <h3 id="f-timer"><app-icon name="timer" /> Timer</h3>
+      <p class="hint">Everyone sees it count down at the top of the board.</p>
+      <div class="row choices" role="group" aria-label="Start a timer">
         @for (m of timerMinutes; track m) {
-          <tc-button size="sm" variant="ghost" [label]="m + ' min'" (click)="startTimer(m)"></tc-button>
-        }
-        <span class="divider" aria-hidden="true"></span>
-        <tc-select label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
-        <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
-        @if (!writing().open) {
-          <span class="divider" aria-hidden="true"></span>
-          <span class="muted">Hidden writing</span>
-          <label class="check"><input type="checkbox" [checked]="anonymous()" (change)="anonymous.set($any($event.target).checked)" /> Anonymous</label>
-          @if (frames().length) {
-            <tc-select label="Where revealed notes go" [labelVisible]="false" [options]="frameOptions()" [value]="into()" (tc-value-change)="into.set($event.detail.value)"></tc-select>
-          }
-          <tc-button size="sm" variant="secondary" label="Start writing" (click)="startWriting()"></tc-button>
-        }
-        @if (!breakouts().open && breakoutFrames().length >= 2) {
-          <span class="divider" aria-hidden="true"></span>
-          <span class="muted">Breakouts in {{ framesSelected() ? 'the ' : '' }}{{ breakoutFrames().length }} {{ framesSelected() ? 'selected ' : '' }}frames</span>
-          <tc-select label="Time per group" [labelVisible]="false" [options]="breakoutOptions" [value]="breakoutMinutes()" (tc-value-change)="breakoutMinutes.set($event.detail.value)"></tc-select>
-          <tc-button size="sm" variant="secondary" label="Start breakouts" (click)="startBreakouts()"></tc-button>
+          <tc-button size="sm" variant="secondary" [label]="m + ' min'" (click)="startTimer(m)"></tc-button>
         }
       </div>
-    }
+    </section>
+
+    <section aria-labelledby="f-vote">
+      <h3 id="f-vote"><app-icon name="vote" /> Dot voting</h3>
+      <p class="hint">Everyone puts their votes on the notes they'd pick.</p>
+      <div class="row">
+        <tc-select class="grow" label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
+        <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
+      </div>
+    </section>
+
+    <section aria-labelledby="f-writing">
+      <h3 id="f-writing"><app-icon name="hidden" /> Hidden writing</h3>
+      @if (writing().open) {
+        <p class="hint">Under way: notes stay hidden until you reveal them.</p>
+        <div class="row">
+          <tc-button size="sm" variant="secondary" label="Reveal notes" (click)="reveal()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Cancel" (click)="cancelWriting()"></tc-button>
+        </div>
+      } @else {
+        <p class="hint">Everyone writes on their own; notes stay hidden until you reveal them.</p>
+        <label class="check"><input type="checkbox" [checked]="anonymous()" (change)="anonymous.set($any($event.target).checked)" /> Anonymous</label>
+        <div class="row">
+          @if (frames().length) {
+            <tc-select class="grow" label="Where revealed notes go" [labelVisible]="false" [options]="frameOptions()" [value]="into()" (tc-value-change)="into.set($event.detail.value)"></tc-select>
+          }
+          <tc-button size="sm" variant="secondary" label="Start writing" (click)="startWriting()"></tc-button>
+        </div>
+      }
+    </section>
+
+    <section aria-labelledby="f-breakouts">
+      <h3 id="f-breakouts"><app-icon name="users" /> Breakouts</h3>
+      @if (breakouts().open) {
+        <p class="hint">{{ breakouts().groups.length }} groups are working in their frames.</p>
+        <div class="row"><tc-button size="sm" variant="secondary" label="Bring everyone back" (click)="endBreakouts()"></tc-button></div>
+      } @else if (breakoutFrames().length >= 2) {
+        <p class="hint">Split people into the {{ framesSelected() ? 'selected ' : '' }}{{ breakoutFrames().length }} frames.</p>
+        <div class="row">
+          <tc-select class="grow" label="Time per group" [labelVisible]="false" [options]="breakoutOptions" [value]="breakoutMinutes()" (tc-value-change)="breakoutMinutes.set($event.detail.value)"></tc-select>
+          <tc-button size="sm" variant="secondary" label="Start breakouts" (click)="startBreakouts()"></tc-button>
+        </div>
+      } @else {
+        <p class="hint">Add two or more frames to split people into groups.</p>
+      }
+    </section>
 
     @if (problem()) {
       <p class="problem" role="alert">{{ problem() }}</p>
     }
-  </div>
+  </aside>
 }

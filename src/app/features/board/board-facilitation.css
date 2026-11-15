@@ -27,9 +27,6 @@
   color: var(--tc-text-primary);
   font-size: var(--tc-font-size-sm);
 }
-.controls {
-  border-radius: var(--tc-radius-lg);
-}
 
 /* The timer is read from across a room (or a shared screen), so it's the biggest thing in the strip. */
 .item.timer {
@@ -60,7 +57,7 @@
   color: var(--tc-status-danger-fg);
 }
 .label,
-.muted {
+.hint {
   color: var(--tc-text-muted);
 }
 .dot {
@@ -69,11 +66,6 @@
   height: 8px;
   border-radius: 50%;
   background: var(--tc-accent-text);
-}
-.divider {
-  width: 1px;
-  height: 20px;
-  background: var(--tc-border-subtle);
 }
 
 .problem {
@@ -105,4 +97,76 @@
 
 .strip app-icon {
   --icon-size: 14px;
+}
+
+/* The facilitator's controls: docked at the board's upper right like comments, one section per thing they can run. */
+.controls {
+  position: absolute;
+  top: calc(var(--tc-space-3) + 52px);
+  right: var(--tc-space-4);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100% - 2 * var(--tc-space-4)));
+  max-height: calc(100% - 2 * var(--tc-space-4) - 52px);
+  overflow: auto;
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
+  color: var(--tc-text-primary);
+}
+.controls .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--tc-space-2) var(--tc-space-2) var(--tc-space-2) var(--tc-space-4);
+}
+h2 {
+  margin: 0;
+  font-size: var(--tc-font-size-md);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border-top: 1px solid var(--tc-border-subtle);
+}
+h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+.controls h3 app-icon {
+  --icon-size: 16px;
+  color: var(--tc-accent-text);
+}
+.hint {
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+/* The timer's lengths share the row evenly. */
+.choices tc-button {
+  flex: 1;
+}
+.controls .problem {
+  margin: 0 var(--tc-space-4) var(--tc-space-3);
+  padding: 0;
 }
