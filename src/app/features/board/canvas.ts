@@ -304,19 +304,9 @@ export class Canvas {
     return ids;
   }
 
-  /** The layout: everything but notes, images, files, pen strokes and arrows. */
-  #layoutIds(): string[] {
-    const b = this.board();
-    return [...b.frames().map((f) => f.id), ...b.items().filter((i) => i.kind === 'text' || i.kind === 'shape' || i.kind === 'table' || i.kind === 'view').map((i) => i.id)];
-  }
-  /** Whether the whole layout is locked. */
-  readonly layoutLocked = computed(() => {
-    const ids = this.#layoutIds();
-    return ids.length > 0 && ids.every((id) => this.board().locked().has(id));
-  });
   /** Locks or unlocks the layout, so people can only add and move notes around it. */
   lockLayout(lock: boolean): void {
-    this.board().setLocked(this.#layoutIds(), lock);
+    this.board().setLocked(layoutIds(this.board()), lock);
   }
 
   /** Goes to the board's parking lot, a frame for what's not for now, making one first if there isn't one. */
@@ -1804,4 +1794,15 @@ function rectAround(boxes: readonly { x: number; y: number; w: number; h: number
   const x = Math.min(...boxes.map((b) => b.x));
   const y = Math.min(...boxes.map((b) => b.y));
   return { x, y, w: Math.max(...boxes.map((b) => b.x + b.w)) - x, h: Math.max(...boxes.map((b) => b.y + b.h)) - y };
+}
+
+/** A board's layout: everything but notes, images, files, pen strokes and arrows. */
+export function layoutIds(b: BoardDoc): string[] {
+  return [...b.frames().map((f) => f.id), ...b.items().filter((i) => i.kind === 'text' || i.kind === 'shape' || i.kind === 'table' || i.kind === 'view').map((i) => i.id)];
+}
+
+/** Whether a board's whole layout is locked. */
+export function layoutLocked(b: BoardDoc): boolean {
+  const ids = layoutIds(b);
+  return ids.length > 0 && ids.every((id) => b.locked().has(id));
 }
