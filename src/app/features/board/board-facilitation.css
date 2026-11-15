@@ -333,7 +333,9 @@ h3 {
   bottom: var(--tc-space-3);
   left: 50%;
   z-index: 3;
-  max-width: calc(100% - 2 * var(--tc-space-4) - 360px);
+  max-width: calc(100% - 2 * var(--tc-space-4));
+  overflow-x: auto;
+  scrollbar-width: none;
   transform: translateX(-50%);
 }
 /* A dock button grows to show what's under way: the step it's on, or the time left. */
@@ -421,4 +423,14 @@ h3 {
 }
 .dock-pop .problem {
   padding: 0;
+}
+
+/* Where the map and zoom panels leave no room beside it, the dock sits just above them. */
+@media (max-width: 900px) {
+  .dock {
+    bottom: calc(var(--tc-space-3) + 52px);
+  }
+  .dock-pop {
+    bottom: calc(var(--tc-space-3) + 108px);
+  }
 }
