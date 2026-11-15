@@ -62,6 +62,29 @@ body {
   font-size: var(--tc-font-size-sm);
   font-weight: var(--tc-font-weight-semibold);
 }
+.cb-saved-template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-1);
+}
+.cb-template-delete {
+  align-self: flex-end;
+  padding: 2px var(--tc-space-2);
+  border: 0;
+  border-radius: var(--tc-radius-sm);
+  background: none;
+  color: var(--tc-text-muted);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  cursor: pointer;
+}
+.cb-template-delete:hover {
+  background: var(--tc-surface-hover, var(--tc-accent-subtle));
+  color: var(--tc-status-danger-fg, var(--tc-text-primary));
+}
+.cb-template-delete:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+}
 .cb-template-blank {
   display: grid;
   flex: 1;
