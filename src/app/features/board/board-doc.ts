@@ -184,6 +184,57 @@ export const NOTE_TEMPLATES: readonly NoteTemplate[] = [
 /** A file's card on the board. */
 export const FILE_CARD = { w: 240, h: 72 } as const;
 
+/**
+ * A template's layout, as corkboard-api's GET /board-templates sends it: things in board pixels from its top-left corner,
+ * arrows joined by key. Choices arrive as strings and are checked as they're placed.
+ */
+export interface Layout {
+  frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string }[];
+  notes?: { key?: string; text: string; color?: string; x: number; y: number }[];
+  texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number }[];
+  shapes?: { key?: string; shape: string; color?: string; label?: string; x: number; y: number; w: number; h: number }[];
+  tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
+  views?: { key?: string; view: string; x: number; y: number }[];
+  arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number }[];
+}
+type LayoutTable = NonNullable<Layout['tables']>[number];
+const tableSize = (t: LayoutTable) => ({
+  rows: Math.min(50, Math.max(t.rows ?? 1, t.cells.length, 1)),
+  cols: Math.min(20, Math.max(t.cols ?? 1, ...t.cells.map((r) => r.length), 1)),
+});
+const tableBox = (t: LayoutTable) => {
+  const { rows, cols } = tableSize(t);
+  return { w: cols * (t.colWidth ?? 140), h: rows * 40 };
+};
+/** How big a layout is, from its top-left corner. */
+export function layoutSize(layout: Layout): { w: number; h: number } {
+  const boxes = [
+    ...(layout.frames ?? []),
+    ...(layout.notes ?? []).map((n) => ({ ...n, ...NOTE_SIZE })),
+    ...(layout.shapes ?? []),
+    ...(layout.texts ?? []).map((t) => ({ x: t.x, y: t.y, w: t.w ?? 240, h: TEXT_SIZES[textSize(t.size)] * 1.6 })),
+    ...(layout.tables ?? []).map((t) => ({ x: t.x, y: t.y, ...tableBox(t) })),
+    ...(layout.views ?? []).map((v) => ({ x: v.x, y: v.y, ...(VIEW_SIZE[v.view as BoardView] ?? { w: 0, h: 0 }) })),
+  ];
+  return { w: Math.max(0, ...boxes.map((b) => b.x + b.w)), h: Math.max(0, ...boxes.map((b) => b.y + b.h)) };
+}
+const textSize = (size: string | undefined): TextSize => (size && size in TEXT_SIZES ? (size as TextSize) : 'md');
+/** A paragraph a line; `**Name:**` at a line's start is bold, as corkboard-api writes it. */
+function paragraphsOf(text: string): Y.XmlElement[] {
+  return text.split(/\r?\n/).map((line) => {
+    const p = new Y.XmlElement('paragraph');
+    if (!line) return p;
+    const run = new Y.XmlText();
+    const bold = /^\*\*(.+?)\*\*(.*)$/.exec(line);
+    if (bold) {
+      run.insert(0, bold[1], { bold: true });
+      if (bold[2]) run.insert(bold[1].length, bold[2]);
+    } else run.insert(0, line);
+    p.insert(0, [run]);
+    return p;
+  });
+}
+
 /** An arrow from one note or frame to another. */
 /** How an arrow runs: straight, at right angles, or in a curve. */
 export const ARROW_ROUTES = ['straight', 'elbow', 'curve'] as const;
@@ -333,6 +384,93 @@ export class BoardDoc {
       }
     }, this);
     return id;
+  }
+
+  /**
+   * Lays out a template (corkboard-api's boards/layout.ts) centred on a point, as one undo step, above everything else
+   * with its frames under the rest. Anything the board doesn't have (a colour, a shape) falls back to the default.
+   * Returns the new things' ids, frames first.
+   */
+  addLayout(layout: Layout, cx: number, cy: number): string[] {
+    const { w, h } = layoutSize(layout);
+    if (w === 0) return [];
+    const ox = cx - w / 2;
+    const oy = cy - h / 2;
+    const ids: string[] = [];
+    const byKey = new Map<string, string>();
+    const color = (c: string | undefined, fallback: NoteColor) => ((NOTE_COLORS as readonly string[]).includes(c ?? '') ? (c as NoteColor) : fallback);
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      let z = this.#topZ();
+      const add = (kind: string, key: string | undefined, box: { x: number; y: number; w: number; h: number }, set: (node: Y.Map<unknown>) => void) => {
+        const id = crypto.randomUUID();
+        const node = new Y.Map<unknown>();
+        node.set('kind', kind);
+        node.set('x', Math.round(ox + box.x));
+        node.set('y', Math.round(oy + box.y));
+        node.set('w', Math.round(box.w));
+        node.set('h', Math.round(box.h));
+        node.set('z', ++z);
+        this.#nodes.set(id, node);
+        set(node);
+        ids.push(id);
+        if (key) byKey.set(key, id);
+      };
+      for (const f of layout.frames ?? [])
+        add('frame', f.key, f, (n) => {
+          n.set('title', f.title);
+          if ((FRAME_FILLS as readonly string[]).includes(f.fill ?? '')) n.set('fill', f.fill);
+          if ((FRAME_BORDERS as readonly string[]).includes(f.border ?? '')) n.set('border', f.border);
+        });
+      for (const note of layout.notes ?? [])
+        add('note', note.key, { ...note, ...NOTE_SIZE }, (n) => {
+          n.set('color', color(note.color, 'yellow'));
+          if (this.author) n.set('createdBy', { ...this.author });
+          const fragment = new Y.XmlFragment();
+          n.set('text', fragment);
+          fragment.insert(0, paragraphsOf(note.text));
+        });
+      for (const t of layout.texts ?? []) {
+        const size = textSize(t.size);
+        add('text', t.key, { x: t.x, y: t.y, w: t.w ?? 240, h: TEXT_SIZES[size] * 1.6 }, (n) => {
+          n.set('text', t.text);
+          n.set('size', size);
+        });
+      }
+      for (const s of layout.shapes ?? [])
+        add('shape', s.key, s, (n) => {
+          n.set('shape', (SHAPES as readonly string[]).includes(s.shape) ? s.shape : 'rect');
+          n.set('color', color(s.color, 'blue'));
+          n.set('label', s.label ?? '');
+        });
+      for (const t of layout.tables ?? [])
+        add('table', t.key, { x: t.x, y: t.y, ...tableBox(t) }, (n) => {
+          const { rows, cols } = tableSize(t);
+          n.set('rows', rows);
+          n.set('cols', cols);
+          const cells = new Y.Map<string>();
+          n.set('cells', cells);
+          t.cells.forEach((row, r) => row.forEach((text, c) => text && cells.set(`${r}:${c}`, text)));
+        });
+      for (const v of layout.views ?? []) {
+        if (!(BOARD_VIEWS as readonly string[]).includes(v.view)) continue;
+        add('view', v.key, { x: v.x, y: v.y, ...VIEW_SIZE[v.view as BoardView] }, (n) => n.set('view', v.view));
+      }
+      for (const a of layout.arrows ?? []) {
+        const from = byKey.get(a.from);
+        const to = byKey.get(a.to);
+        if (!from || !to || from === to) continue;
+        const node = new Y.Map<unknown>();
+        node.set('kind', 'connector');
+        node.set('from', from);
+        node.set('to', to);
+        node.set('route', (ARROW_ROUTES as readonly string[]).includes(a.route ?? '') ? a.route : DEFAULT_ARROW.route);
+        node.set('dash', (ARROW_DASHES as readonly string[]).includes(a.dash ?? '') ? a.dash : DEFAULT_ARROW.dash);
+        node.set('weight', (ARROW_WEIGHTS as readonly number[]).includes(a.weight ?? 0) ? a.weight : DEFAULT_ARROW.weight);
+        this.#nodes.set(crypto.randomUUID(), node);
+      }
+    }, this);
+    return ids;
   }
 
   /** A note from a template: its heading bold, its prompts below, in the template's colour. */

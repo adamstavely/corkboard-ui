@@ -60,6 +60,38 @@ describe('BoardDoc', () => {
     expect(board.outline().map((f) => f.title)).toEqual(['Bottom', 'Top']);
   });
 
+  it('lays a template out centred on a point, frames under the rest, arrows by key, all in one undo', () => {
+    board.addNote(0, 0);
+    const ids = board.addLayout(
+      {
+        frames: [{ key: 'f', title: 'Goal', x: 0, y: 0, w: 400, h: 300, fill: 'blue', border: 'dashed' }],
+        notes: [{ key: 'n', text: '**Why:** because', color: 'green', x: 32, y: 48 }],
+        texts: [{ text: 'Heading', size: 'xl', x: 0, y: 320 }],
+        shapes: [{ key: 's', shape: 'diamond', x: 500, y: 0, w: 200, h: 160 }],
+        tables: [{ x: 0, y: 400, cells: [['Task', 'R'], ['Ship', 'Ada', 'x']] }],
+        views: [{ view: 'nope', x: 0, y: 0 }],
+        arrows: [{ from: 'n', to: 's', route: 'elbow' }, { from: 'n', to: 'missing' }],
+      },
+      1000,
+      1000,
+    );
+    expect(ids).toHaveLength(5);
+    const frame = board.frames().find((f) => f.title === 'Goal')!;
+    // The layout is 700 × 480, centred on (1000, 1000).
+    expect([frame.x, frame.y, frame.fill, frame.border]).toEqual([650, 760, 'blue', 'dashed']);
+    const note = board.notes().find((n) => n.color === 'green')!;
+    expect(noteLines(note.text)[0]).toEqual({ text: 'Why: because', bold: true });
+    expect(note.z).toBeGreaterThan(frame.z);
+    const table = board.items().find((i) => i.kind === 'table')!;
+    expect(table.kind === 'table' && [table.rows, table.cols]).toEqual([2, 3]);
+    expect(board.items().some((i) => i.kind === 'view')).toBe(false);
+    expect(board.connectors()).toHaveLength(1);
+    expect(board.connectors()[0]).toMatchObject({ from: note.id, route: 'elbow' });
+    board.undo.undo();
+    expect(board.frames()).toHaveLength(0);
+    expect(board.notes()).toHaveLength(1);
+  });
+
   it('adds notes centred on a point, each above the last', () => {
     const a = board.addNote(100, 100);
     const b = board.addNote(300, 100, 'pink');

@@ -1,7 +1,5 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { html } from 'lit';
-import '@adamstavely/trenchcoat/preview-card';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { CollectionCard } from '@adamstavely/trenchcoat/angular/collection-card';
@@ -25,8 +23,8 @@ import { organiseControllerUnstar } from '../../api/generated/fn/organise/organi
 import { filterBoards, type BoardFilter } from './organise';
 import { Session } from '../../core/session';
 import { edited } from './edited';
-import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
-import { Icon, iconMarkup } from '../../shared/icon';
+import { Icon } from '../../shared/icon';
+import { templateCards } from '../board/template-cards';
 
 const INTRO_HIDDEN = 'cb-intro-hidden';
 function readIntroOpen(): boolean {
@@ -158,20 +156,10 @@ export class BoardList {
 
   protected readonly templates = resource({ loader: () => this.#api.invoke(boardsControllerTemplates) });
 
-  /** The new-board picker: a blank board, or one laid out for a retro, a plan or a brainstorm. */
-  protected readonly templateCards = computed(() => {
-    const templates = this.templates.hasValue() ? this.templates.value() : [];
-    const card = (name: string, description: string, columns: readonly string[], template?: CreateBoardDto['template']) =>
-      html`<tc-preview-card heading=${name} description=${description} @tc-open=${() => void this.create(template, template ? name : undefined)}>
-        <div class="cb-template-preview" aria-hidden="true">
-          ${columns.length ? columns.map((c) => html`<span class="cb-template-column"><b>${c}</b><i></i><i></i></span>`) : html`<span class="cb-template-blank">${unsafeSVG(iconMarkup('plus', 28))}</span>`}
-        </div>
-      </tc-preview-card>`;
-    return html`<div class="cb-templates">
-      ${card('Blank board', 'An empty board to arrange however you like.', [])}
-      ${templates.map((t) => card(t.name, t.description, t.columns, t.id as CreateBoardDto['template']))}
-    </div>`;
-  });
+  /** The new-board picker: a blank board, or one laid out from a template, grouped by kind. */
+  protected readonly templateCards = computed(() =>
+    templateCards(this.templates.hasValue() ? this.templates.value() : [], (t) => void this.create(t?.id as CreateBoardDto['template'], t?.name), true),
+  );
 
   /** New boards open straight away, named after their template (or "Untitled board"); they're renamed on the board. */
   protected async create(template?: CreateBoardDto['template'], name?: string): Promise<void> {
