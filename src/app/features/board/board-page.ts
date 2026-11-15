@@ -139,6 +139,8 @@ export class BoardPage {
   protected readonly canEdit = computed(() => atLeast(this.role(), 'updater'));
   protected readonly isOwner = computed(() => this.role() === 'owner');
   /** Owners and the facilitator lock and unlock things, and change what's locked; the server refuses anyone else. */
+  /** Private mode is on: nobody's pointer or selection goes out but the facilitator's, and names stay hidden. */
+  protected readonly privateMode = computed(() => this.fstate()?.privacy.on === true);
   protected readonly canChangeLocked = computed(() => this.isOwner() || (!!this.meUser() && this.fstate()?.facilitator.userId === this.meUser()!.id));
   protected readonly readOnlyLabel = computed(() => (this.role() === 'commenter' ? 'You can comment' : 'View only'));
   protected readonly meId = computed(() => this.#me()?.id);
@@ -698,6 +700,10 @@ export class BoardPage {
     effect(() => {
       const board = this.board();
       if (board) board.canChangeLocked = this.canChangeLocked();
+    });
+    effect(() => {
+      const facilitator = this.fstate()?.facilitator.userId;
+      this.connection()?.presence.setPrivate(this.privateMode() && (!facilitator || facilitator !== this.meUser()?.id));
     });
     // A new board starts without the facilitator's controls open.
     effect(() => {

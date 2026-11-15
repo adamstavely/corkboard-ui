@@ -130,6 +130,7 @@ export class FacilitationFeed {
   readonly #agenda: Y.Map<unknown>;
   readonly #poll: Y.Map<unknown>;
   readonly #pollAnswers: Y.Map<number>;
+  readonly #privacy: Y.Map<unknown>;
 
   readonly #state = signal<{
     voting: Voting;
@@ -142,6 +143,8 @@ export class FacilitationFeed {
     agenda: Agenda;
     poll: Poll | null;
     pollAnswers: ReadonlyMap<string, number>;
+    /** Private mode: pointers, selections and names hidden while it's on. */
+    privacy: { on: boolean; by: string };
   }>({
     voting: { open: false, votesEach: 0, round: 0 },
     votes: new Map(),
@@ -153,6 +156,7 @@ export class FacilitationFeed {
     agenda: { steps: [], current: null },
     poll: null,
     pollAnswers: new Map(),
+    privacy: { on: false, by: '' },
   });
   readonly state = this.#state.asReadonly();
 
@@ -167,6 +171,7 @@ export class FacilitationFeed {
     this.#agenda = doc.getMap('agenda');
     this.#poll = doc.getMap('poll');
     this.#pollAnswers = doc.getMap('pollAnswers');
+    this.#privacy = doc.getMap('privacy');
     for (const map of this.#maps()) map.observe(this.#update);
     this.#update();
   }
@@ -176,7 +181,7 @@ export class FacilitationFeed {
   }
 
   #maps(): Y.Map<unknown>[] {
-    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda, this.#poll, this.#pollAnswers as Y.Map<unknown>];
+    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda, this.#poll, this.#pollAnswers as Y.Map<unknown>, this.#privacy];
   }
 
   #agendaOf(): Agenda {
@@ -229,6 +234,7 @@ export class FacilitationFeed {
       agenda: this.#agendaOf(),
       poll: this.#pollOf(),
       pollAnswers: new Map(this.#pollAnswers.entries()),
+      privacy: { on: this.#privacy.get('on') === true, by: text(this.#privacy.get('by')) },
     });
   };
 }

@@ -274,6 +274,7 @@
     }
     @for (note of drawnNotes(); track note.id) {
       <app-note
+        [hideAuthor]="privateMode()"
         [style.z-index]="board().stack().get(note.id)"
         [class.dimmed]="dims(note.id)"
         [class.found]="isFound(note.id)"

@@ -119,7 +119,12 @@
         </button>
         <span class="sep" aria-hidden="true"></span>
         <!-- Who's here, once there's more than one of you: Trench Coat's stack, fanning out leftward on hover. -->
-        @if (people().length > 1) {
+        @if (people().length > 1 && privateMode()) {
+          <!-- Private mode: how many, not who. -->
+          <span class="people-count" role="img" [attr.aria-label]="people().length + ' people on this board'" data-tip="Private mode: names hidden">
+            <app-icon name="users" /> {{ people().length }}
+          </span>
+        } @else if (people().length > 1) {
           <tc-stack-spread class="people" dir="rtl" max="4" [label]="people().length + ' people on this board'">
             @for (person of people(); track person.id) {
               <span class="person" role="img" [class.me]="person.me" [style.background]="person.color" [title]="person.name" [attr.aria-label]="person.name">
@@ -154,6 +159,7 @@
           [provider]="connection()!.provider"
           [readOnly]="!canEdit()"
           [canLock]="canChangeLocked()"
+          [privateMode]="privateMode()"
           [readOnlyLabel]="readOnlyLabel()"
           [commentCounts]="commentCounts()"
           (selectionChange)="selection.set($event)"
@@ -236,6 +242,7 @@
             [facilitator]="f.facilitator"
             [agenda]="f.agenda"
             [poll]="f.poll"
+            [privacy]="f.privacy"
             [pollAnswers]="f.pollAnswers"
             [meId]="meUser()?.id"
             [isOwner]="isOwner()"

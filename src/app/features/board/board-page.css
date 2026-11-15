@@ -199,3 +199,14 @@
 .assistant {
   height: 100%;
 }
+
+/* Private mode's head count, in place of who's here. */
+.people-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+  font-variant-numeric: tabular-nums;
+}

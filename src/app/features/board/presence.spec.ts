@@ -52,6 +52,28 @@ describe('Presence', () => {
     expect(grace.peers()).toEqual([]);
   });
 
+  it('keeps pointer, selection and editing at home in private mode, and sends them again after', () => {
+    const { a, b } = pair();
+    const ada = new Presence(a, { id: 'ada', name: 'Ada', color: colorFor('ada') });
+    const grace = new Presence(b, { id: 'grace', name: 'Grace', color: colorFor('grace') });
+    ada.setSelection(['n1']);
+    ada.setPointer({ x: 1, y: 2 });
+    vi.advanceTimersByTime(100);
+
+    ada.setPrivate(true);
+    expect(grace.peers()[0]).toMatchObject({ pointer: null, selection: [], editing: null });
+    ada.setSelection(['n2']);
+    ada.setEditing('n2');
+    ada.setPointer({ x: 5, y: 5 });
+    vi.advanceTimersByTime(100);
+    expect(grace.peers()[0]).toMatchObject({ pointer: null, selection: [], editing: null });
+
+    ada.setPrivate(false);
+    expect(grace.peers()[0]).toMatchObject({ pointer: { x: 5, y: 5 }, selection: ['n2'], editing: 'n2' });
+    ada.destroy();
+    grace.destroy();
+  });
+
   it('gives each person a steady colour from the palette', () => {
     expect(colorFor('ada')).toBe(colorFor('ada'));
     expect(colorFor('ada')).toMatch(/^var\(--tc-chart-[1-6]\)$/);

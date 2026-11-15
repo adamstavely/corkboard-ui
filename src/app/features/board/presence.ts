@@ -56,6 +56,9 @@ export class Presence {
   #pointerTimer: ReturnType<typeof setTimeout> | undefined;
   #view: PresentedView | null = null;
   #viewTimer: ReturnType<typeof setTimeout> | undefined;
+  #selection: string[] = [];
+  #editing: string | null = null;
+  #private = false;
 
   constructor(
     private readonly awareness: Awareness,
@@ -66,8 +69,23 @@ export class Presence {
     this.#update();
   }
 
+  /**
+   * In private mode this person's pointer, selection and the note they're in stay here (others see them nowhere);
+   * out of it, they go out again.
+   */
+  setPrivate(on: boolean): void {
+    if (on === this.#private) return;
+    this.#private = on;
+    clearTimeout(this.#pointerTimer);
+    this.#pointerTimer = undefined;
+    this.awareness.setLocalStateField('pointer', on ? null : this.#pointer);
+    this.awareness.setLocalStateField('selection', on ? [] : this.#selection);
+    this.awareness.setLocalStateField('editing', on ? null : this.#editing);
+  }
+
   setPointer(point: Point | null): void {
     this.#pointer = point;
+    if (this.#private) return;
     // Leaving the board is sent at once; moves are batched.
     if (!point) {
       clearTimeout(this.#pointerTimer);
@@ -82,11 +100,13 @@ export class Presence {
   }
 
   setSelection(ids: Iterable<string>): void {
-    this.awareness.setLocalStateField('selection', [...ids]);
+    this.#selection = [...ids];
+    if (!this.#private) this.awareness.setLocalStateField('selection', this.#selection);
   }
 
   setEditing(id: string | null): void {
-    this.awareness.setLocalStateField('editing', id);
+    this.#editing = id;
+    if (!this.#private) this.awareness.setLocalStateField('editing', id);
   }
 
   /** Starts presenting (or moves what's presented) with a view; null stops at once, moves are batched. */
