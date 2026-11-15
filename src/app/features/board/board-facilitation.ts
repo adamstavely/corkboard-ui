@@ -16,6 +16,7 @@ import { facilitationControllerClaimFacilitator } from '../../api/generated/fn/f
 import { facilitationControllerReleaseFacilitator } from '../../api/generated/fn/facilitation/facilitation-controller-release-facilitator';
 import { facilitationControllerGoToStep } from '../../api/generated/fn/facilitation/facilitation-controller-go-to-step';
 import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
+import { facilitationControllerSetPrivacy } from '../../api/generated/fn/facilitation/facilitation-controller-set-privacy';
 import { facilitationControllerAnswerPoll } from '../../api/generated/fn/facilitation/facilitation-controller-answer-poll';
 import { facilitationControllerEndPoll } from '../../api/generated/fn/facilitation/facilitation-controller-end-poll';
 import { facilitationControllerStartPoll } from '../../api/generated/fn/facilitation/facilitation-controller-start-poll';
@@ -57,6 +58,8 @@ export class BoardFacilitation {
   readonly breakouts = input.required<Breakouts>();
   /** Who holds the facilitator's seat; this person; and whether they own the board (owners can take the seat over). */
   readonly facilitator = input<Facilitator>({ userId: null, name: '' });
+  /** Private mode: pointers, selections and names hidden. */
+  readonly privacy = input<{ on: boolean; by: string }>({ on: false, by: '' });
   /** The poll, if there is one, and everyone's answers to it. */
   readonly poll = input<Poll | null>(null);
   readonly pollAnswers = input<ReadonlyMap<string, number>>(new Map());
@@ -141,6 +144,7 @@ export class BoardFacilitation {
   protected readonly anything = computed(
     () =>
       this.step() !== null ||
+      this.privacy().on ||
       !!this.poll() ||
       this.timerShown() ||
       this.voting().open ||
@@ -195,6 +199,10 @@ export class BoardFacilitation {
   }
 
   protected readonly facilitating = computed(() => !!this.meId() && this.facilitator().userId === this.meId());
+
+  protected async setPrivacy(on: boolean): Promise<void> {
+    await this.#run(() => this.#api.invoke(facilitationControllerSetPrivacy, { id: this.boardId(), body: { on } }));
+  }
 
   // ── Polls ──
 

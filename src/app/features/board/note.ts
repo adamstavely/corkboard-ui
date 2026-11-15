@@ -17,7 +17,7 @@ import { noteExtensions, renderNoteText } from './note-text';
   imports: [Icon],
   template: `
     <div class="text" #text></div>
-    @if (note().authorName) {
+    @if (note().authorName && !hideAuthor()) {
       <span class="note-author">{{ note().authorName }}</span>
     }
     @if (note().tags.length) {
@@ -69,7 +69,7 @@ import { noteExtensions, renderNoteText } from './note-text';
     '[attr.data-note-id]': 'note().id',
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
-    '[class.signed]': '!!note().authorName',
+    '[class.signed]': '!!note().authorName && !hideAuthor()',
     '[class.peer-selected]': '!!peer()',
     '[style.--peer-color]': 'peer()?.color',
     '[style.transform]': '"translate(" + note().x + "px, " + note().y + "px)"',
@@ -82,6 +82,8 @@ export class NoteView {
   protected readonly look = reactionLook;
   readonly note = input.required<Note>();
   readonly selected = input(false);
+  /** Private mode: who wrote it stays hidden. */
+  readonly hideAuthor = input(false);
   readonly editing = input(false);
   /** Someone else who has this note selected or is writing in it. */
   readonly peer = input<{ name: string; color: string; editing: boolean } | null>(null);

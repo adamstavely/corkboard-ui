@@ -24,6 +24,16 @@
       </div>
     }
 
+    @if (privacy().on) {
+      <div class="item" role="status">
+        <app-icon name="hidden" />
+        <span>Private mode: pointers and names are hidden</span>
+        @if (canRun() && !othersSeat()) {
+          <tc-button size="sm" variant="ghost" label="Turn off" (click)="setPrivacy(false)"></tc-button>
+        }
+      </div>
+    }
+
     @if (poll(); as p) {
       <div class="item poll-card" role="group" [attr.aria-label]="'Poll: ' + p.question">
         <div class="poll-head">
@@ -314,6 +324,16 @@
         </div>
       } @else {
         <p class="hint">Add two or more frames to split people into groups.</p>
+      }
+    </section>
+
+    <section aria-labelledby="f-private">
+      <h3 id="f-private"><app-icon name="hidden" /> Private mode</h3>
+      <p class="hint">Hides everyone's pointers, selections and names (yours stays, as facilitator) so people vote and write without following the crowd.</p>
+      @if (!othersSeat()) {
+        <div class="row">
+          <tc-button size="sm" variant="secondary" [label]="privacy().on ? 'Turn private mode off' : 'Turn private mode on'" (click)="setPrivacy(!privacy().on)"></tc-button>
+        </div>
       }
     </section>
 

@@ -126,6 +126,8 @@ export class Canvas {
   readonly presence = input<Presence | undefined>(undefined);
   /** Readers and commenters look, select and ask; they don't add, move, change or delete anything. */
   readonly readOnly = input(false);
+  /** Private mode: names stay hidden on notes and on others' pointers and selections. */
+  readonly privateMode = input(false);
   /** Whether this person locks and unlocks things (an owner, or the facilitator). */
   readonly canLock = input(true);
   /** What to call that in the toolbar, e.g. "View only". */
