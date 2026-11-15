@@ -1,3 +1,6 @@
+import { savedTemplatesControllerList } from '../../api/generated/fn/boards/saved-templates-controller-list';
+import { savedTemplatesControllerRemove } from '../../api/generated/fn/boards/saved-templates-controller-remove';
+import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, ElementRef, HostListener, inject, input, resource, signal, untracked, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
@@ -35,6 +38,7 @@ import { BoardMatrix } from './board-matrix';
 import { BoardTasks } from './board-tasks';
 import { BoardDiagram } from './board-diagram';
 import { BoardChart } from './board-chart';
+import { BoardSaveTemplate } from './board-save-template';
 import { BoardGantt } from './board-gantt';
 import { noteLines, TaskFeed, type StoredTask } from './tasks';
 import type { BoardView } from './board-doc';
@@ -103,7 +107,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardSaveTemplate, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -225,7 +229,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | 'chart' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | 'chart' | 'save-template' | null>(null);
   /** The diagram whose text is open beside the board. */
   protected readonly diagramId = signal<string | null>(null);
   /** The chart whose numbers are open beside the board. */
@@ -559,12 +563,34 @@ export class BoardPage {
     params: () => (this.pickingTemplate() ? true : undefined),
     loader: () => this.#api.invoke(boardsControllerTemplates),
   });
+  /** The templates the workspace saved, fetched when the picker opens (and again after one is saved or deleted). */
+  protected readonly savedTemplates = resource({
+    params: () => (this.pickingTemplate() && this.meta.hasValue() ? this.meta.value().orgId : undefined),
+    loader: ({ params: orgId }) => this.#api.invoke(savedTemplatesControllerList, { orgId }),
+  });
   protected readonly templatePicker = computed(() =>
-    templateCards(this.boardTemplates.hasValue() ? this.boardTemplates.value() : [], (t) => {
-      this.pickingTemplate.set(false);
-      if (t) void this.placeTemplate(t);
-    }, false),
+    templateCards(
+      this.boardTemplates.hasValue() ? this.boardTemplates.value() : [],
+      (t) => {
+        this.pickingTemplate.set(false);
+        if (t) void this.placeTemplate(t);
+      },
+      false,
+      { templates: this.savedTemplates.hasValue() ? this.savedTemplates.value() : [], remove: (t) => void this.removeTemplate(t) },
+    ),
   );
+
+  /** Deletes a template the workspace saved; boards made from it keep what they have. */
+  protected async removeTemplate(t: SavedTemplateDto): Promise<void> {
+    if (!this.meta.hasValue()) return;
+    try {
+      await this.#api.invoke(savedTemplatesControllerRemove, { orgId: this.meta.value().orgId, templateId: t.id });
+      this.savedTemplates.reload();
+      toast.success(`Deleted the template “${t.name}”`);
+    } catch {
+      toast.error(`“${t.name}” wasn't deleted. Try again.`);
+    }
+  }
 
   /** Lays a template out; if it has an agenda and the board has none yet, the agenda comes too, pointing at its frames. */
   async placeTemplate(t: BoardTemplateDto): Promise<void> {

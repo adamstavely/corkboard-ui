@@ -2,18 +2,19 @@ import { html, svg, type TemplateResult } from 'lit';
 import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
 import '@adamstavely/trenchcoat/preview-card';
 import type { BoardTemplateDto } from '../../api/generated/models/board-template-dto';
+import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
 import { iconMarkup } from '../../shared/icon';
 import { NOTE_SIZE, VIEW_SIZE, type BoardView } from './board-doc';
 
 /** The template picker's groups, in order. */
-const CATEGORIES: Record<string, string> = {
-  retro: 'Retrospectives',
-  ideate: 'Ideas',
-  plan: 'Planning',
-  discover: 'Discovery',
-  analyse: 'Analysis',
-  team: 'Team',
-};
+export const TEMPLATE_CATEGORIES = [
+  { id: 'retro', label: 'Retrospectives' },
+  { id: 'ideate', label: 'Ideas' },
+  { id: 'plan', label: 'Planning' },
+  { id: 'discover', label: 'Discovery' },
+  { id: 'analyse', label: 'Analysis' },
+  { id: 'team', label: 'Team' },
+] as const;
 
 const fillOf = (color: string | undefined, fallback: string) =>
   color && color !== 'clear' && color !== 'solid' ? `var(--note-${color})` : fallback;
@@ -79,20 +80,35 @@ function preview(t: BoardTemplateDto): TemplateResult {
  * The template picker's cards, grouped: for a new board (with a blank one first) or to lay out on the open board.
  * `pick` gets the template, or undefined for the blank board.
  */
-export function templateCards(templates: readonly BoardTemplateDto[], pick: (t: BoardTemplateDto | undefined) => void, withBlank: boolean): TemplateResult {
+export function templateCards(
+  templates: readonly BoardTemplateDto[],
+  pick: (t: BoardTemplateDto | undefined) => void,
+  withBlank: boolean,
+  saved?: { templates: readonly SavedTemplateDto[]; remove: (t: SavedTemplateDto) => void },
+): TemplateResult {
   const card = (t: BoardTemplateDto) =>
     html`<tc-preview-card heading=${t.name} description=${t.description} @tc-open=${() => pick(t)}>
       <div class="cb-template-preview">${preview(t)}</div>
     </tc-preview-card>`;
-  const groups = Object.entries(CATEGORIES)
-    .map(([id, label]) => ({ label, templates: templates.filter((t) => t.category === id) }))
-    .filter((g) => g.templates.length);
+  // A saved one says who saved it, and whoever may can delete it.
+  const savedCard = (t: SavedTemplateDto) =>
+    html`<div class="cb-saved-template">
+      <tc-preview-card heading=${t.name} description=${[t.description, t.savedBy ? `Saved by ${t.savedBy}` : ''].filter(Boolean).join(' · ')} @tc-open=${() => pick(t)}>
+        <div class="cb-template-preview">${preview(t)}</div>
+      </tc-preview-card>
+      ${t.canDelete ? html`<button type="button" class="cb-template-delete" aria-label=${`Delete the template ${t.name}`} @click=${() => saved!.remove(t)}>Delete</button>` : null}
+    </div>`;
+  const groups = TEMPLATE_CATEGORIES.map(({ id, label }) => ({ label, templates: templates.filter((t) => t.category === id) })).filter((g) => g.templates.length);
   return html`${withBlank
       ? html`<div class="cb-templates">
           <tc-preview-card heading="Blank board" description="An empty board to arrange however you like." @tc-open=${() => pick(undefined)}>
             <div class="cb-template-preview"><span class="cb-template-blank">${unsafeSVG(iconMarkup('plus', 28))}</span></div>
           </tc-preview-card>
         </div>`
+      : null}
+    ${saved?.templates.length
+      ? html`<h3 class="cb-template-group">Saved in this workspace</h3>
+          <div class="cb-templates">${saved.templates.map(savedCard)}</div>`
       : null}
     ${groups.map(
       (g) => html`<h3 class="cb-template-group">${g.label}</h3>

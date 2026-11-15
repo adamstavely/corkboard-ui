@@ -1,3 +1,6 @@
+import { savedTemplatesControllerList } from '../../api/generated/fn/boards/saved-templates-controller-list';
+import { savedTemplatesControllerRemove } from '../../api/generated/fn/boards/saved-templates-controller-remove';
+import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
@@ -157,9 +160,31 @@ export class BoardList {
   protected readonly templates = resource({ loader: () => this.#api.invoke(boardsControllerTemplates) });
 
   /** The new-board picker: a blank board, or one laid out from a template, grouped by kind. */
+  /** The templates people in this workspace saved from their boards. */
+  protected readonly savedTemplates = resource({
+    params: () => this.session.org()?.id,
+    loader: ({ params: orgId }) => this.#api.invoke(savedTemplatesControllerList, { orgId }),
+  });
+
   protected readonly templateCards = computed(() =>
-    templateCards(this.templates.hasValue() ? this.templates.value() : [], (t) => void this.create(t?.id as CreateBoardDto['template'], t?.name), true),
+    templateCards(this.templates.hasValue() ? this.templates.value() : [], (t) => void this.create(t?.id as CreateBoardDto['template'], t?.name), true, {
+      templates: this.savedTemplates.hasValue() ? this.savedTemplates.value() : [],
+      remove: (t) => void this.removeTemplate(t),
+    }),
   );
+
+  /** Deletes a template the workspace saved; boards made from it keep what they have. */
+  protected async removeTemplate(t: SavedTemplateDto): Promise<void> {
+    const orgId = this.session.org()?.id;
+    if (!orgId) return;
+    try {
+      await this.#api.invoke(savedTemplatesControllerRemove, { orgId, templateId: t.id });
+      this.savedTemplates.reload();
+      toast.success(`Deleted the template “${t.name}”`);
+    } catch {
+      toast.error(`“${t.name}” wasn't deleted. Try again.`);
+    }
+  }
 
   /** New boards open straight away, named after their template (or "Untitled board"); they're renamed on the board. */
   protected async create(template?: CreateBoardDto['template'], name?: string): Promise<void> {
