@@ -7,6 +7,8 @@ import { Skeleton } from '@adamstavely/trenchcoat/angular/shimmer-loader';
 import type { DataColumn, DataRow } from '@adamstavely/trenchcoat/data-table';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { Api } from '../../api/generated/api';
+import { adminControllerAudit } from '../../api/generated/fn/admin/admin-controller-audit';
+import type { AuditEventDto } from '../../api/generated/models/audit-event-dto';
 import { adminControllerRemove } from '../../api/generated/fn/admin/admin-controller-remove';
 import { adminControllerUsage } from '../../api/generated/fn/admin/admin-controller-usage';
 import { providersControllerList } from '../../api/generated/fn/models/providers-controller-list';
@@ -23,6 +25,20 @@ const BOARD_COLUMNS: DataColumn[] = [
 ];
 
 const n = (v: number) => v.toLocaleString();
+
+/** A CSV cell: quoted when it needs to be, and never read as a formula by a spreadsheet. */
+function cell(value: unknown): string {
+  let text = value === null || value === undefined ? '' : String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** The audit log as CSV, a row an event. */
+export function auditCsv(events: readonly AuditEventDto[]): string {
+  const head = ['When', 'Board', 'Who', 'Email', 'User id', 'Did', 'What', 'Detail', 'Anonymous on the board'];
+  const rows = events.map((e) => [new Date(e.at).toISOString(), e.board, e.actorName, e.actorEmail, e.actorId, e.action, e.target, e.detail, e.restricted ? 'yes' : ''].map(cell).join(','));
+  return [head.join(','), ...rows].join('\r\n') + '\r\n';
+}
 
 /**
  * Workspace owners: the last 30 days board by board, what the models used (and cost, once prices are set), a data
@@ -92,6 +108,16 @@ const n = (v: number) => v.toLocaleString();
             </p>
           </div>
           <tc-button variant="secondary" label="Download" [loading]="exporting()" (click)="download()"></tc-button>
+        </div>
+        <div class="data">
+          <div>
+            <strong>Download the audit log</strong>
+            <p class="muted">
+              Everything that happened on every board, oldest first, as a spreadsheet: who really did it (name and email), including notes that were
+              anonymous on a board and people from outside the workspace who gave feedback.
+            </p>
+          </div>
+          <tc-button variant="secondary" label="Download" [loading]="auditing()" (click)="downloadAudit()"></tc-button>
         </div>
         <div class="data danger">
           <div>
@@ -318,6 +344,30 @@ export class AdminPage {
       toast.error("The workspace couldn't be downloaded", { description: (err as Error).message });
     } finally {
       this.exporting.set(false);
+    }
+  }
+
+  protected readonly auditing = signal(false);
+
+  /** The audit log as a CSV file: a row an event, with who really did it. */
+  protected async downloadAudit(): Promise<void> {
+    const orgId = this.session.org()?.id;
+    if (!orgId) return;
+    this.auditing.set(true);
+    try {
+      const events = await this.#api.invoke(adminControllerAudit, { orgId });
+      const name = `corkboard-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+      const url = URL.createObjectURL(new Blob([auditCsv(events)], { type: 'text/csv' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Audit log downloaded', { description: `${events.length} event${events.length === 1 ? '' : 's'}` });
+    } catch (err) {
+      toast.error("The audit log couldn't be downloaded", { description: (err as Error).message });
+    } finally {
+      this.auditing.set(false);
     }
   }
 
