@@ -13,6 +13,14 @@
   transform: translateX(-50%);
 }
 
+/* Centred in the room left of an open run sheet, not under it. */
+@media (min-width: 640px) {
+  .strip.beside-sheet {
+    left: calc(50% - 170px - var(--tc-space-4) / 2);
+    max-width: calc(100% - 340px - 3 * var(--tc-space-4));
+  }
+}
+
 .item {
   display: flex;
   flex-wrap: wrap;
