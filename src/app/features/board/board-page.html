@@ -311,6 +311,9 @@
             [poll]="f.poll"
             [privacy]="f.privacy"
             [pollAnswers]="f.pollAnswers"
+            [poker]="f.poker"
+            [pokerEstimates]="f.pokerEstimates"
+            [tasks]="openTasks()"
             [meId]="meUser()?.id"
             [isOwner]="isOwner()"
             (bringEveryone)="bringEveryone()"
@@ -329,6 +332,7 @@
             (show)="canvas()?.show($event)"
             (closed)="facilitating.set(false)"
             (parkingLot)="canvas()?.goToParkingLot()"
+            (setEstimate)="setTaskEstimate($event.taskId, $event.estimate)"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {

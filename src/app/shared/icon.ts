@@ -88,6 +88,7 @@ import {
   History,
   type IconNode,
   Check,
+  Spade,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -176,6 +177,7 @@ export const ICONS = {
   facilitator: Megaphone,
   agenda: ListOrdered,
   poll: ChartBar,
+  poker: Spade,
   parking: SquareParking,
   back: ChevronLeft,
   next: ChevronRight,

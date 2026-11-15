@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, type ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, type ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { Icon, type IconName } from '../../shared/icon';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
@@ -21,7 +21,15 @@ import { feedbackControllerAnswerPoll } from '../../api/generated/fn/feedback/fe
 import { facilitationControllerAnswerPoll } from '../../api/generated/fn/facilitation/facilitation-controller-answer-poll';
 import { facilitationControllerEndPoll } from '../../api/generated/fn/facilitation/facilitation-controller-end-poll';
 import { facilitationControllerStartPoll } from '../../api/generated/fn/facilitation/facilitation-controller-start-poll';
-import { activityLabel, formatRemaining, pollTally, ranking, type StepActivity, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
+import { feedbackControllerEstimate } from '../../api/generated/fn/feedback/feedback-controller-estimate';
+import { feedbackControllerMyEstimate } from '../../api/generated/fn/feedback/feedback-controller-my-estimate';
+import { pokerControllerClear } from '../../api/generated/fn/facilitation/poker-controller-clear';
+import { pokerControllerEstimate } from '../../api/generated/fn/facilitation/poker-controller-estimate';
+import { pokerControllerMine } from '../../api/generated/fn/facilitation/poker-controller-mine';
+import { pokerControllerReveal } from '../../api/generated/fn/facilitation/poker-controller-reveal';
+import type { PokerEstimateDto } from '../../api/generated/models/poker-estimate-dto';
+import { pokerControllerStart } from '../../api/generated/fn/facilitation/poker-controller-start';
+import { activityLabel, formatRemaining, pokerSummary, pollTally, POKER_DECKS, ranking, type Poker, type PokerDeck, type StepActivity, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
 const STEP_MINUTES = [0, 1, 2, 3, 5, 8, 10, 15, 20, 30, 45, 60];
@@ -56,11 +64,12 @@ function activityFrom(s: DraftStep): StepActivity | null | string {
 }
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
 /** The tools in the facilitator's dock, each opening its setup over it; the room (lead, private mode, parking lot) comes last. */
-type DockTool = 'timer' | 'vote' | 'poll' | 'writing' | 'breakouts' | 'room';
+type DockTool = 'timer' | 'vote' | 'poll' | 'poker' | 'writing' | 'breakouts' | 'room';
 const TOOLS: { id: Exclude<DockTool, 'room'>; label: string; icon: IconName }[] = [
   { id: 'timer', label: 'Timer', icon: 'timer' },
   { id: 'vote', label: 'Dot voting', icon: 'vote' },
   { id: 'poll', label: 'Poll', icon: 'poll' },
+  { id: 'poker', label: 'Planning poker', icon: 'poker' },
   { id: 'writing', label: 'Hidden writing', icon: 'hidden' },
   { id: 'breakouts', label: 'Breakouts', icon: 'users' },
 ];
@@ -98,6 +107,11 @@ export class BoardFacilitation {
   /** The poll, if there is one, and everyone's answers to it. */
   readonly poll = input<Poll | null>(null);
   readonly pollAnswers = input<ReadonlyMap<string, number>>(new Map());
+  /** Planning poker, if a round is up, and who has estimated (what, once revealed). */
+  readonly poker = input<Poker | null>(null);
+  readonly pokerEstimates = input<ReadonlyMap<string, string>>(new Map());
+  /** The board's open tasks, to estimate one. */
+  readonly tasks = input<readonly { id: string; key: string; title: string }[]>([]);
   /** The session's agenda: its steps and the one it's on. */
   readonly agenda = input<Agenda>({ steps: [], current: null });
   readonly meId = input<string | undefined>();
@@ -130,6 +144,8 @@ export class BoardFacilitation {
   readonly closed = output<void>();
   /** Go to the board's parking lot, making one if there isn't one. */
   readonly parkingLot = output<void>();
+  /** Write planning poker's result to the task it estimated. */
+  readonly setEstimate = output<{ taskId: string; estimate: string }>();
 
   protected readonly tools = TOOLS;
   /** The dock tool whose setup is open, if any, and whether the run sheet is. */
@@ -141,6 +157,7 @@ export class BoardFacilitation {
     timer: this.timerShown(),
     vote: this.voting().open,
     poll: !!this.poll()?.open,
+    poker: !!this.poker() && !this.poker()!.revealed,
     writing: this.writing().open,
     breakouts: this.breakouts().open,
     room: this.privacy().on || this.facilitating(),
@@ -188,6 +205,12 @@ export class BoardFacilitation {
   constructor() {
     // A tool's setup takes focus as it opens, so Escape closes it and Tab goes through it.
     effect(() => this.pop()?.nativeElement.focus());
+    // Each new round of planning poker, this person's own estimate in it, if they gave one before a reload.
+    effect(() => {
+      const round = this.poker()?.round;
+      this.myEstimate.set(null);
+      if (round && untracked(this.canVote)) void this.#loadMyEstimate(round);
+    });
     effect((onCleanup) => {
       if (this.timer().endsAt === null) return;
       const tick = setInterval(() => this.#now.set(Date.now()), 250);
@@ -214,6 +237,7 @@ export class BoardFacilitation {
       this.step() !== null ||
       this.privacy().on ||
       !!this.poll() ||
+      !!this.poker() ||
       this.timerShown() ||
       this.voting().open ||
       this.writing().open ||
@@ -416,6 +440,85 @@ export class BoardFacilitation {
 
   protected async claim(): Promise<void> {
     await this.#run(() => this.#api.invoke(facilitationControllerClaimFacilitator, { id: this.boardId() }));
+  }
+
+  // ── Planning poker ──
+
+  protected readonly pokerDecks = [
+    { value: 'fibonacci', label: 'Story points: 0, 1, 2, 3, 5, 8, 13, 21' },
+    { value: 'tshirt', label: 'T-shirt sizes: XS to XL' },
+  ];
+  protected readonly pokerDeck = signal<PokerDeck>('fibonacci');
+  /** The task to estimate, or '' for something written in. */
+  protected readonly pokerTask = signal('');
+  protected readonly pokerTitle = signal('');
+  protected readonly pokerTaskOptions = computed(() => [
+    { value: '', label: 'Something else…' },
+    ...this.tasks().map((t) => ({ value: t.id, label: `${t.key} ${t.title}` })),
+  ]);
+  protected readonly canStartPoker = computed(() => !!this.pokerTask() || !!this.pokerTitle().trim());
+  protected readonly cards = computed<readonly string[]>(() => POKER_DECKS[this.poker()?.deck ?? 'fibonacci']);
+  protected readonly myEstimate = signal<string | null>(null);
+  protected readonly estimated = computed(() => this.pokerEstimates().size);
+  protected readonly pokerResult = computed(() => {
+    const poker = this.poker();
+    if (!poker?.revealed) return null;
+    const summary = pokerSummary(poker, this.pokerEstimates());
+    const most = Math.max(1, ...summary.counts.map((c) => c.count));
+    const note = [summary.agreed ? 'Everyone agreed' : summary.spread && `Spread ${summary.spread}`, summary.average !== null && `Average ${summary.average}`].filter(Boolean).join(' · ');
+    return { ...summary, note, counts: summary.counts.map((c) => ({ ...c, share: c.count / most })) };
+  });
+
+  async #loadMyEstimate(round: string): Promise<void> {
+    try {
+      const { value } = this.participant()
+        ? await this.#api.invoke(feedbackControllerMyEstimate, { id: this.boardId() })
+        : await this.#api.invoke(pokerControllerMine, { id: this.boardId() });
+      if (this.poker()?.round === round) this.myEstimate.set(value ?? null);
+    } catch {
+      // Not knowing it only means no card shows as picked.
+    }
+  }
+
+  protected async startPoker(): Promise<void> {
+    const taskId = this.pokerTask();
+    await this.#run(async () => {
+      await this.#api.invoke(pokerControllerStart, { id: this.boardId(), body: { deck: this.pokerDeck(), ...(taskId ? { taskId } : { title: this.pokerTitle().trim() }) } });
+      this.pokerTitle.set('');
+      this.closeTool();
+    });
+  }
+
+  protected async estimate(card: string): Promise<void> {
+    const value = card as PokerEstimateDto['value'];
+    const was = this.myEstimate();
+    this.myEstimate.set(value);
+    await this.#run(() =>
+      this.participant()
+        ? this.#api.invoke(feedbackControllerEstimate, { id: this.boardId(), body: { value } })
+        : this.#api.invoke(pokerControllerEstimate, { id: this.boardId(), body: { value } }),
+    );
+    if (this.problem()) this.myEstimate.set(was);
+  }
+
+  protected async revealPoker(): Promise<void> {
+    await this.#run(() => this.#api.invoke(pokerControllerReveal, { id: this.boardId() }));
+  }
+
+  protected async clearPoker(): Promise<void> {
+    await this.#run(() => this.#api.invoke(pokerControllerClear, { id: this.boardId() }));
+  }
+
+  /** Another round on the same thing, as when the spread was wide and people have talked it over. */
+  protected async revote(): Promise<void> {
+    const poker = this.poker();
+    if (!poker) return;
+    await this.#run(() =>
+      this.#api.invoke(pokerControllerStart, {
+        id: this.boardId(),
+        body: { deck: poker.deck, ...(poker.taskId ? { taskId: poker.taskId } : poker.noteId ? { noteId: poker.noteId, title: poker.title } : { title: poker.title }) },
+      }),
+    );
   }
 
   protected async release(): Promise<void> {

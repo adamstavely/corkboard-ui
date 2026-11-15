@@ -133,6 +133,49 @@ export function pollTally(poll: Poll, answers: ReadonlyMap<string, number>): num
   return tally;
 }
 
+/** The decks planning poker estimates with, as the API has them. "?" is "I can't say yet". */
+export const POKER_DECKS = {
+  fibonacci: ['0', '1', '2', '3', '5', '8', '13', '21', '?'],
+  tshirt: ['XS', 'S', 'M', 'L', 'XL', '?'],
+} as const;
+export type PokerDeck = keyof typeof POKER_DECKS;
+
+/** A round of planning poker: what's being estimated, with which deck, and whether the estimates are shown yet. */
+export interface Poker {
+  round: string;
+  deck: PokerDeck;
+  taskId: string | null;
+  noteId: string | null;
+  title: string;
+  revealed: boolean;
+  startedBy: string;
+}
+
+/** A task's estimate is a T-shirt size, so story points go in as the size they're nearest. */
+const SIZE_FOR_POINTS: Record<string, string> = { '0': 'XS', '1': 'XS', '2': 'S', '3': 'M', '5': 'M', '8': 'L', '13': 'XL', '21': 'XL' };
+
+/**
+ * The revealed estimates: how many gave each card (in the deck's order, only those given), the average and spread of
+ * the numeric ones, whether everyone agreed, and the size to suggest for the task: the most given, the larger on a tie.
+ */
+export function pokerSummary(poker: Poker, estimates: ReadonlyMap<string, string>) {
+  const deck: readonly string[] = POKER_DECKS[poker.deck];
+  const given = [...estimates.values()].filter((v) => deck.includes(v));
+  const counts = deck.map((value) => ({ value, count: given.filter((v) => v === value).length })).filter((c) => c.count > 0);
+  const sized = given.filter((v) => v !== '?');
+  const numbers = poker.deck === 'fibonacci' ? sized.map(Number) : [];
+  const most = counts.filter((c) => c.value !== '?').reduce<{ value: string; count: number } | null>((best, c) => (!best || c.count >= best.count ? c : best), null);
+  const top = most?.value ?? null;
+  return {
+    counts,
+    total: given.length,
+    average: numbers.length ? Math.round((numbers.reduce((a, b) => a + b, 0) / numbers.length) * 10) / 10 : null,
+    spread: sized.length > 1 ? `${sized.reduce((a, b) => (deck.indexOf(a) <= deck.indexOf(b) ? a : b))}–${sized.reduce((a, b) => (deck.indexOf(a) >= deck.indexOf(b) ? a : b))}` : null,
+    agreed: sized.length > 1 && new Set(sized).size === 1,
+    size: top === null ? null : poker.deck === 'tshirt' ? top : (SIZE_FOR_POINTS[top] ?? null),
+  };
+}
+
 /** The board's dot voting, timer, hidden writing, breakouts, agenda and poll, live from its document. Only the API writes them. */
 export class FacilitationFeed {
   readonly #voting: Y.Map<unknown>;
@@ -145,6 +188,8 @@ export class FacilitationFeed {
   readonly #agenda: Y.Map<unknown>;
   readonly #poll: Y.Map<unknown>;
   readonly #pollAnswers: Y.Map<number>;
+  readonly #poker: Y.Map<unknown>;
+  readonly #pokerEstimates: Y.Map<string>;
   readonly #privacy: Y.Map<unknown>;
 
   readonly #state = signal<{
@@ -158,6 +203,9 @@ export class FacilitationFeed {
     agenda: Agenda;
     poll: Poll | null;
     pollAnswers: ReadonlyMap<string, number>;
+    poker: Poker | null;
+    /** Who has estimated (an empty value) until the reveal, then each one's estimate. */
+    pokerEstimates: ReadonlyMap<string, string>;
     /** Private mode: pointers, selections and names hidden while it's on. */
     privacy: { on: boolean; by: string };
   }>({
@@ -171,6 +219,8 @@ export class FacilitationFeed {
     agenda: { steps: [], current: null },
     poll: null,
     pollAnswers: new Map(),
+    poker: null,
+    pokerEstimates: new Map(),
     privacy: { on: false, by: '' },
   });
   readonly state = this.#state.asReadonly();
@@ -186,6 +236,8 @@ export class FacilitationFeed {
     this.#agenda = doc.getMap('agenda');
     this.#poll = doc.getMap('poll');
     this.#pollAnswers = doc.getMap('pollAnswers');
+    this.#poker = doc.getMap('poker');
+    this.#pokerEstimates = doc.getMap('pokerEstimates');
     this.#privacy = doc.getMap('privacy');
     for (const map of this.#maps()) map.observe(this.#update);
     this.#update();
@@ -196,7 +248,7 @@ export class FacilitationFeed {
   }
 
   #maps(): Y.Map<unknown>[] {
-    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda, this.#poll, this.#pollAnswers as Y.Map<unknown>, this.#privacy];
+    return [this.#voting, this.#votes as Y.Map<unknown>, this.#timer, this.#writing, this.#breakouts, this.#facilitator, this.#spotlight, this.#agenda, this.#poll, this.#pollAnswers as Y.Map<unknown>, this.#poker, this.#pokerEstimates as Y.Map<unknown>, this.#privacy];
   }
 
   #agendaOf(): Agenda {
@@ -214,6 +266,21 @@ export class FacilitationFeed {
       question: text(this.#poll.get('question')),
       kind: this.#poll.get('kind') === 'fist' ? 'fist' : 'choice',
       options: Array.isArray(this.#poll.get('options')) ? (this.#poll.get('options') as string[]) : [],
+    };
+  }
+
+  #pokerOf(): Poker | null {
+    const round = this.#poker.get('round');
+    if (typeof round !== 'string') return null;
+    const id = (k: string) => (typeof this.#poker.get(k) === 'string' ? (this.#poker.get(k) as string) : null);
+    return {
+      round,
+      deck: this.#poker.get('deck') === 'tshirt' ? 'tshirt' : 'fibonacci',
+      taskId: id('taskId'),
+      noteId: id('noteId'),
+      title: text(this.#poker.get('title')),
+      revealed: this.#poker.get('revealed') === true,
+      startedBy: text(this.#poker.get('startedBy')),
     };
   }
 
@@ -250,6 +317,8 @@ export class FacilitationFeed {
       agenda: this.#agendaOf(),
       poll: this.#pollOf(),
       pollAnswers: new Map(this.#pollAnswers.entries()),
+      poker: this.#pokerOf(),
+      pokerEstimates: new Map(this.#pokerEstimates.entries()),
       privacy: { on: this.#privacy.get('on') === true, by: text(this.#privacy.get('by')) },
     });
   };
