@@ -874,7 +874,8 @@ export class BoardDoc {
     return this.#place('chart', cx, cy, 520, 380, (n) => {
       n.set('chart', chart);
       n.set('title', title);
-      n.set('rows', cleanRows(rows));
+      // Not "rows": the API reads that as a table's row count.
+      n.set('data', cleanRows(rows));
     });
   }
 
@@ -886,7 +887,7 @@ export class BoardDoc {
     this.doc.transact(() => {
       node.set('chart', chart.chart);
       node.set('title', chart.title);
-      node.set('rows', cleanRows(chart.rows));
+      node.set('data', cleanRows(chart.rows));
     }, this);
   }
 
@@ -1442,7 +1443,7 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
       return { ...box, kind: 'diagram', source: str(node.get('source')) };
     case 'chart': {
       const chart = node.get('chart') as ChartKind;
-      return { ...box, kind: 'chart', chart: CHART_KINDS.includes(chart) ? chart : 'bar', title: str(node.get('title')), rows: cleanRows(node.get('rows')) };
+      return { ...box, kind: 'chart', chart: CHART_KINDS.includes(chart) ? chart : 'bar', title: str(node.get('title')), rows: cleanRows(node.get('data')) };
     }
     default:
       return null;
