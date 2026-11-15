@@ -221,28 +221,76 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   const surface = color('--tc-surface-raised', '#ffffff');
   const border = color('--tc-border-default', '#d0d0d0');
 
+  const accent = color('--tc-accent-solid', '#3b6fd8');
+  const onAccent = color('--tc-text-on-accent', '#ffffff');
+  // Canvases don't understand color-mix(), so a mix is one colour painted over another at a strength.
+  const paint = (path: Path2D, style: string, alpha = 1) => {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = style;
+    ctx.fill(path);
+    ctx.globalAlpha = 1;
+  };
+  const box = (x: number, y: number, w: number, h: number, r: number | number[] = 0) => {
+    const path = new Path2D();
+    path.roundRect(x, y, w, h, r);
+    return path;
+  };
   for (const f of [...board.frames()].sort((a, b) => a.z - b.z)) {
-    ctx.fillStyle = surface;
-    ctx.strokeStyle = border;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(f.x, f.y, f.w, f.h, 12);
-    ctx.fill();
+    const tinted = f.fill !== 'clear' && f.fill !== 'solid';
+    const tint = tinted ? color(`--note-${f.fill}`, '#fff3a8') : '';
+    const solid = f.fill === 'solid' || ['card', 'slide', 'browser'].includes(f.look);
+    const radius = { slide: 4, lane: 0, zone: 24 }[f.look as string] ?? 12;
+    // A tab's title sticks out above the frame, in the frame's own fill and border.
+    ctx.font = `600 18px ${font}`;
+    const tab = f.look === 'tab' ? { w: Math.min(f.w, ctx.measureText(f.title || 'Untitled frame').width + 48), h: 34 } : null;
+    const outline = new Path2D();
+    if (tab) {
+      outline.roundRect(f.x, f.y - tab.h, tab.w, tab.h + 6, [6, 6, 0, 0]);
+      outline.roundRect(f.x, f.y, f.w, f.h, [0, radius, radius, radius]);
+    } else outline.roundRect(f.x, f.y, f.w, f.h, radius);
+    const washed = f.look === 'zone' || f.look === 'lane';
+    if (f.look !== 'drop') paint(outline, washed ? text : surface, solid ? 1 : washed ? 0.05 : 0.6);
     // A tinted frame: its note colour at 45% over the surface, as the board mixes it.
-    if (f.fill !== 'clear' && f.fill !== 'solid') {
-      ctx.globalAlpha = 0.45;
-      ctx.fillStyle = color(`--note-${f.fill}`, '#fff3a8');
-      ctx.fill();
+    if (tinted) {
+      paint(outline, surface);
+      paint(outline, tint, 0.45);
+    }
+    const bordered = f.border !== 'none' && !['card', 'slide', 'zone', 'lane'].includes(f.look);
+    if (bordered) {
+      ctx.strokeStyle = f.look === 'drop' ? text : border;
+      ctx.globalAlpha = f.look === 'drop' ? 0.35 : 1;
+      ctx.lineWidth = f.look === 'drop' ? 2.5 : 1.5;
+      ctx.setLineDash(f.border === 'dashed' || f.look === 'drop' ? [8, 6] : []);
+      ctx.stroke(outline);
+      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
-    if (f.border !== 'none') {
-      ctx.setLineDash(f.border === 'dashed' ? [8, 6] : []);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    if (f.look === 'lane') {
+      const stripe = box(f.x, f.y, 6, f.h);
+      paint(stripe, tinted ? tint : accent);
+      if (tinted) paint(stripe, text, 0.3);
     }
-    ctx.fillStyle = text;
-    ctx.font = `600 18px ${font}`;
-    ctx.fillText(f.title || 'Untitled frame', f.x + 16, f.y + 30, f.w - 32);
+    let title = { x: f.x + 16, y: f.y + 30, color: f.look === 'drop' ? color('--tc-text-muted', '#888888') : text, weight: f.look === 'drop' ? 400 : 600, size: 18 };
+    if (f.look === 'band' || f.look === 'browser') {
+      const bar = box(f.x, f.y, f.w, 44, [radius, radius, 0, 0]);
+      paint(bar, tinted ? tint : f.look === 'band' ? accent : surface);
+      if (tinted || f.look === 'browser') paint(bar, text, tinted ? 0.2 : 0.06);
+      if (f.look === 'band') title = { ...title, color: tinted ? text : onAccent };
+      else {
+        ['--note-pink', '--note-yellow', '--note-green'].forEach((dot, i) => {
+          ctx.fillStyle = color(dot, '#cccccc');
+          ctx.beginPath();
+          ctx.arc(f.x + 21 + i * 16, f.y + 22, 5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        paint(box(f.x + 76, f.y + 7, f.w - 92, 30, 15), color('--tc-surface-base', '#ffffff'));
+        title = { x: f.x + 92, y: f.y + 27, color: color('--tc-text-secondary', '#555555'), weight: 400, size: 14 };
+      }
+    }
+    if (tab) title = { ...title, y: f.y - 11 };
+    ctx.fillStyle = title.color;
+    ctx.font = `${title.weight} ${title.size}px ${font}`;
+    ctx.fillText(f.title || 'Untitled frame', title.x, title.y, (tab ? tab.w : f.w) - (title.x - f.x) - 16);
   }
   // Arrows go over frames and under everything else, as on the board.
   const ink = color('--tc-text-secondary', '#555555');

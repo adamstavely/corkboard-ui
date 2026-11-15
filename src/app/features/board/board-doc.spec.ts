@@ -224,6 +224,23 @@ describe('BoardDoc', () => {
     expect(board.frames()[0].fill).toBe('clear');
   });
 
+  it('gives frames a look, and keeps a slide at 16:9 when it is made one and when it is resized', () => {
+    const f = board.addFrame(0, 0);
+    expect(board.frames()[0].look).toBe('outline');
+    board.setFrameStyle([f], { look: 'browser' });
+    expect(board.frames()[0]).toMatchObject({ look: 'browser', fill: 'clear', border: 'solid' });
+    board.resizeFrame(f, 800, 300);
+    board.setFrameStyle([f], { look: 'slide' });
+    expect(board.frames()[0]).toMatchObject({ look: 'slide', w: 800, h: 450 });
+    board.resizeFrame(f, 1600, 100);
+    expect(board.frames()[0]).toMatchObject({ w: 1600, h: 900 });
+    // No smaller than a frame may be: 160 high, so 284 wide.
+    board.resizeFrame(f, 10, 10);
+    expect(board.frames()[0]).toMatchObject({ w: 284, h: 160 });
+    board.doc.getMap<Y.Map<unknown>>('nodes').get(f)!.set('look', 'polaroid');
+    expect(board.frames()[0].look).toBe('outline');
+  });
+
   it("doesn't rebuild the list when only a note's text changes", () => {
     board.addNote(0, 0);
     const before = board.notes();
