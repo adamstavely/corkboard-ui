@@ -87,6 +87,7 @@ import {
   Download,
   History,
   type IconNode,
+  Check,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -178,6 +179,7 @@ export const ICONS = {
   parking: SquareParking,
   back: ChevronLeft,
   next: ChevronRight,
+  done: Check,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

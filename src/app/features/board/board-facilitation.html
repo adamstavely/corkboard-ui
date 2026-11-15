@@ -146,205 +146,280 @@
       </div>
     }
 
-    @if (problem() && !(controlsOpen() && canRun())) {
+    @if (problem() && !(controlsOpen() && canRun() && (tool() || sheetOpen()))) {
       <p class="problem" role="alert">{{ problem() }}</p>
     }
   </div>
 }
 
 @if (controlsOpen() && canRun()) {
-  <aside class="controls" aria-labelledby="facilitate-heading">
-    <div class="head">
-      <h2 id="facilitate-heading">Facilitate</h2>
-      <tc-button size="sm" variant="ghost" label="Close" (click)="closed.emit()"></tc-button>
-    </div>
-
-    <section aria-labelledby="f-lead">
-      <h3 id="f-lead"><app-icon name="facilitator" /> Lead the session</h3>
-      @if (facilitating()) {
-        <p class="hint">You're facilitating. Bring everyone to what you're looking at.</p>
-        <div class="row">
-          <tc-button size="sm" variant="secondary" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
-          <tc-button size="sm" variant="ghost" label="Step down" (click)="release()"></tc-button>
-        </div>
-      } @else if (facilitator().userId) {
-        <p class="hint">{{ facilitator().name }} is facilitating.</p>
-        @if (isOwner()) {
-          <div class="row"><tc-button size="sm" variant="ghost" label="Take over" (click)="claim()"></tc-button></div>
-        }
-      } @else {
-        <p class="hint">Take the facilitator's seat: only you can bring everyone to your view.</p>
-        <div class="row">
-          <tc-button size="sm" variant="secondary" label="Facilitate" (click)="claim()"></tc-button>
-          <tc-button size="sm" variant="ghost" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
-        </div>
-      }
-    </section>
-
-    <section aria-labelledby="f-agenda">
-      <h3 id="f-agenda"><app-icon name="agenda" /> Agenda</h3>
-      @if (drafting(); as steps) {
-        <ol class="steps editing">
-          @for (st of steps; track $index; let i = $index) {
-            <li>
-              <input
-                type="text"
-                class="text-input"
-                maxlength="80"
-                placeholder="What happens in this step"
-                [attr.aria-label]="'Step ' + (i + 1)"
-                [value]="st.title"
-                (input)="updateStep(i, { title: $any($event.target).value })"
-              />
-              <div class="row">
-                <tc-select class="grow" [label]="'Step ' + (i + 1) + ' time'" [labelVisible]="false" [options]="stepTimes" [value]="st.minutes" (tc-value-change)="updateStep(i, { minutes: $event.detail.value })"></tc-select>
-                @if (frames().length) {
-                  <tc-select class="grow" [label]="'Step ' + (i + 1) + ' frame'" [labelVisible]="false" [options]="stepFrames()" [value]="st.frameId" (tc-value-change)="updateStep(i, { frameId: $event.detail.value })"></tc-select>
-                }
-                <button type="button" class="icon-btn" [attr.aria-label]="'Remove step ' + (i + 1)" data-tip="Remove" (click)="removeStep(i)"><app-icon name="close" /></button>
-              </div>
-            </li>
-          }
-        </ol>
-        <div class="row">
-          <tc-button size="sm" variant="ghost" label="Add a step" (click)="addStep()"></tc-button>
-          <span class="grow"></span>
-          <tc-button size="sm" variant="ghost" label="Cancel" (click)="drafting.set(null)"></tc-button>
-          <tc-button size="sm" variant="secondary" label="Save" (click)="saveAgenda()"></tc-button>
-        </div>
-      } @else if (agenda().steps.length) {
-        <ol class="steps">
-          @for (st of agenda().steps; track st.id; let i = $index) {
-            <li [class.now]="agenda().current === i" [attr.aria-current]="agenda().current === i ? 'step' : null">
-              <span class="step-title">{{ st.title }}</span>
-              <span class="hint">{{ minutesOf(st.seconds) }}</span>
-            </li>
-          }
-        </ol>
-        @if (othersSeat()) {
-          <p class="hint">{{ facilitator().name }} is facilitating, so they move the agenda on.</p>
-        }
-        <div class="row">
-          @if (!othersSeat()) {
-            @if (step(); as st) {
-              <tc-button size="sm" variant="ghost" label="Back" [disabled]="st.index === 0" (click)="goTo(st.index - 1)"></tc-button>
-              <tc-button size="sm" variant="secondary" [label]="st.index + 1 < st.count ? 'Next step' : 'Finish'" (click)="goTo(st.index + 1 < st.count ? st.index + 1 : null)"></tc-button>
-              <tc-button size="sm" variant="ghost" label="End" (click)="goTo(null)"></tc-button>
-            } @else {
-              <tc-button size="sm" variant="secondary" label="Start" (click)="goTo(0)"></tc-button>
-            }
-          }
-          <span class="grow"></span>
-          <tc-button size="sm" variant="ghost" label="Edit" (click)="editAgenda()"></tc-button>
-        </div>
-      } @else {
-        <p class="hint">Plan the session a step at a time. Each step starts its timer and brings everyone to its frame.</p>
-        <div class="row"><tc-button size="sm" variant="secondary" label="Plan an agenda" (click)="editAgenda()"></tc-button></div>
-      }
-    </section>
-
-    <section aria-labelledby="f-timer">
-      <h3 id="f-timer"><app-icon name="timer" /> Timer</h3>
-      <p class="hint">Everyone sees it count down at the top of the board.</p>
-      <div class="row choices" role="group" aria-label="Start a timer">
-        @for (m of timerMinutes; track m) {
-          <tc-button size="sm" variant="secondary" [label]="m + ' min'" (click)="startTimer(m)"></tc-button>
-        }
+  <!-- One tool's setup at a time, over the dock: what it is and how to start it, or how it's going. -->
+  @if (tool(); as t) {
+    <div #pop class="dock-pop" role="dialog" tabindex="-1" [attr.aria-labelledby]="'pop-' + t" (keydown.escape)="closeTool()">
+      <div class="head">
+        <h3 [id]="'pop-' + t"><app-icon [name]="toolIcon(t)" /> {{ toolLabel(t) }}</h3>
+        <button type="button" class="icon-btn" aria-label="Close" data-tip="Close" (click)="closeTool()"><app-icon name="close" /></button>
       </div>
-    </section>
-
-    <section aria-labelledby="f-vote">
-      <h3 id="f-vote"><app-icon name="vote" /> Dot voting</h3>
-      <p class="hint">Everyone puts their votes on the notes they'd pick.</p>
-      <div class="row">
-        <tc-select class="grow" label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
-        <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
-      </div>
-    </section>
-
-    <section aria-labelledby="f-poll">
-      <h3 id="f-poll"><app-icon name="poll" /> Poll</h3>
-      @if (poll()?.open) {
-        <p class="hint">Open: {{ answered() }} answered so far. Answers show when you close it.</p>
-        <div class="row"><tc-button size="sm" variant="secondary" label="Close poll" (click)="endPoll(false)"></tc-button></div>
-      } @else {
-        <p class="hint">A quick question for everyone, or a fist-to-five to check agreement.</p>
-        <tc-select label="Kind of poll" [labelVisible]="false" [options]="pollKinds" [value]="pollKind()" (tc-value-change)="pollKind.set($any($event.detail.value))"></tc-select>
-        <input type="text" class="text-input" maxlength="200" [placeholder]="pollKind() === 'fist' ? 'How ready are we to ship?' : 'What should we do first?'" aria-label="Question" [value]="pollQuestion()" (input)="pollQuestion.set($any($event.target).value)" />
-        @if (pollKind() === 'choice') {
-          @for (o of pollOptions(); track $index; let i = $index) {
+      @switch (t) {
+        @case ('timer') {
+          @if (timerShown()) {
             <div class="row">
-              <input type="text" class="text-input grow" maxlength="80" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1)" [value]="o" (input)="setPollOption(i, $any($event.target).value)" />
-              @if (pollOptions().length > 2) {
-                <button type="button" class="icon-btn" [attr.aria-label]="'Remove option ' + (i + 1)" data-tip="Remove" (click)="pollOptions.set(pollOptions().filter((_, at) => at !== i))"><app-icon name="close" /></button>
+              <span class="clock grow" [class.up]="timesUp()">{{ timesUp() ? "Time's up" : clock() + ' left' }}</span>
+              <tc-button size="sm" variant="ghost" label="+1 min" (click)="addMinute()"></tc-button>
+              <tc-button size="sm" variant="secondary" [label]="timesUp() ? 'Clear' : 'Stop'" (click)="stopTimer()"></tc-button>
+            </div>
+          }
+          <p class="hint">{{ timerShown() ? 'Or start it again:' : 'Everyone sees it count down at the top of the board.' }}</p>
+          <div class="row choices" role="group" aria-label="Start a timer">
+            @for (m of timerMinutes; track m) {
+              <tc-button size="sm" variant="secondary" [label]="m + ' min'" (click)="startTimer(m)"></tc-button>
+            }
+          </div>
+        }
+        @case ('vote') {
+          <p class="hint">Everyone puts their votes on the notes they'd pick.</p>
+          <div class="row">
+            <tc-select class="grow" label="Votes each" [labelVisible]="false" [options]="voteOptions" [value]="votesEach()" (tc-value-change)="votesEach.set($event.detail.value)"></tc-select>
+            <tc-button size="sm" variant="secondary" [label]="voting().open ? 'Restart vote' : 'Start vote'" (click)="startVote()"></tc-button>
+          </div>
+        }
+        @case ('poll') {
+          @if (poll()?.open) {
+            <p class="hint">Open: {{ answered() }} answered so far. Answers show when you close it.</p>
+            <div class="row"><tc-button size="sm" variant="secondary" label="Close poll" (click)="endPoll(false)"></tc-button></div>
+          } @else {
+            <p class="hint">A quick question for everyone, or a fist-to-five to check agreement.</p>
+            <tc-select label="Kind of poll" [labelVisible]="false" [options]="pollKinds" [value]="pollKind()" (tc-value-change)="pollKind.set($any($event.detail.value))"></tc-select>
+            <input type="text" class="text-input" maxlength="200" [placeholder]="pollKind() === 'fist' ? 'How ready are we to ship?' : 'What should we do first?'" aria-label="Question" [value]="pollQuestion()" (input)="pollQuestion.set($any($event.target).value)" />
+            @if (pollKind() === 'choice') {
+              @for (o of pollOptions(); track $index; let i = $index) {
+                <div class="row">
+                  <input type="text" class="text-input grow" maxlength="80" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1)" [value]="o" (input)="setPollOption(i, $any($event.target).value)" />
+                  @if (pollOptions().length > 2) {
+                    <button type="button" class="icon-btn" [attr.aria-label]="'Remove option ' + (i + 1)" data-tip="Remove" (click)="pollOptions.set(pollOptions().filter((_, at) => at !== i))"><app-icon name="close" /></button>
+                  }
+                </div>
               }
+            }
+            <div class="row">
+              @if (pollKind() === 'choice' && pollOptions().length < 8) {
+                <tc-button size="sm" variant="ghost" label="Add an option" (click)="pollOptions.set([...pollOptions(), ''])"></tc-button>
+              }
+              <span class="grow"></span>
+              <tc-button size="sm" variant="secondary" label="Start poll" [disabled]="!canStartPoll()" (click)="startPoll()"></tc-button>
             </div>
           }
         }
-        <div class="row">
-          @if (pollKind() === 'choice' && pollOptions().length < 8) {
-            <tc-button size="sm" variant="ghost" label="Add an option" (click)="pollOptions.set([...pollOptions(), ''])"></tc-button>
+        @case ('writing') {
+          @if (writing().open) {
+            <p class="hint">Under way: notes stay hidden until you reveal them.</p>
+            <div class="row">
+              <tc-button size="sm" variant="secondary" label="Reveal notes" (click)="reveal()"></tc-button>
+              <tc-button size="sm" variant="ghost" label="Cancel" (click)="cancelWriting()"></tc-button>
+            </div>
+          } @else {
+            <p class="hint">Everyone writes on their own; notes stay hidden until you reveal them.</p>
+            <label class="check"><input type="checkbox" [checked]="anonymous()" (change)="anonymous.set($any($event.target).checked)" /> Anonymous</label>
+            <div class="row">
+              @if (frames().length) {
+                <tc-select class="grow" label="Where revealed notes go" [labelVisible]="false" [options]="frameOptions()" [value]="into()" (tc-value-change)="into.set($event.detail.value)"></tc-select>
+              }
+              <tc-button size="sm" variant="secondary" label="Start writing" (click)="startWriting()"></tc-button>
+            </div>
           }
-          <span class="grow"></span>
-          <tc-button size="sm" variant="secondary" label="Start poll" [disabled]="!canStartPoll()" (click)="startPoll()"></tc-button>
-        </div>
-      }
-    </section>
-
-    <section aria-labelledby="f-writing">
-      <h3 id="f-writing"><app-icon name="hidden" /> Hidden writing</h3>
-      @if (writing().open) {
-        <p class="hint">Under way: notes stay hidden until you reveal them.</p>
-        <div class="row">
-          <tc-button size="sm" variant="secondary" label="Reveal notes" (click)="reveal()"></tc-button>
-          <tc-button size="sm" variant="ghost" label="Cancel" (click)="cancelWriting()"></tc-button>
-        </div>
-      } @else {
-        <p class="hint">Everyone writes on their own; notes stay hidden until you reveal them.</p>
-        <label class="check"><input type="checkbox" [checked]="anonymous()" (change)="anonymous.set($any($event.target).checked)" /> Anonymous</label>
-        <div class="row">
-          @if (frames().length) {
-            <tc-select class="grow" label="Where revealed notes go" [labelVisible]="false" [options]="frameOptions()" [value]="into()" (tc-value-change)="into.set($event.detail.value)"></tc-select>
+        }
+        @case ('breakouts') {
+          @if (breakouts().open) {
+            <p class="hint">{{ breakouts().groups.length }} groups are working in their frames.</p>
+            <div class="row"><tc-button size="sm" variant="secondary" label="Bring everyone back" (click)="endBreakouts()"></tc-button></div>
+          } @else if (breakoutFrames().length >= 2) {
+            <p class="hint">Split people into the {{ framesSelected() ? 'selected ' : '' }}{{ breakoutFrames().length }} frames.</p>
+            <div class="row">
+              <tc-select class="grow" label="Time per group" [labelVisible]="false" [options]="breakoutOptions" [value]="breakoutMinutes()" (tc-value-change)="breakoutMinutes.set($event.detail.value)"></tc-select>
+              <tc-button size="sm" variant="secondary" label="Start breakouts" (click)="startBreakouts()"></tc-button>
+            </div>
+          } @else {
+            <p class="hint">Add two or more frames to split people into groups.</p>
           }
-          <tc-button size="sm" variant="secondary" label="Start writing" (click)="startWriting()"></tc-button>
-        </div>
+        }
+        @case ('room') {
+          <h4><app-icon name="facilitator" /> Lead the session</h4>
+          @if (facilitating()) {
+            <p class="hint">You're facilitating. Bring everyone to what you're looking at.</p>
+            <div class="row">
+              <tc-button size="sm" variant="secondary" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
+              <tc-button size="sm" variant="ghost" label="Step down" (click)="release()"></tc-button>
+            </div>
+          } @else if (facilitator().userId) {
+            <p class="hint">{{ facilitator().name }} is facilitating.</p>
+            @if (isOwner()) {
+              <div class="row"><tc-button size="sm" variant="ghost" label="Take over" (click)="claim()"></tc-button></div>
+            }
+          } @else {
+            <p class="hint">Take the facilitator's seat: only you can bring everyone to your view.</p>
+            <div class="row">
+              <tc-button size="sm" variant="secondary" label="Facilitate" (click)="claim()"></tc-button>
+              <tc-button size="sm" variant="ghost" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
+            </div>
+          }
+          <h4><app-icon name="hidden" /> Private mode</h4>
+          <p class="hint">Hides everyone's pointers, selections and names (yours stays, as facilitator) so people vote and write without following the crowd.</p>
+          @if (!othersSeat()) {
+            <div class="row">
+              <tc-button size="sm" variant="secondary" [label]="privacy().on ? 'Turn private mode off' : 'Turn private mode on'" (click)="setPrivacy(!privacy().on)"></tc-button>
+            </div>
+          }
+          <h4><app-icon name="parking" /> Parking lot</h4>
+          <p class="hint">A frame for what's good but not for now. The recap lists it as open questions.</p>
+          <div class="row"><tc-button size="sm" variant="secondary" label="Go to the parking lot" (click)="parkingLot.emit()"></tc-button></div>
+        }
       }
-    </section>
-
-    <section aria-labelledby="f-breakouts">
-      <h3 id="f-breakouts"><app-icon name="users" /> Breakouts</h3>
-      @if (breakouts().open) {
-        <p class="hint">{{ breakouts().groups.length }} groups are working in their frames.</p>
-        <div class="row"><tc-button size="sm" variant="secondary" label="Bring everyone back" (click)="endBreakouts()"></tc-button></div>
-      } @else if (breakoutFrames().length >= 2) {
-        <p class="hint">Split people into the {{ framesSelected() ? 'selected ' : '' }}{{ breakoutFrames().length }} frames.</p>
-        <div class="row">
-          <tc-select class="grow" label="Time per group" [labelVisible]="false" [options]="breakoutOptions" [value]="breakoutMinutes()" (tc-value-change)="breakoutMinutes.set($event.detail.value)"></tc-select>
-          <tc-button size="sm" variant="secondary" label="Start breakouts" (click)="startBreakouts()"></tc-button>
-        </div>
-      } @else {
-        <p class="hint">Add two or more frames to split people into groups.</p>
+      @if (problem()) {
+        <p class="problem" role="alert">{{ problem() }}</p>
       }
-    </section>
+    </div>
+  }
 
-    <section aria-labelledby="f-private">
-      <h3 id="f-private"><app-icon name="hidden" /> Private mode</h3>
-      <p class="hint">Hides everyone's pointers, selections and names (yours stays, as facilitator) so people vote and write without following the crowd.</p>
+  <!-- The facilitator's dock: the run sheet and where the agenda is, then a button per tool (live ones marked), then the room. -->
+  <nav class="app-island dock" aria-label="Facilitation tools">
+    <button type="button" class="icon-btn dock-btn" aria-label="Run sheet" data-tip="Run sheet: the agenda" data-tip-side="top" [attr.aria-pressed]="sheetOpen()" (click)="sheetOpen.set(!sheetOpen())">
+      <app-icon name="agenda" />
+      @if (step(); as st) {
+        <span class="dock-step">{{ st.index + 1 }}/{{ st.count }} · {{ st.title }}</span>
+      }
+    </button>
+    @if (step(); as st) {
       @if (!othersSeat()) {
-        <div class="row">
-          <tc-button size="sm" variant="secondary" [label]="privacy().on ? 'Turn private mode off' : 'Turn private mode on'" (click)="setPrivacy(!privacy().on)"></tc-button>
-        </div>
+        <button
+          type="button"
+          class="icon-btn dock-btn"
+          [attr.aria-label]="st.index + 1 < st.count ? 'Next step' : 'Finish the agenda'"
+          [attr.data-tip]="st.index + 1 < st.count ? 'Next step' : 'Finish'"
+          data-tip-side="top"
+          (click)="goTo(st.index + 1 < st.count ? st.index + 1 : null)"
+        >
+          <app-icon [name]="st.index + 1 < st.count ? 'next' : 'done'" />
+        </button>
       }
-    </section>
-
-    <section aria-labelledby="f-parking">
-      <h3 id="f-parking"><app-icon name="parking" /> Parking lot</h3>
-      <p class="hint">A frame for what's good but not for now. The recap lists it as open questions.</p>
-      <div class="row"><tc-button size="sm" variant="secondary" label="Go to the parking lot" (click)="parkingLot.emit()"></tc-button></div>
-    </section>
-
-    @if (problem()) {
-      <p class="problem" role="alert">{{ problem() }}</p>
     }
-  </aside>
+    <span class="sep" aria-hidden="true"></span>
+    @for (d of tools; track d.id) {
+      <button
+        type="button"
+        class="icon-btn dock-btn"
+        [attr.data-dock-tool]="d.id"
+        [attr.aria-label]="d.label + (live()[d.id] ? ' (running)' : '')"
+        [attr.data-tip]="d.label"
+        data-tip-side="top"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="tool() === d.id"
+        (click)="openTool(d.id)"
+      >
+        <app-icon [name]="d.icon" />
+        @if (d.id === 'timer' && timerShown()) {
+          <span class="clock" [class.up]="timesUp()">{{ timesUp() ? "Time's up" : clock() }}</span>
+        } @else if (live()[d.id]) {
+          <span class="dot" aria-hidden="true"></span>
+        }
+      </button>
+    }
+    <span class="sep" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="icon-btn dock-btn"
+      data-dock-tool="room"
+      aria-label="Room: lead, private mode, parking lot"
+      data-tip="Room: lead, private mode, parking lot"
+      data-tip-side="top"
+      aria-haspopup="dialog"
+      [attr.aria-expanded]="tool() === 'room'"
+      (click)="openTool('room')"
+    >
+      <app-icon name="facilitator" />
+      @if (live()['room']) {
+        <span class="dot" aria-hidden="true"></span>
+      }
+    </button>
+    <button type="button" class="icon-btn dock-btn" aria-label="Hide the facilitation tools" data-tip="Hide the facilitation tools" data-tip-side="top" (click)="closed.emit()"><app-icon name="close" /></button>
+  </nav>
+
+  <!-- The run sheet: the session's agenda, a step at a time, with the tools for the step it's on. -->
+  @if (sheetOpen()) {
+    <aside class="controls" aria-labelledby="sheet-heading">
+      <div class="head">
+        <h2 id="sheet-heading">Run sheet</h2>
+        <button type="button" class="icon-btn" aria-label="Close the run sheet" data-tip="Close" (click)="sheetOpen.set(false)"><app-icon name="close" /></button>
+      </div>
+      <section aria-label="Agenda">
+        @if (drafting(); as steps) {
+          <ol class="steps editing">
+            @for (st of steps; track $index; let i = $index) {
+              <li>
+                <input
+                  type="text"
+                  class="text-input"
+                  maxlength="80"
+                  placeholder="What happens in this step"
+                  [attr.aria-label]="'Step ' + (i + 1)"
+                  [value]="st.title"
+                  (input)="updateStep(i, { title: $any($event.target).value })"
+                />
+                <div class="row">
+                  <tc-select class="grow" [label]="'Step ' + (i + 1) + ' time'" [labelVisible]="false" [options]="stepTimes" [value]="st.minutes" (tc-value-change)="updateStep(i, { minutes: $event.detail.value })"></tc-select>
+                  @if (frames().length) {
+                    <tc-select class="grow" [label]="'Step ' + (i + 1) + ' frame'" [labelVisible]="false" [options]="stepFrames()" [value]="st.frameId" (tc-value-change)="updateStep(i, { frameId: $event.detail.value })"></tc-select>
+                  }
+                  <button type="button" class="icon-btn" [attr.aria-label]="'Remove step ' + (i + 1)" data-tip="Remove" (click)="removeStep(i)"><app-icon name="close" /></button>
+                </div>
+              </li>
+            }
+          </ol>
+          <div class="row">
+            <tc-button size="sm" variant="ghost" label="Add a step" (click)="addStep()"></tc-button>
+            <span class="grow"></span>
+            <tc-button size="sm" variant="ghost" label="Cancel" (click)="drafting.set(null)"></tc-button>
+            <tc-button size="sm" variant="secondary" label="Save" (click)="saveAgenda()"></tc-button>
+          </div>
+        } @else if (agenda().steps.length) {
+          <ol class="steps">
+            @for (st of agenda().steps; track st.id; let i = $index) {
+              <li [class.now]="agenda().current === i" [attr.aria-current]="agenda().current === i ? 'step' : null">
+                <span class="step-title">{{ st.title }}</span>
+                <span class="hint">{{ minutesOf(st.seconds) }}</span>
+              </li>
+            }
+          </ol>
+          @if (othersSeat()) {
+            <p class="hint">{{ facilitator().name }} is facilitating, so they move the agenda on.</p>
+          }
+          <div class="row">
+            @if (!othersSeat()) {
+              @if (step(); as st) {
+                <tc-button size="sm" variant="ghost" label="Back" [disabled]="st.index === 0" (click)="goTo(st.index - 1)"></tc-button>
+                <tc-button size="sm" variant="secondary" [label]="st.index + 1 < st.count ? 'Next step' : 'Finish'" (click)="goTo(st.index + 1 < st.count ? st.index + 1 : null)"></tc-button>
+                <tc-button size="sm" variant="ghost" label="End" (click)="goTo(null)"></tc-button>
+              } @else {
+                <tc-button size="sm" variant="secondary" label="Start" (click)="goTo(0)"></tc-button>
+              }
+            }
+            <span class="grow"></span>
+            <tc-button size="sm" variant="ghost" label="Edit" (click)="editAgenda()"></tc-button>
+          </div>
+        } @else {
+          <p class="hint">Plan the session a step at a time. Each step starts its timer and brings everyone to its frame.</p>
+          <div class="row"><tc-button size="sm" variant="secondary" label="Plan an agenda" (click)="editAgenda()"></tc-button></div>
+        }
+        @if (step() && !drafting()) {
+          <div class="row" role="group" aria-label="Tools for this step">
+            <tc-button size="sm" variant="ghost" label="Hidden writing" (click)="openTool('writing')"></tc-button>
+            <tc-button size="sm" variant="ghost" label="Vote" (click)="openTool('vote')"></tc-button>
+            <tc-button size="sm" variant="ghost" label="Poll" (click)="openTool('poll')"></tc-button>
+          </div>
+        }
+      </section>
+      @if (problem() && !tool()) {
+        <p class="problem" role="alert">{{ problem() }}</p>
+      }
+    </aside>
+  }
 }
