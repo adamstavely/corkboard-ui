@@ -10,6 +10,13 @@
   gap: var(--tc-space-2);
   width: min(400px, calc(100% - 2 * var(--tc-space-4)));
   max-height: calc(100% - 2 * var(--tc-space-4) - 56px - 52px);
+  padding: var(--tc-space-2);
+  overflow: auto;
+  /* One card behind everything in the panel, so the board never shows through between its parts. */
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
 }
 /* With a panel docked on the right, the chat moves to the left so both stay usable. */
 :host(.beside-panel) .chat {
@@ -22,6 +29,7 @@
   display: flex;
   align-items: center;
   gap: var(--tc-space-2);
+  padding-left: var(--tc-space-2);
 }
 .scope {
   flex: 1;
@@ -38,8 +46,7 @@ tc-multiplayer-thread {
 }
 
 /* What to do with the last answer: find the notes it's about, or keep it on the board. */
-.answer-actions,
-.quick {
+.answer-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--tc-space-1);
