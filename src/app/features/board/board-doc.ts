@@ -1,5 +1,6 @@
 import { computed, signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
+import { hiddenByFolds, mindChildren, mindLayout, mindLinkOf, type MindLink } from './mindmap';
 
 export const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'gray'] as const;
 export type NoteColor = (typeof NOTE_COLORS)[number];
@@ -35,6 +36,8 @@ export interface Note {
   /** Where it sits on the value-vs-effort matrix (0–10 each), once someone has placed it there. */
   value?: number;
   effort?: number;
+  /** Its place in a mind map, when it's in one. */
+  mind?: MindLink;
 }
 
 /** A titled area of the board. It holds the notes whose centres are inside it: they move when it does. */
@@ -986,6 +989,113 @@ export class BoardDoc {
     return newId;
   }
 
+  // ── Mind maps: notes joined by curved arrows, laid out as a tree growing right from the root ──
+
+  /** Notes hidden because a branch above them is folded. */
+  readonly hiddenNotes = computed(() => hiddenByFolds(this.notes()));
+
+  /** Starts a mind map: a note that is its root, centred on a point. */
+  startMindMap(cx: number, cy: number, text = ''): string {
+    const id = this.addNote(cx, cy, 'yellow', text);
+    this.doc.transact(() => this.#nodes.get(id)?.set('mind', { root: id, parent: null, order: 0 }), this);
+    return id;
+  }
+
+  /** Adds a branch under a note (making it a map's root if it isn't in one yet), and lays the map out again. */
+  addMindChild(parentId: string, text = ''): string | null {
+    const parent = this.notes().find((n) => n.id === parentId);
+    if (!parent || !this.#writable(parentId)) return null;
+    this.undo.stopCapturing();
+    let id = '';
+    this.doc.transact(() => {
+      const link = parent.mind ?? { root: parent.id, parent: null, order: 0 };
+      if (!parent.mind) this.#nodes.get(parent.id)!.set('mind', link);
+      // A folded branch opens to show the new one.
+      if (link.collapsed) this.#nodes.get(parent.id)!.set('mind', { ...link, collapsed: false });
+      const siblings = mindChildren(this.#mindBoxes(), link.root).get(parent.id) ?? [];
+      id = this.addNote(parent.x + parent.w + 200, parent.y + parent.h / 2, parent.color, text);
+      this.#nodes.get(id)!.set('mind', { root: link.root, parent: parent.id, order: siblings.length ? Math.max(...siblings.map((c) => c.mind!.order)) + 1 : 0 });
+      this.connect(parent.id, id, { route: 'curve', dash: 'solid', weight: 2 });
+      this.#layoutMind(link.root);
+    }, this);
+    return id;
+  }
+
+  /** Adds a branch beside a note in its map, right after it (under the root, for the root itself). */
+  addMindSibling(id: string, text = ''): string | null {
+    const note = this.notes().find((n) => n.id === id);
+    if (!note?.mind?.parent) return this.addMindChild(id, text);
+    const parentId = note.mind.parent;
+    this.undo.stopCapturing();
+    let added: string | null = null;
+    this.doc.transact(() => {
+      // Make room right after it.
+      for (const sib of mindChildren(this.#mindBoxes(), note.mind!.root).get(parentId) ?? []) {
+        if (sib.mind!.order > note.mind!.order) this.#writable(sib.id)?.set('mind', { ...sib.mind, order: sib.mind!.order + 1 });
+      }
+      added = this.addMindChild(parentId, text);
+      if (added) {
+        this.#nodes.get(added)!.set('mind', { ...mindLinkOf(this.#nodes.get(added)!.get('mind'))!, order: note.mind!.order + 1 });
+        this.#layoutMind(note.mind!.root);
+      }
+    }, this);
+    return added;
+  }
+
+  /** Folds a note's branches away, or opens them again. */
+  toggleMindFold(id: string): void {
+    const node = this.#writable(id);
+    const link = mindLinkOf(node?.get('mind'));
+    if (!node || !link) return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      node.set('mind', { ...link, collapsed: !link.collapsed });
+      this.#layoutMind(link.root);
+    }, this);
+  }
+
+  /** Makes a mind map of notes: the one nearest their middle as the root, the rest its branches, top to bottom. */
+  makeMindMap(ids: readonly string[]): string | null {
+    const notes = this.notes().filter((n) => ids.includes(n.id) && !n.mind);
+    if (notes.length < 2) return null;
+    const cx = notes.reduce((s, n) => s + n.x + n.w / 2, 0) / notes.length;
+    const cy = notes.reduce((s, n) => s + n.y + n.h / 2, 0) / notes.length;
+    const root = [...notes].sort((a, b) => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy) - Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy))[0];
+    const branches = notes.filter((n) => n.id !== root.id).sort((a, b) => a.y - b.y || a.x - b.x);
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      this.#writable(root.id)?.set('mind', { root: root.id, parent: null, order: 0 });
+      branches.forEach((b, order) => {
+        this.#writable(b.id)?.set('mind', { root: root.id, parent: root.id, order });
+        this.connect(root.id, b.id, { route: 'curve', dash: 'solid', weight: 2 });
+      });
+      this.#layoutMind(root.id);
+    }, this);
+    return root.id;
+  }
+
+  /** The notes in maps, as the document has them now (mid-change, before the board's lists catch up). */
+  #mindBoxes(): { id: string; x: number; y: number; w: number; h: number; mind?: MindLink }[] {
+    const boxes: { id: string; x: number; y: number; w: number; h: number; mind?: MindLink }[] = [];
+    this.#nodes.forEach((node, id) => {
+      if (!(node instanceof Y.Map) || node.get('kind') !== 'note') return;
+      const mind = mindLinkOf(node.get('mind'));
+      if (!mind) return;
+      boxes.push({ id, x: num(node.get('x')), y: num(node.get('y')), w: num(node.get('w'), NOTE_SIZE.w), h: num(node.get('h'), NOTE_SIZE.h), mind });
+    });
+    return boxes;
+  }
+
+  /** Puts every note in a map where the tree layout says. */
+  #layoutMind(rootId: string): void {
+    for (const [id, at] of mindLayout(this.#mindBoxes(), rootId)) {
+      const node = this.#writable(id);
+      if (!node) continue;
+      if (node.get('x') !== at.x) node.set('x', at.x);
+      if (node.get('y') !== at.y) node.set('y', at.y);
+    }
+  }
+
   /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
   connect(from: string, to: string, style: ArrowStyle = DEFAULT_ARROW): string | null {
     if (from === to || !this.#nodes.has(from) || !this.#nodes.has(to)) return null;
@@ -1149,6 +1259,7 @@ export class BoardDoc {
       ...(typeof node.get('by') === 'string' ? { by: node.get('by') as string } : {}),
       ...createdByOf(node),
       tags: tagsOf(node),
+      ...(mindLinkOf(node.get('mind')) ? { mind: mindLinkOf(node.get('mind')) } : {}),
       ...scores(node),
     });
   }

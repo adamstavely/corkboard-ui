@@ -525,12 +525,74 @@ export class Canvas {
     this.#edit(next);
   }
 
+  /** Adds a branch to a mind map (under a note, or beside it) and starts writing in it. */
+  #addBranch(id: string, where: 'child' | 'sibling'): void {
+    const added = where === 'child' ? this.board().addMindChild(id) : this.board().addMindSibling(id);
+    if (!added) return;
+    this.selection.set(new Set([added]));
+    this.#reveal(added);
+    this.#edit(added);
+  }
+
+  /** Starts a mind map in the middle of the view, writing its root. */
+  protected startMindMap(): void {
+    this.createOpen.set(false);
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const at = toWorld(this.viewport(), { x: width / 2, y: height / 2 });
+    const id = this.board().startMindMap(at.x - 200, at.y);
+    this.selection.set(new Set([id]));
+    this.#edit(id);
+  }
+
+  /** The one note selected, when it's in a mind map, with how many branches it has. */
+  protected readonly oneMindNote = computed(() => {
+    const [id, more] = this.selection();
+    const note = !more && id ? this.board().notes().find((n) => n.id === id) : undefined;
+    if (!note?.mind) return null;
+    const branches = this.board().notes().filter((n) => n.mind?.parent === note.id).length;
+    return { id: note.id, branches, folded: !!note.mind.collapsed };
+  });
+  protected addBranch(where: 'child' | 'sibling'): void {
+    const one = this.oneMindNote();
+    if (one) this.#addBranch(one.id, where);
+  }
+  protected toggleFold(): void {
+    const one = this.oneMindNote();
+    if (one) this.board().toggleMindFold(one.id);
+  }
+  protected makeMindMap(): void {
+    this.moreOpen.set(false);
+    const root = this.board().makeMindMap(this.selectedNoteIds());
+    if (root) this.selection.set(new Set([root]));
+  }
+  /** How many branches are folded away under each folded note, for its badge. */
+  protected readonly foldedCounts = computed(() => {
+    const counts = new Map<string, number>();
+    const hidden = this.board().hiddenNotes();
+    if (!hidden.size) return counts;
+    const notes = this.board().notes();
+    const byId = new Map(notes.map((n) => [n.id, n]));
+    for (const id of hidden) {
+      // Count it against the nearest folded note above it.
+      for (let p = byId.get(id)?.mind?.parent, depth = 0; p && depth < 100; depth++) {
+        const parent = byId.get(p);
+        if (parent?.mind?.collapsed) {
+          counts.set(p, (counts.get(p) ?? 0) + 1);
+          break;
+        }
+        p = parent?.mind?.parent ?? null;
+      }
+    }
+    return counts;
+  });
+
   /** The + handles round the one note selected: each adds a note on that side, with an arrow to it. */
   protected readonly handles = computed(() => {
     if (this.readOnly() || this.editing() || this.selection().size !== 1) return null;
     const [id] = this.selection();
     const n = this.board().notes().find((x) => x.id === id);
-    if (!n) return null;
+    // A mind map's notes grow branches instead (Tab, or the bar).
+    if (!n || n.mind) return null;
     const gap = 14;
     return {
       id,
@@ -800,7 +862,10 @@ export class Canvas {
     const keep = new Set([...this.selection(), this.editing(), this.itemEditing()?.id].filter((id): id is string => !!id));
     return (thing: { id: string } & Rect) => keep.has(thing.id) || intersects(view, thing);
   });
-  protected readonly drawnNotes = computed(() => this.#cull(this.board().notes()));
+  protected readonly drawnNotes = computed(() => {
+    const hidden = this.board().hiddenNotes();
+    return this.#cull(hidden.size ? this.board().notes().filter((n) => !hidden.has(n.id)) : this.board().notes());
+  });
   protected readonly drawnItems = computed(() => this.#cull(this.board().items()));
   protected readonly drawnMedia = computed(() => this.#cull(this.board().media()));
   #cull<T extends { id: string } & Rect>(all: T[]): T[] {
@@ -1211,14 +1276,18 @@ export class Canvas {
     const writing = this.editing();
     if (writing && !this.readOnly()) {
       const inList = !!this.editor()?.isActive('bulletList') || !!this.editor()?.isActive('orderedList');
+      // In a mind map, Tab adds a branch under this one and ⌘/Ctrl Enter one beside it.
+      const inMap = !!this.board().notes().find((n) => n.id === writing)?.mind;
       if (e.key === 'Tab' && !e.shiftKey && !inList) {
         e.preventDefault();
-        this.#addNext(writing, 'right');
+        if (inMap) this.#addBranch(writing, 'child');
+        else this.#addNext(writing, 'right');
         return;
       }
       if (e.key === 'Enter' && mod) {
         e.preventDefault();
-        this.#addNext(writing, 'down');
+        if (inMap) this.#addBranch(writing, 'sibling');
+        else this.#addNext(writing, 'down');
         return;
       }
     }
@@ -1270,7 +1339,10 @@ export class Canvas {
     if (e.target === this.surface().nativeElement && !mod) {
       if (e.key === 'Tab') {
         e.preventDefault();
-        this.#tabTo(e.shiftKey ? -1 : 1);
+        // One note of a mind map selected: Tab adds a branch to it.
+        const [one, more] = this.selection();
+        if (!e.shiftKey && one && !more && !this.readOnly() && this.board().notes().find((n) => n.id === one)?.mind) this.#addBranch(one, 'child');
+        else this.#tabTo(e.shiftKey ? -1 : 1);
         return;
       }
       if (e.key.startsWith('Arrow') && this.selection().size && !this.readOnly()) {
@@ -1461,9 +1533,14 @@ export class Canvas {
   });
 
   /** Arrows as lines from the edge of one box to the edge of the other, aimed at their centres. */
-  protected readonly arrows = computed(() =>
-    arrowLines(this.board()).map(({ id, d, style }) => ({ id, d, weight: style.weight, dashes: dashPattern(style).join(' ') || null })),
-  );
+  protected readonly arrows = computed(() => {
+    // Arrows into a folded branch go with it.
+    const hidden = this.board().hiddenNotes();
+    const gone = new Set(this.board().connectors().filter((c) => hidden.has(c.from) || hidden.has(c.to)).map((c) => c.id));
+    return arrowLines(this.board())
+      .filter((a) => !gone.has(a.id))
+      .map(({ id, d, style }) => ({ id, d, weight: style.weight, dashes: dashPattern(style).join(' ') || null }));
+  });
   /** One arrowhead per line weight, sized to it. */
   protected readonly arrowWeights = ARROW_WEIGHTS;
 

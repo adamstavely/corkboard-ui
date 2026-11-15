@@ -287,6 +287,7 @@
         [peer]="peerMarks().get(note.id) ?? null"
         [comments]="commentCounts().get(note.id) ?? 0"
         [reactions]="reactions().get(note.id) ?? []"
+        [folded]="foldedCounts().get(note.id) ?? 0"
         [canReact]="canReact()"
         (react)="toggleReaction(note.id, $event)"
         [votes]="votesFor(note.id)"
@@ -361,6 +362,15 @@
   @if (selectionBar(); as bar) {
     <!-- Over what's selected (and the note being written in): an icon for each thing you can do to it, as Miro has. -->
     <div class="selection-bar app-island" role="toolbar" aria-label="Selection" [style.left.px]="bar.left" [style.top.px]="bar.top" (pointerdown)="$event.stopPropagation()">
+      @if (!readOnly() && oneMindNote(); as m) {
+        <button type="button" class="icon-btn" aria-label="Add a branch" data-tip="Add a branch  Tab" (click)="addBranch('child')"><app-icon name="branch" /></button>
+        @if (m.branches) {
+          <button type="button" class="icon-btn" [attr.aria-label]="m.folded ? 'Unfold the branches' : 'Fold the branches'" [attr.data-tip]="m.folded ? 'Unfold' : 'Fold'" [attr.aria-pressed]="m.folded" (click)="toggleFold()">
+            <app-icon [name]="m.folded ? 'unfold' : 'fold'" />
+          </button>
+        }
+        <span class="sep" aria-hidden="true"></span>
+      }
       @if (!readOnly() && (selectedNoteIds().length || selectedShapes().length)) {
         <tc-menu-morph [open]="colourOpen()" (tc-open-change)="colourOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Colour" data-tip="Colour">
@@ -546,6 +556,9 @@
           <button type="button" class="icon-btn" data-menu-trigger aria-label="More" data-tip="More"><app-icon name="more" /></button>
           <div data-menu class="app-menu" aria-label="More">
             <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="copy" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
+            @if (selectedNoteIds().length > 1) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
+            }
             @if (pair()) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); connect()"><app-icon name="arrow" /><span class="app-menu-label">Connect with an arrow</span></button>
             }
@@ -659,6 +672,7 @@
         <tc-menu-morph side="right" gap="12" [open]="createOpen()" (tc-open-change)="createOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Create" data-tip="Create" data-tip-side="right"><app-icon name="create" /></button>
           <div data-menu class="app-menu" aria-label="Create">
+            <button type="button" class="app-menu-item" role="menuitem" (click)="startMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Mind map</span><span class="app-menu-hint">Tab adds a branch</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('table')"><app-icon name="table" /><span class="app-menu-label">Table</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); insert('link')"><app-icon name="link" /><span class="app-menu-label">Link</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="createOpen.set(false); addFiles.emit()"><app-icon name="image" /><span class="app-menu-label">Images and files</span></button>
