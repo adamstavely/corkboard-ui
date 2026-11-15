@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import type { Api } from '../../api/generated/api';
-import { AssistantSession, changesLine, fileKind } from './assistant';
+import { AssistantSession, changesLine, fileKind, siteOf } from './assistant';
 
-const result = { reply: 'Two themes.', citedNoteIds: [], citedFiles: [], framesAdded: 2, notesAdded: 0, notesChanged: 0, notesMoved: 5 };
+const result = { reply: 'Two themes.', citedNoteIds: [], citedFiles: [], citedPages: [], framesAdded: 2, notesAdded: 0, notesChanged: 0, notesMoved: 5 };
 
 function fakeApi(answer: (body: unknown) => Promise<unknown>) {
   const sent: unknown[] = [];
@@ -62,5 +62,17 @@ describe('the board assistant', () => {
       { title: 'notes.docx', name: 'Word' },
     ]);
     expect(['plan.MD', 'data.csv', 'readme', 'x.txt'].map(fileKind)).toEqual(['Markdown', 'CSV', 'File', 'Text']);
+  });
+
+  it('cites the web pages an answer read, after its files, by site', async () => {
+    const cited = { ...result, citedFiles: [{ fileId: 'f1', name: 'budget.pdf' }], citedPages: [{ url: 'https://www.news.example/pilot', title: 'Pilot results' }] };
+    const { api } = fakeApi(() => Promise.resolve(cited));
+    const session = new AssistantSession(api, 'b1', () => 'm1', () => []);
+    await session.send('Any news?');
+    expect(session.messages()[1].sources).toEqual([
+      { title: 'budget.pdf', name: 'PDF' },
+      { title: 'Pilot results', name: 'news.example', href: 'https://www.news.example/pilot' },
+    ]);
+    expect(siteOf('not a url')).toBe('not a url');
   });
 });

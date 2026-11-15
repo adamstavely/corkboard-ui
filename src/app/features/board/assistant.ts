@@ -44,6 +44,20 @@ export async function fileSources(files: readonly { fileId: string; name: string
   );
 }
 
+/** "news.example" – a page's site, for its citation chip. */
+export function siteOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+/** The web pages an answer read, as citation chips that open them. */
+export function pageSources(pages: readonly { url: string; title: string }[]): AnswerSource[] {
+  return pages.map((p) => ({ title: p.title || siteOf(p.url), name: siteOf(p.url), href: p.url }));
+}
+
 /**
  * One board's conversation with its assistant, as Trench Coat's side pane shows it: each question goes to the API with
  * the conversation so far and the notes selected, and the model can answer and change the board.
@@ -83,7 +97,7 @@ export class AssistantSession {
     }
     try {
       const r = await this.api.invoke(assistControllerAssist, { id: this.boardId, body: { instruction: question, modelId: model, history, ...(noteIds.length ? { noteIds } : {}) } });
-      const sources = await fileSources(r.citedFiles ?? [], this.fileUrl);
+      const sources = [...(await fileSources(r.citedFiles ?? [], this.fileUrl)), ...pageSources(r.citedPages ?? [])];
       this.#answer(answerId, { text: [r.reply, changesLine(r)].filter(Boolean).join('\n\n'), ...(sources.length ? { sources } : {}) });
     } catch (err) {
       const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
