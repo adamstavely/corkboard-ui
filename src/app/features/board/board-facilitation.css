@@ -235,3 +235,93 @@ h3 {
   max-width: 24ch;
   font-weight: var(--tc-font-weight-semibold);
 }
+
+/* A poll in the strip: its question, then the answers to pick, or once closed, the result as bars. */
+.poll-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--tc-space-2);
+  min-width: 320px;
+  max-width: 520px;
+  padding: var(--tc-space-2) var(--tc-space-3);
+  border-radius: var(--tc-radius-lg);
+}
+.poll-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.poll-question {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--tc-font-weight-semibold);
+}
+.answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tc-space-1);
+}
+.answer {
+  flex: 1 1 auto;
+  min-height: 32px;
+  padding: 0 var(--tc-space-3);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+  cursor: pointer;
+}
+.answer.finger {
+  flex: 1 0 36px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--tc-font-weight-semibold);
+}
+.answer:hover {
+  background: var(--tc-accent-subtle);
+}
+.answer[aria-checked='true'] {
+  border-color: var(--tc-accent-text);
+  background: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
+}
+.answer:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 1px;
+}
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.result li {
+  display: grid;
+  grid-template-columns: minmax(0, 10em) 1fr 2em;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.result-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--tc-border-subtle);
+}
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tc-accent-text);
+}
+.count {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

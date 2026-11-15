@@ -16,7 +16,10 @@ import { facilitationControllerClaimFacilitator } from '../../api/generated/fn/f
 import { facilitationControllerReleaseFacilitator } from '../../api/generated/fn/facilitation/facilitation-controller-release-facilitator';
 import { facilitationControllerGoToStep } from '../../api/generated/fn/facilitation/facilitation-controller-go-to-step';
 import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
-import { formatRemaining, ranking, type Agenda, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
+import { facilitationControllerAnswerPoll } from '../../api/generated/fn/facilitation/facilitation-controller-answer-poll';
+import { facilitationControllerEndPoll } from '../../api/generated/fn/facilitation/facilitation-controller-end-poll';
+import { facilitationControllerStartPoll } from '../../api/generated/fn/facilitation/facilitation-controller-start-poll';
+import { formatRemaining, pollTally, ranking, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
 const STEP_MINUTES = [0, 1, 2, 3, 5, 8, 10, 15, 20, 30, 45, 60];
@@ -54,6 +57,9 @@ export class BoardFacilitation {
   readonly breakouts = input.required<Breakouts>();
   /** Who holds the facilitator's seat; this person; and whether they own the board (owners can take the seat over). */
   readonly facilitator = input<Facilitator>({ userId: null, name: '' });
+  /** The poll, if there is one, and everyone's answers to it. */
+  readonly poll = input<Poll | null>(null);
+  readonly pollAnswers = input<ReadonlyMap<string, number>>(new Map());
   /** The session's agenda: its steps and the one it's on. */
   readonly agenda = input<Agenda>({ steps: [], current: null });
   readonly meId = input<string | undefined>();
@@ -130,6 +136,7 @@ export class BoardFacilitation {
   protected readonly anything = computed(
     () =>
       this.step() !== null ||
+      !!this.poll() ||
       this.timerShown() ||
       this.voting().open ||
       this.writing().open ||
@@ -183,6 +190,58 @@ export class BoardFacilitation {
   }
 
   protected readonly facilitating = computed(() => !!this.meId() && this.facilitator().userId === this.meId());
+
+  // ── Polls ──
+
+  protected readonly pollKinds = [
+    { value: 'choice', label: 'A question with options' },
+    { value: 'fist', label: 'Fist to five: 0 to 5 fingers' },
+  ];
+  protected readonly fingers = [0, 1, 2, 3, 4, 5];
+  protected readonly fingerHints = ['No way', 'Serious doubts', 'Some doubts', 'Okay', 'Good', 'Fully in'];
+  protected readonly pollQuestion = signal('');
+  protected readonly pollKind = signal<'choice' | 'fist'>('choice');
+  protected readonly pollOptions = signal<string[]>(['', '']);
+  protected readonly myAnswer = computed(() => (this.meId() ? this.pollAnswers().get(this.meId()!) : undefined));
+  protected readonly answered = computed(() => this.pollAnswers().size);
+  /** The result, once the poll is closed: each answer with its count and share of the most given. */
+  protected readonly pollResult = computed(() => {
+    const poll = this.poll();
+    if (!poll || poll.open) return [];
+    const tally = pollTally(poll, this.pollAnswers());
+    const most = Math.max(1, ...tally);
+    return tally.map((count, i) => ({ label: poll.kind === 'fist' ? `${i}` : poll.options[i], hint: poll.kind === 'fist' ? this.fingerHints[i] : '', count, share: count / most }));
+  });
+  protected readonly pollAverage = computed(() => {
+    const poll = this.poll();
+    const answers = [...this.pollAnswers().values()];
+    return poll?.kind === 'fist' && answers.length ? (answers.reduce((a, b) => a + b, 0) / answers.length).toFixed(1) : null;
+  });
+  protected readonly canStartPoll = computed(
+    () => !!this.pollQuestion().trim() && (this.pollKind() === 'fist' || this.pollOptions().filter((o) => o.trim()).length >= 2),
+  );
+
+  protected setPollOption(i: number, value: string): void {
+    this.pollOptions.update((list) => list.map((o, at) => (at === i ? value : o)));
+  }
+
+  protected async startPoll(): Promise<void> {
+    const kind = this.pollKind();
+    const options = this.pollOptions().map((o) => o.trim()).filter(Boolean);
+    await this.#run(async () => {
+      await this.#api.invoke(facilitationControllerStartPoll, { id: this.boardId(), body: { question: this.pollQuestion().trim(), kind, ...(kind === 'choice' ? { options } : {}) } });
+      this.pollQuestion.set('');
+      this.pollOptions.set(['', '']);
+    });
+  }
+
+  protected async endPoll(clear: boolean): Promise<void> {
+    await this.#run(() => this.#api.invoke(facilitationControllerEndPoll, { id: this.boardId(), body: { clear } }));
+  }
+
+  protected async answer(n: number): Promise<void> {
+    await this.#run(() => this.#api.invoke(facilitationControllerAnswerPoll, { id: this.boardId(), body: { answer: n } }));
+  }
 
   // ── The agenda ──
 
