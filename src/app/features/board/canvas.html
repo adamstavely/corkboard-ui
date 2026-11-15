@@ -320,7 +320,11 @@
     </div>
   }
   @if (minimapOpen() && minimap(); as m) {
-    <button type="button" class="icon-btn map-hide" aria-label="Hide the map" data-tip="Hide the map" data-tip-side="top" (click)="minimapOpen.set(false)"><app-icon name="close" /></button>
+    <div class="app-island minimap-panel" role="region" aria-label="Map">
+      <div class="minimap-head">
+        <span class="minimap-title">Map</span>
+        <button type="button" class="icon-btn" aria-label="Hide the map" data-tip="Hide" data-tip-side="top" (click)="minimapOpen.set(false)"><app-icon name="close" /></button>
+      </div>
     <svg
       class="minimap"
       role="img"
@@ -344,6 +348,7 @@
       }
       <rect class="mm-view" [attr.x]="m.view.x" [attr.y]="m.view.y" [attr.width]="m.view.w" [attr.height]="m.view.h" [attr.stroke-width]="m.stroke * 2" />
     </svg>
+    </div>
   }
 
   <p id="board-keys" class="sr-only">

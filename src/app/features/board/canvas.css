@@ -183,17 +183,37 @@
 }
 
 /* Everything on the board in a small box in the bottom-left corner, when the map is on; the outlined box is what's in view. */
-.minimap {
+/* The map: a panel in the bottom-left corner, titled, with the board drawn small below. */
+.minimap-panel {
   position: absolute;
   left: var(--tc-space-3);
   bottom: var(--tc-space-3);
   z-index: 2;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.minimap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 2px 8px;
+}
+.minimap-title {
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+}
+.minimap-head .icon-btn {
+  width: 28px;
+  height: 28px;
+  --icon-size: 14px;
+}
+.minimap {
+  display: block;
   width: 200px;
   height: 140px;
-  border: 1px solid var(--tc-border-subtle);
-  border-radius: var(--tc-radius-md);
-  background: var(--tc-surface-raised);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  border-radius: 8px;
+  background: var(--app-canvas);
   cursor: pointer;
   touch-action: none;
 }
@@ -203,18 +223,6 @@
   left: var(--tc-space-3);
   bottom: var(--tc-space-3);
   z-index: 2;
-}
-/* Hiding it: a small close in the map's top-right corner. */
-.map-hide {
-  position: absolute;
-  left: calc(var(--tc-space-3) + 200px - 30px);
-  bottom: calc(var(--tc-space-3) + 140px - 30px);
-  z-index: 3;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--tc-radius-sm, 6px);
-  background: var(--tc-surface-raised);
-  --icon-size: 14px;
 }
 
 .mm-frame {
