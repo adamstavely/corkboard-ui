@@ -40,6 +40,7 @@ import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
 import { BoardClusters, BoardHistory } from './board-insights';
 import { LedgerFeed } from './ledger';
+import { BoardApp } from './board-app';
 import { BoardSuggestions, SuggestionPreview } from './board-suggestions';
 import { SuggestionsFeed, type Suggestion } from './suggestions';
 import { ReactionsFeed, reactionsFor } from './reactions';
@@ -99,7 +100,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })

@@ -33,7 +33,7 @@ export function findOnBoard(board: BoardDoc, q: FindQuery): string[] | null {
     for (const m of board.media()) if (hit(m.name)) found.push(m);
     for (const i of board.items()) {
       const text =
-        i.kind === 'shape' ? i.label : i.kind === 'text' ? i.text : i.kind === 'table' ? [...i.cells.values()].join(' ') : i.kind === 'link' ? `${i.title} ${i.description} ${i.url}` : '';
+        i.kind === 'shape' ? i.label : i.kind === 'text' ? i.text : i.kind === 'table' ? [...i.cells.values()].join(' ') : i.kind === 'link' ? `${i.title} ${i.description} ${i.url}` : i.kind === 'app' ? i.title : '';
       if (text && hit(text)) found.push(i);
     }
   }

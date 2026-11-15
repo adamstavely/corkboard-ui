@@ -351,7 +351,8 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       break;
     }
     case 'view':
-      // A placed view is live on the board; in an image it's a titled box, as the views draw from data, not shapes.
+    case 'app':
+      // A placed view or mini-app is live on the board; in an image it's a titled box, as it draws from data, not shapes.
       ctx.fillStyle = c.surface;
       ctx.strokeStyle = c.border;
       ctx.beginPath();
@@ -360,7 +361,7 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       ctx.stroke();
       ctx.fillStyle = c.text;
       ctx.font = `600 16px ${c.font}`;
-      ctx.fillText(VIEW_NAMES[item.view], 16, 30, item.w - 32);
+      ctx.fillText(item.kind === 'view' ? VIEW_NAMES[item.view] : item.title, 16, 30, item.w - 32);
       break;
     case 'link':
       ctx.fillStyle = c.surface;

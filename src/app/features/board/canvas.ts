@@ -16,7 +16,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, type FrameBorder, type FrameFill, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -245,6 +245,10 @@ export class Canvas {
   /** The rail's views, opened beside the board. */
   /** What a placed view (matrix, kanban, timeline) shows in its body; the board page has what they need. */
   readonly viewContent = input<TemplateRef<{ $implicit: ViewItem }> | null>(null);
+  /** What a mini-app's body shows: the app, run (board-page's boardApp); without it, a note on where to use it. */
+  readonly appContent = input<TemplateRef<{ $implicit: AppItem }> | null>(null);
+  /** What "Make an app from these" asks the assistant, about the selected notes. */
+  protected readonly makeAppPrompt = 'Make a mini-app that works with these notes: something useful for what they are, like a tally, a chart, a sorter or a quiz.';
   protected readonly viewIcons: Record<BoardView, IconName> = { matrix: 'matrix', kanban: 'kanban', timeline: 'timeline' };
 
   /** Picks a tool from the rail or a key. Frame, with notes selected, frames them at once. */
@@ -734,6 +738,8 @@ export class Canvas {
         return `Link: ${item.title}`;
       case 'view':
         return VIEW_NAMES[item.view];
+      case 'app':
+        return `App: ${item.title}`;
     }
   }
 
