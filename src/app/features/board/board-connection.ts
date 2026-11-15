@@ -62,6 +62,14 @@ export class BoardConnection {
   readonly pending = computed(() => this.#unsynced() > 0);
 
   readonly #local: IndexeddbPersistence | undefined;
+  /** Whether this browser's saved copy has loaded into the board: until it has, what's on disk is unknown. */
+  #hydrated = false;
+  /** Whether the server has synced with the board since that copy loaded, so it holds everything that was on disk. */
+  #syncedSinceHydrated = false;
+  /** Held while the board is open, so another tab with it open keeps the saved copy it shares (see #mayClear). */
+  #releaseHold: (() => void) | undefined;
+  /** Settles once that hold is let go. */
+  #held: Promise<unknown> = Promise.resolve();
 
   /**
    * `boardId` is the document's name: a board, or a participant's read-only view of one (which keeps no local copy,
@@ -70,6 +78,11 @@ export class BoardConnection {
   constructor(boardId: string, board: BoardDoc, token: () => string, user: PresenceUser, { keepLocal = true }: { keepLocal?: boolean } = {}) {
     // Edits left from last time (made offline, then the board was left) load into the board and go to the server.
     this.#local = typeof indexedDB === 'undefined' || !keepLocal ? undefined : new IndexeddbPersistence(`${LOCAL_PREFIX}${boardId}`, board.doc);
+    this.#lockName = `${LOCAL_PREFIX}${boardId}`;
+    if (this.#local) {
+      void this.#local.whenSynced.then(() => (this.#hydrated = true));
+      this.#hold();
+    } else this.#hydrated = true;
     this.provider = new HocuspocusProvider({
       url: collabUrl(),
       name: boardId,
@@ -81,7 +94,9 @@ export class BoardConnection {
         this.#watchStuck();
       },
       onSynced: ({ state }) => {
-        if (state) this.#synced.set(true);
+        if (!state) return;
+        this.#synced.set(true);
+        if (this.#hydrated) this.#syncedSinceHydrated = true;
       },
       onUnsyncedChanges: ({ number }) => {
         this.#unsynced.set(number);
@@ -123,6 +138,23 @@ export class BoardConnection {
   }
 
   #destroyed = false;
+  readonly #lockName: string;
+
+  /** Takes a shared hold on the board's saved copy for as long as this tab has the board open. */
+  #hold(): void {
+    if (typeof navigator === 'undefined' || !navigator.locks) return;
+    this.#held = navigator.locks.request(this.#lockName, { mode: 'shared' }, () => new Promise<void>((release) => (this.#releaseHold = release)));
+  }
+
+  /**
+   * Whether the saved copy can go, once this tab has let go of its hold: no other tab has the board open (they share the
+   * copy, and theirs may hold edits not sent yet).
+   */
+  async #alone(): Promise<boolean> {
+    if (typeof navigator === 'undefined' || !navigator.locks) return true;
+    await this.#held.catch(() => undefined);
+    return navigator.locks.request(this.#lockName, { mode: 'exclusive', ifAvailable: true }, (lock) => lock !== null);
+  }
 
   /** Starts the stuck clock while connected with edits waiting, and stops it (and clears stuck) otherwise. */
   #watchStuck(): void {
@@ -145,8 +177,19 @@ export class BoardConnection {
     this.#destroyed = true;
     this.presence.destroy();
     clearTimeout(this.#stuckTimer);
-    // Everything sent (or refused for good): the local copy isn't needed. Otherwise it's kept, to be sent next time.
-    if (this.#local) void (this.pending() && !this.#stuck() ? this.#local.destroy() : this.#local.clearData());
+    // Everything sent and confirmed: the local copy isn't needed. Otherwise it's kept, to be sent next time or discarded
+    // on purpose.
+    // Only once it has loaded (else what's on disk was never seen) and the server has synced since and taken every edit
+    // made here. A refused edit (stuck) isn't a reason: it's kept until someone chooses to discard it.
+    const local = this.#local;
+    if (local) {
+      const confirmed = this.#hydrated && this.#syncedSinceHydrated && !this.pending();
+      this.#releaseHold?.();
+      void (confirmed ? this.#alone() : Promise.resolve(false)).then(
+        (alone) => (alone ? local.clearData() : local.destroy()),
+        () => local.destroy(),
+      );
+    }
     this.provider.destroy();
   }
 }
