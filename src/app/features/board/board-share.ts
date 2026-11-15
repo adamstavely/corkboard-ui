@@ -7,6 +7,7 @@ import { linksControllerList } from '../../api/generated/fn/links/links-controll
 import { linksControllerRevoke } from '../../api/generated/fn/links/links-controller-revoke';
 import { linksControllerSetExpiry } from '../../api/generated/fn/links/links-controller-set-expiry';
 import { sharedUrl, shareLinks } from './share-links';
+import { BoardFeedback } from './board-feedback';
 import { Component, computed, inject, input, output, resource, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { DataTable } from '@adamstavely/trenchcoat/angular/data-table';
@@ -31,7 +32,7 @@ const COLUMNS: DataColumn[] = [
  */
 @Component({
   selector: 'app-board-share',
-  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch],
+  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch, BoardFeedback],
   templateUrl: './board-share.html',
   styleUrl: './board-share.css',
 })
@@ -80,6 +81,8 @@ export class BoardShare {
   readonly boardId = input.required<string>();
   readonly boardName = input('');
   readonly canManage = input(false);
+  /** Owners and the facilitator open the board for feedback from outside the team. */
+  readonly canManageFeedback = input(false);
   readonly meId = input<string | undefined>(undefined);
   readonly closed = output<void>();
 

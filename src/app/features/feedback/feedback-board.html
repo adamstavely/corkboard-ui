@@ -1,0 +1,121 @@
+<div class="page">
+  <div class="bar">
+    <strong class="title">{{ title() }}</strong>
+    <span class="badge">Giving feedback</span>
+    @if (board()) {
+      <tc-button size="sm" variant="secondary" label="Add a note" (click)="newNote()"></tc-button>
+    }
+    <span class="status" role="status">{{ statusText() }}</span>
+  </div>
+  @if (seen() && !problem()) {
+    <p class="seen"><app-icon name="eye" /> {{ seen() }}</p>
+  }
+  <div class="stage">
+    @if (problem()) {
+      <p class="problem" role="alert">{{ problem() }}</p>
+    } @else if (board() && connection() && connection()!.status() !== 'connecting') {
+      <app-canvas
+        #canvas
+        [board]="board()!"
+        [presence]="connection()!.presence"
+        [provider]="connection()!.provider"
+        [readOnly]="true"
+        readOnlyLabel="Giving feedback"
+        [commentCounts]="commentCounts()"
+        [reactions]="reactions()"
+        [canReact]="true"
+        [canAsk]="false"
+        (react)="onReact($event.nodeId, $event.emoji, $event.on)"
+        [noteVotes]="noteVotes()"
+        [voting]="!!fstate()?.voting?.open"
+        [votesLeft]="votesLeft()"
+        (vote)="onVote($event.noteId, $event.add)"
+        (selectedIds)="selection.set($event)"
+        (pinOpen)="commentsOn.set($event)"
+      />
+
+      @if (fstate(); as f) {
+        <app-board-facilitation
+          [boardId]="boardId()"
+          [voting]="f.voting"
+          [votes]="f.votes"
+          [timer]="f.timer"
+          [writing]="f.writing"
+          [breakouts]="f.breakouts"
+          [facilitator]="f.facilitator"
+          [agenda]="f.agenda"
+          [poll]="f.poll"
+          [pollAnswers]="f.pollAnswers"
+          [privacy]="f.privacy"
+          [meId]="myKey()"
+          [canVote]="true"
+          [participant]="true"
+        />
+      }
+
+      @if (ownSelected() && !composing()) {
+        <div class="own app-island" role="toolbar" aria-label="Your note">
+          <span class="own-label">Your note</span>
+          <tc-button size="sm" variant="ghost" label="Edit" (click)="editOwn()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Comments" (click)="commentsOn.set(ownSelected()!.id)"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Delete" [loading]="busy()" (click)="removeOwn()"></tc-button>
+        </div>
+      } @else if (selection().length === 1 && !composing()) {
+        <div class="own app-island" role="toolbar" aria-label="Selected">
+          <tc-button size="sm" variant="ghost" label="Comments" (click)="commentsOn.set(selection()[0])"></tc-button>
+        </div>
+      }
+
+      @if (composing(); as draft) {
+        <aside class="panel" [attr.aria-label]="draft.id ? 'Change your note' : 'New note'">
+          <h2>{{ draft.id ? 'Change your note' : 'New note' }}</h2>
+          <textarea
+            class="text-input"
+            rows="5"
+            maxlength="2000"
+            aria-label="Note"
+            placeholder="What do you think?"
+            [value]="draft.text"
+            (input)="composing.set({ id: draft.id, text: $any($event.target).value, color: draft.color })"
+          ></textarea>
+          <div class="swatches" role="radiogroup" aria-label="Colour">
+            @for (c of colors; track c) {
+              <button
+                type="button"
+                class="swatch"
+                role="radio"
+                [attr.aria-checked]="draft.color === c"
+                [attr.aria-label]="c"
+                [style.background]="'var(--note-' + c + ')'"
+                (click)="composing.set({ id: draft.id, text: draft.text, color: c })"
+              ></button>
+            }
+          </div>
+          @if (actionProblem()) {
+            <p class="problem-inline" role="alert">{{ actionProblem() }}</p>
+          }
+          <div class="row">
+            <span class="grow"></span>
+            <tc-button size="sm" variant="ghost" label="Cancel" (click)="composing.set(null)"></tc-button>
+            <tc-button size="sm" variant="secondary" [label]="draft.id ? 'Save' : 'Add note'" [loading]="busy()" [disabled]="!draft.text.trim()" (click)="saveNote(canvas)"></tc-button>
+          </div>
+        </aside>
+      } @else if (commentsOn()) {
+        <aside class="panel" aria-label="Comments">
+          <div class="row">
+            <h2 class="grow">Comments</h2>
+            <tc-button size="sm" variant="ghost" label="Close" (click)="commentsOn.set(null)"></tc-button>
+          </div>
+          <tc-comment-thread heading="On this" [messages]="messages()" [currentUser]="{ name: 'You' }" [onReply]="onReply" (tc-messages-change)="$event.preventDefault()"></tc-comment-thread>
+          @if (actionProblem()) {
+            <p class="problem-inline" role="alert">{{ actionProblem() }}</p>
+          }
+        </aside>
+      } @else if (actionProblem()) {
+        <p class="toast-problem app-island" role="alert">{{ actionProblem() }}</p>
+      }
+    } @else {
+      <tc-skeleton aria-label="Loading board"></tc-skeleton>
+    }
+  </div>
+</div>

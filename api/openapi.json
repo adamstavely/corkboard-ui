@@ -1153,6 +1153,603 @@
         ]
       }
     },
+    "/boards/{id}/feedback": {
+      "get": {
+        "operationId": "FeedbackController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The team: the board's feedback link and who has joined through it, by name.",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "post": {
+        "operationId": "FeedbackController_open",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenFeedbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Owners and the facilitator: open the board for feedback from anyone signed in with the link, replacing any link.",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "put": {
+        "operationId": "FeedbackController_setVisibility",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenFeedbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Owners and the facilitator: change what participants see of each other.",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "delete": {
+        "operationId": "FeedbackController_close",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Owners and the facilitator: close the board to feedback; the link stops working.",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/boards/{id}/feedback/participants/{userId}": {
+      "put": {
+        "operationId": "FeedbackController_block",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockParticipantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Owners and the facilitator: keep a participant out, or let them back.",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/{token}/join": {
+      "post": {
+        "operationId": "FeedbackController_join",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackJoinDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Anyone signed in, with the link: join the board as a participant. 410 once the link is off; 403 if blocked.",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/you": {
+      "get": {
+        "operationId": "FeedbackController_you",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantYouDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/notes": {
+      "post": {
+        "operationId": "FeedbackController_addNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddParticipantNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantNoteDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A participant: add a note. The team sees it by their name.",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/notes/{noteId}": {
+      "patch": {
+        "operationId": "FeedbackController_editNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditParticipantNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A participant: change one of their own notes.",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "delete": {
+        "operationId": "FeedbackController_removeNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A participant: remove one of their own notes.",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/comments": {
+      "get": {
+        "operationId": "FeedbackController_comments",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ParticipantCommentThreadDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A participant: the comments they may see, attributed as the board allows.",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "post": {
+        "operationId": "FeedbackController_comment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ParticipantCommentThreadDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A participant: comment on a note or frame they can see.",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/reactions": {
+      "post": {
+        "operationId": "FeedbackController_react",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantReactDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/votes": {
+      "post": {
+        "operationId": "FeedbackController_vote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantVoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/boards/{id}/poll/answers": {
+      "post": {
+        "operationId": "FeedbackController_answerPoll",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantAnswerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
     "/boards/{id}/activity": {
       "get": {
         "operationId": "ActivityController_list",
@@ -4541,6 +5138,370 @@
           "boardId",
           "title",
           "canEdit"
+        ]
+      },
+      "FeedbackLinkDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The secret in the link: /feedback/<token>."
+          },
+          "visibility": {
+            "type": "string",
+            "description": "What participants see of each other: everyone's feedback by name, everyone's without names, or only their own.",
+            "enum": [
+              "names",
+              "anonymous",
+              "own"
+            ]
+          },
+          "createdAt": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "token",
+          "visibility",
+          "createdAt"
+        ]
+      },
+      "ParticipantDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pseudonym": {
+            "type": "number",
+            "description": "Other participants see \"Participant <pseudonym>\" when names are hidden."
+          },
+          "joinedAt": {
+            "type": "number"
+          },
+          "blocked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "pseudonym",
+          "joinedAt",
+          "blocked"
+        ]
+      },
+      "FeedbackDto": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "nullable": true,
+            "description": "The live feedback link; null when the board isn't open for feedback.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FeedbackLinkDto"
+              }
+            ]
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParticipantDto"
+            }
+          }
+        },
+        "required": [
+          "link",
+          "participants"
+        ]
+      },
+      "OpenFeedbackDto": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "enum": [
+              "names",
+              "anonymous",
+              "own"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "visibility"
+        ]
+      },
+      "BlockParticipantDto": {
+        "type": "object",
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "blocked"
+        ]
+      },
+      "FeedbackYouDto": {
+        "type": "object",
+        "properties": {
+          "pseudonym": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string",
+            "description": "Your own name, which other participants see only when the board shows names."
+          }
+        },
+        "required": [
+          "pseudonym",
+          "name"
+        ]
+      },
+      "FeedbackJoinDto": {
+        "type": "object",
+        "properties": {
+          "boardId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "names",
+              "anonymous",
+              "own"
+            ]
+          },
+          "member": {
+            "type": "boolean",
+            "description": "Already in the board's workspace: open the board itself instead."
+          },
+          "you": {
+            "nullable": true,
+            "description": "Null for a workspace member.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FeedbackYouDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "boardId",
+          "title",
+          "visibility",
+          "member",
+          "you"
+        ]
+      },
+      "ParticipantYouDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "names",
+              "anonymous",
+              "own"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "visibility"
+        ]
+      },
+      "AddParticipantNoteDto": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "enum": [
+              "yellow",
+              "pink",
+              "blue",
+              "green",
+              "purple",
+              "gray"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "color",
+          "text"
+        ]
+      },
+      "ParticipantNoteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "EditParticipantNoteDto": {
+        "type": "object",
+        "properties": {
+          "color": {
+            "enum": [
+              "yellow",
+              "pink",
+              "blue",
+              "green",
+              "purple",
+              "gray"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "ParticipantCommentViewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          },
+          "mine": {
+            "type": "boolean"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "by",
+          "mine",
+          "body",
+          "createdAt"
+        ]
+      },
+      "ParticipantCommentThreadDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "resolved": {
+            "type": "boolean"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParticipantCommentViewDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "nodeId",
+          "resolved",
+          "comments"
+        ]
+      },
+      "ParticipantCommentDto": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "description": "A note or frame on the board.",
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "nodeId",
+          "body"
+        ]
+      },
+      "ParticipantReactDto": {
+        "type": "object",
+        "properties": {
+          "emoji": {
+            "type": "string",
+            "enum": [
+              "👍",
+              "❤️",
+              "🎉",
+              "❓",
+              "👀"
+            ]
+          },
+          "nodeId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "emoji",
+          "nodeId",
+          "on"
+        ]
+      },
+      "ParticipantVoteDto": {
+        "type": "object",
+        "properties": {
+          "noteId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "add": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "noteId",
+          "add"
+        ]
+      },
+      "ParticipantAnswerDto": {
+        "type": "object",
+        "properties": {
+          "answer": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "answer"
         ]
       },
       "BoardEventDto": {

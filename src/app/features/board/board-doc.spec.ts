@@ -115,6 +115,23 @@ describe('BoardDoc', () => {
     expect(board.notes()).toHaveLength(1);
   });
 
+  it("reads who wrote a participant's note: the team sees their name, participants the board's byline", () => {
+    const team = board.addNote(0, 0);
+    const mine = board.addNote(300, 0);
+    board.doc.transact(() => {
+      const t = board.doc.getMap<Y.Map<unknown>>('nodes').get(team)!;
+      t.set('participant', true);
+      t.set('authorName', 'Olu Outsider');
+      const m = board.doc.getMap<Y.Map<unknown>>('nodes').get(mine)!;
+      m.set('byline', 'Participant 2');
+      m.set('by', 'p2');
+    });
+    const notes = new Map(board.notes().map((n) => [n.id, n]));
+    expect(notes.get(team)).toMatchObject({ participant: true, authorName: 'Olu Outsider' });
+    expect(notes.get(mine)).toMatchObject({ authorName: 'Participant 2', by: 'p2' });
+    expect(notes.get(mine)!.participant).toBeUndefined();
+  });
+
   it('adds notes centred on a point, each above the last', () => {
     const a = board.addNote(100, 100);
     const b = board.addNote(300, 100, 'pink');

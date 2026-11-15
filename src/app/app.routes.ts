@@ -20,6 +20,8 @@ export const routes: Routes = [
       { path: 'account', title: 'Passkeys · Corkboard', loadComponent: () => import('./features/account/account-page').then((m) => m.AccountPage) },
       { path: 'admin', title: 'Workspace admin · Corkboard', loadComponent: () => import('./features/admin/admin-page').then((m) => m.AdminPage) },
       { path: 'integrations', title: 'Integrations · Corkboard', loadComponent: () => import('./features/integrations/integrations-page').then((m) => m.IntegrationsPage) },
+      // Someone from outside the team, giving feedback on a board through its feedback link.
+      { path: 'feedback/:token', title: 'Feedback · Corkboard', loadComponent: () => import('./features/feedback/feedback-board').then((m) => m.FeedbackBoard) },
       { path: 'invite/:token', title: 'Invite · Corkboard', loadComponent: () => import('./features/members/invite-page').then((m) => m.InvitePage) },
       { path: 'members', title: 'Members · Corkboard', loadComponent: () => import('./features/members/members-page').then((m) => m.MembersPage) },
       // The canvas, Yjs and Tiptap load with the first board opened.
