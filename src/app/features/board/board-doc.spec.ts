@@ -12,6 +12,30 @@ describe('BoardDoc', () => {
   });
   afterEach(() => board.destroy());
 
+  it('keeps what did not change as the same object, so a big board redraws only what changed', () => {
+    const board = new BoardDoc();
+    const a = board.addNote(0, 0, 'yellow', 'One');
+    const b = board.addNote(300, 0, 'blue', 'Two');
+    const table = board.addTable(0, 400);
+    const before = { a: board.notes().find((n) => n.id === a), b: board.notes().find((n) => n.id === b), table: board.items()[0] };
+    board.move([a], 10, 0);
+    expect(board.notes().find((n) => n.id === b)).toBe(before.b);
+    expect(board.notes().find((n) => n.id === a)).not.toBe(before.a);
+    expect(board.notes().find((n) => n.id === a)?.x).toBe(before.a!.x + 10);
+    expect(board.items()[0]).toBe(before.table);
+    // A change inside a node (a table's cells) reads that node again.
+    board.setCell(table, 0, 0, 'Owner');
+    const after = board.items()[0];
+    expect(after).not.toBe(before.table);
+    expect(after.kind === 'table' && after.cells.get('0:0')).toBe('Owner');
+    expect(board.notes().find((n) => n.id === b)).toBe(before.b);
+    // Taking a node away and putting it back (undo) reads it afresh.
+    board.remove([b]);
+    expect(board.notes().map((n) => n.id)).toEqual([a]);
+    board.undo.undo();
+    expect(board.notes().find((n) => n.id === b)).toMatchObject({ color: 'blue' });
+  });
+
   it('reruns anything derived from note text when the text changes, here or from someone else', () => {
     board.addNote(0, 0, 'yellow', 'Before');
     const label = computed(() => plainText(board.notes()[0].text));

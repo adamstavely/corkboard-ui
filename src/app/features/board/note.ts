@@ -1,4 +1,4 @@
-import { Component, computed, effect, ElementRef, input, output, untracked, viewChild, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, input, output, untracked, viewChild, ViewEncapsulation } from '@angular/core';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { Editor } from '@tiptap/core';
 import type { Note } from './board-doc';
@@ -14,6 +14,8 @@ import { noteExtensions, renderNoteText } from './note-text';
  */
 @Component({
   selector: 'app-note',
+  // Drawn again only when its own inputs or signals change: on a board of thousands, moving one note redraws one.
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Icon],
   template: `
     <div class="text" #text></div>

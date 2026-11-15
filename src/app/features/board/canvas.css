@@ -197,6 +197,24 @@
   stroke: var(--tc-accent-text);
 }
 
+/* A note zoomed out past reading: its colour and shape, nothing more, so a board of thousands pans smoothly. */
+.note-far {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: var(--tc-radius-sm);
+  cursor: grab;
+}
+.note-far.selected {
+  outline: 8px solid var(--tc-focus-ring, var(--tc-accent-text));
+}
+.note-far.dimmed {
+  opacity: 0.25;
+}
+.note-far.found {
+  outline: 8px solid var(--tc-status-warning-fg, orange);
+}
+
 /* Images and file cards: picked up and moved like notes. */
 .media {
   position: absolute;

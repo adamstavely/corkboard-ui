@@ -21,7 +21,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -123,6 +123,15 @@ const GRID = 24;
 const isEditable = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 
+/** A note with no votes while a vote runs; one object, so each note keeps the same input. */
+const NO_VOTES_YET: NoteVotes = { mine: 0, total: null };
+/** No reactions, likewise. */
+const NO_REACTIONS: NoteReaction[] = [];
+
+const NO_NOTES: Note[] = [];
+/** Below this zoom a note's words can't be read (15px type under 5px), so notes are drawn as blocks of colour. */
+const FAR_ZOOM = 0.3;
+
 /** How many things a board has before only what's on screen is drawn. */
 const CULL_FROM = 300;
 
@@ -217,6 +226,7 @@ export class Canvas {
   protected readonly shapeNames = SHAPE_NAMES;
   protected readonly textSizeNames = TEXT_SIZE_NAMES;
   protected readonly shapePath = shapePath;
+  protected readonly noReactions = NO_REACTIONS;
   protected readonly shapeDetail = shapeDetail;
   protected readonly playable = playableKind;
   protected readonly safeUrl = safeUrl;
@@ -940,6 +950,12 @@ export class Canvas {
     const hidden = this.board().hiddenNotes();
     return this.#cull(hidden.size ? this.board().notes().filter((n) => !hidden.has(n.id)) : this.board().notes());
   });
+  /** Zoomed out this far, a note's words are too small to read, so notes are drawn as their colour alone. */
+  protected readonly farView = computed(() => this.viewport().zoom < FAR_ZOOM);
+  /** The notes drawn in full: all of them, or zoomed out, only the one being written in. */
+  protected readonly nearNotes = computed(() => (this.farView() ? this.drawnNotes().filter((n) => n.id === this.editing()) : this.drawnNotes()));
+  /** The notes drawn as their colour alone, zoomed out. */
+  protected readonly farNotes = computed(() => (this.farView() ? this.drawnNotes().filter((n) => n.id !== this.editing()) : NO_NOTES));
   protected readonly drawnItems = computed(() => this.#cull(this.board().items()));
   protected readonly drawnMedia = computed(() => this.#cull(this.board().media()));
   #cull<T extends { id: string } & Rect>(all: T[]): T[] {
@@ -1101,7 +1117,7 @@ export class Canvas {
       return;
     }
     if (target.closest('.image-pin')) return;
-    const noteEl = target.closest<HTMLElement>('app-note, [data-media-id], [data-item-id]');
+    const noteEl = target.closest<HTMLElement>('app-note, .note-far, [data-media-id], [data-item-id]');
     // A frame is grabbed anywhere on it (a note can cover its title). Shift-drag inside one boxes notes instead.
     const frameEl = noteEl ? null : target.closest<HTMLElement>('.frame');
     const onFrameBody = !!frameEl && !target.closest('.frame-title, .frame-resize');
@@ -1317,7 +1333,7 @@ export class Canvas {
       return;
     }
     if ((e.target as HTMLElement).closest('.frame-rename')) return;
-    const id = (e.target as HTMLElement).closest<HTMLElement>('app-note')?.dataset['noteId'];
+    const id = (e.target as HTMLElement).closest<HTMLElement>('app-note, .note-far')?.dataset['noteId'];
     if (id) {
       if (id !== this.editing()) this.#edit(id);
       return;
@@ -1522,7 +1538,7 @@ export class Canvas {
 
   /** A note's vote controls or count: while voting, every note gets them. */
   protected votesFor(id: string): NoteVotes | null {
-    return this.noteVotes().get(id) ?? (this.voting() ? { mine: 0, total: null } : null);
+    return this.noteVotes().get(id) ?? (this.voting() ? NO_VOTES_YET : null);
   }
 
   /** Brings everything on the board into view, zoomed to fit (never past 100%), selecting nothing. */
