@@ -49,6 +49,18 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
           }
         </p>
       }
+      @if (canEdit() && held().length) {
+        <div class="held" role="status">
+          <span>
+            May already be in the tracker: an earlier send got no answer.
+            @for (t of held(); track t.taskId) {
+              <strong>{{ t.taskKey }}</strong>
+            }
+            Check the tracker first, then send them again if they aren't there.
+          </span>
+          <tc-button size="sm" variant="secondary" label="Send again" [loading]="sending()" (click)="sendAgain()"></tc-button>
+        </div>
+      }
       <tc-task-board
         [tasks]="tasks()"
         [statuses]="statuses"
@@ -113,6 +125,14 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
     .linked a {
       color: var(--tc-accent-text);
     }
+    .held {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--tc-space-2);
+      color: var(--tc-text-muted);
+      font-size: var(--tc-font-size-sm);
+    }
   `,
 })
 export class BoardTasks {
@@ -166,12 +186,27 @@ export class BoardTasks {
     this.#picked.set(id);
   }
 
-  protected async send(): Promise<void> {
+  /**
+   * Tasks an earlier send may have made issues for (it got no answer, or was cut off): held back from plain sends until
+   * someone has checked the tracker and sends them again by name.
+   */
+  protected readonly held = signal<{ taskId: string; taskKey: string }[]>([]);
+
+  /** Sends the held tasks again, once someone has checked they aren't in the tracker. */
+  protected sendAgain(): Promise<void> {
+    return this.send(this.held().map((t) => t.taskId));
+  }
+
+  protected async send(taskIds?: string[]): Promise<void> {
     const integrationId = this.tracker();
     if (!integrationId) return;
     this.sending.set(true);
     try {
-      const r = await this.#api.invoke(integrationsControllerExport, { id: this.boardId(), body: { integrationId } });
+      const r = await this.#api.invoke(integrationsControllerExport, { id: this.boardId(), body: { integrationId, ...(taskIds ? { taskIds } : {}) } });
+      // What's held now: those still in doubt, less any that went this time.
+      const sent = new Set([...r.exported.map((e) => e.taskId), ...(taskIds ?? [])]);
+      const doubtful = r.failed.filter((f) => f.mayExist).map((f) => ({ taskId: f.taskId, taskKey: f.taskKey }));
+      this.held.update((was) => [...was.filter((t) => !sent.has(t.taskId) && !doubtful.some((d) => d.taskId === t.taskId)), ...doubtful]);
       if (r.exported.length) toast.success(`Sent ${r.exported.length} task${r.exported.length === 1 ? '' : 's'}`, { description: r.exported.map((e) => `${e.taskKey} → ${e.issueKey}`).join(' · ') });
       if (r.failed.length) toast.error(`${r.failed.length} task${r.failed.length === 1 ? '' : 's'} weren't sent`, { description: r.failed[0].reason });
     } catch (err) {
