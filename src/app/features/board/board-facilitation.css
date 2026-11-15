@@ -279,7 +279,7 @@ h3 {
   font-weight: var(--tc-font-weight-semibold);
 }
 .answer:hover {
-  background: var(--tc-surface-hover, var(--tc-accent-subtle));
+  background: var(--tc-accent-subtle);
 }
 .answer[aria-checked='true'] {
   border-color: var(--tc-accent-text);
