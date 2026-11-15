@@ -96,6 +96,19 @@
       </div>
 
       <div class="app-island island-right">
+        @if (canChangeLocked()) {
+          <button
+            type="button"
+            class="icon-btn"
+            [attr.aria-label]="layoutLocked() ? 'Unlock the layout' : 'Lock the layout'"
+            [attr.data-tip]="layoutLocked() ? 'Unlock the layout. Only notes can move now' : 'Lock the layout so only notes can move'"
+            [attr.aria-pressed]="layoutLocked()"
+            [disabled]="!connection()"
+            (click)="canvas()?.lockLayout(!layoutLocked())"
+          >
+            <app-icon [name]="layoutLocked() ? 'lock' : 'unlock'" />
+          </button>
+        }
         @if (canRun()) {
           <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, writing, breakouts" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="toggleFacilitating()">
             <app-icon name="timer" />
@@ -316,9 +329,6 @@
             (show)="canvas()?.show($event)"
             (closed)="facilitating.set(false)"
             (parkingLot)="canvas()?.goToParkingLot()"
-            [canLock]="canChangeLocked()"
-            [layoutLocked]="canvas()?.layoutLocked() ?? false"
-            (lockLayout)="canvas()?.lockLayout($event)"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {

@@ -337,18 +337,6 @@
       }
     </section>
 
-    @if (canLock()) {
-      <section aria-labelledby="f-lock">
-        <h3 id="f-lock"><app-icon [name]="layoutLocked() ? 'lock' : 'unlock'" /> Layout</h3>
-        <p class="hint">
-          {{ layoutLocked() ? 'Locked: people add and move notes, but frames, text, shapes and tables stay put.' : 'Lock the frames, text, shapes and tables so people only add and move notes.' }}
-        </p>
-        <div class="row">
-          <tc-button size="sm" variant="secondary" [label]="layoutLocked() ? 'Unlock the layout' : 'Lock the layout'" (click)="lockLayout.emit(!layoutLocked())"></tc-button>
-        </div>
-      </section>
-    }
-
     <section aria-labelledby="f-parking">
       <h3 id="f-parking"><app-icon name="parking" /> Parking lot</h3>
       <p class="hint">A frame for what's good but not for now. The recap lists it as open questions.</p>
