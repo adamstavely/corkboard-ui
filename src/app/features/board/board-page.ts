@@ -1001,7 +1001,6 @@ export class BoardPage {
     });
   }
 
-  /** Warn before closing the tab while changes are still on their way to the server. */
   /** For the route's guard: whether leaving now would leave edits unsent (they're kept in this browser). */
   hasPendingWork(): boolean {
     return !!this.connection()?.pending() && this.status() !== 'stuck';
