@@ -79,7 +79,7 @@ body {
   cursor: pointer;
 }
 .cb-template-delete:hover {
-  background: var(--tc-surface-hover, var(--tc-accent-subtle));
+  background: var(--tc-accent-subtle);
   color: var(--tc-status-danger-fg, var(--tc-text-primary));
 }
 .cb-template-delete:focus-visible {
