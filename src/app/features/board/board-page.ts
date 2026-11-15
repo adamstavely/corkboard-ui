@@ -34,7 +34,7 @@ import { BoardChat } from './board-chat';
 import { BoardMatrix } from './board-matrix';
 import { BoardTasks } from './board-tasks';
 import { BoardGantt } from './board-gantt';
-import { TaskFeed } from './tasks';
+import { TaskFeed, type StoredTask } from './tasks';
 import type { BoardView } from './board-doc';
 import { BoardSummary } from './board-summary';
 import { SummaryFeed } from './summary';
@@ -257,6 +257,8 @@ export class BoardPage {
     }
   }
   protected readonly tasks = signal<TaskFeed | undefined>(undefined);
+  /** Tasks not done yet, for planning poker to estimate one. */
+  protected readonly openTasks = computed(() => (this.tasks()?.tasks() ?? []).filter((t) => t.status !== 'done').map((t) => ({ id: t.id, key: t.key, title: t.title })));
   protected readonly summaryFeed = signal<SummaryFeed | undefined>(undefined);
   protected readonly canComment = computed(() => atLeast(this.role(), 'commenter'));
 
@@ -693,6 +695,15 @@ export class BoardPage {
   }
 
   /** The facilitator brings everyone to what they're looking at. */
+  /** Planning poker's result, written to the task it estimated. */
+  protected setTaskEstimate(taskId: string, estimate: string): void {
+    const feed = this.tasks();
+    const task = feed?.tasks().find((t) => t.id === taskId);
+    if (!feed || !task || !this.canEdit()) return;
+    feed.put({ ...task, estimate: estimate as StoredTask['estimate'] });
+    toast.success(`${task.key} estimated at ${estimate}`);
+  }
+
   protected async bringEveryone(): Promise<void> {
     const view = this.#lastView;
     if (!view) return;

@@ -287,6 +287,12 @@ h3 {
   font-variant-numeric: tabular-nums;
   font-weight: var(--tc-font-weight-semibold);
 }
+/* Planning poker's cards: each the width of its value, so a deck wraps evenly. */
+.answer.card {
+  flex: 0 0 auto;
+  min-width: 40px;
+  font-weight: var(--tc-font-weight-semibold);
+}
 .answer:hover {
   background: var(--tc-accent-subtle);
 }

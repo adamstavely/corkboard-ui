@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { FacilitationFeed, activityLabel, formatRemaining, noteVotes, pollTally, ranking } from './facilitation';
+import { FacilitationFeed, activityLabel, formatRemaining, noteVotes, pokerSummary, pollTally, ranking, type Poker } from './facilitation';
 
 describe('formatRemaining', () => {
   it('shows minutes and seconds, rounding up', () => {
@@ -143,5 +143,29 @@ describe('FacilitationFeed', () => {
     expect(pollTally(poll!, pollAnswers)).toEqual([0, 0, 0, 0, 2, 0]);
     expect(pollTally({ ...poll!, kind: 'choice', options: ['A', 'B'] }, new Map([['ada', 1]]))).toEqual([0, 1]);
     feed.destroy();
+  });
+});
+
+describe('pokerSummary', () => {
+  const poker: Poker = { round: 'r1', deck: 'fibonacci', taskId: 't1', noteId: null, title: 'T-1 Search', revealed: true, startedBy: 'Ada' };
+
+  it('counts each card given in deck order, with the average, the spread and the size to suggest', () => {
+    const s = pokerSummary(poker, new Map([['a', '5'], ['b', '8'], ['c', '5'], ['d', '?']]));
+    expect(s.counts).toEqual([{ value: '5', count: 2 }, { value: '8', count: 1 }, { value: '?', count: 1 }]);
+    expect(s).toMatchObject({ total: 4, average: 6, spread: '5–8', agreed: false, size: 'M' });
+  });
+
+  it('says when everyone agreed, and suggests the larger card on a tie', () => {
+    expect(pokerSummary(poker, new Map([['a', '13'], ['b', '13']]))).toMatchObject({ agreed: true, spread: '13–13', size: 'XL' });
+    expect(pokerSummary(poker, new Map([['a', '3'], ['b', '8']])).size).toBe('L');
+  });
+
+  it('suggests a T-shirt deck’s own size, with no average', () => {
+    const s = pokerSummary({ ...poker, deck: 'tshirt' }, new Map([['a', 'S'], ['b', 'L'], ['c', 'L']]));
+    expect(s).toMatchObject({ average: null, spread: 'S–L', size: 'L' });
+  });
+
+  it('suggests nothing when nobody gave a size', () => {
+    expect(pokerSummary(poker, new Map([['a', '?']]))).toMatchObject({ size: null, spread: null, average: null });
   });
 });

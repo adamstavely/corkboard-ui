@@ -75,6 +75,49 @@
       </div>
     }
 
+    @if (poker(); as pk) {
+      <div class="item poll-card" role="group" [attr.aria-label]="'Planning poker: ' + pk.title">
+        <div class="poll-head">
+          <app-icon name="poker" />
+          <span class="poll-question">{{ pk.title }}</span>
+          <span class="label">{{ pk.revealed ? 'Estimates' : estimated() + ' estimated' }}</span>
+          @if (canRun() && !pk.revealed) {
+            <tc-button size="sm" variant="secondary" label="Reveal" (click)="revealPoker()"></tc-button>
+          } @else if (canRun()) {
+            <tc-button size="sm" variant="ghost" label="Vote again" (click)="revote()"></tc-button>
+            <tc-button size="sm" variant="ghost" label="Clear" (click)="clearPoker()"></tc-button>
+          }
+        </div>
+        @if (!pk.revealed && canVote()) {
+          <div class="answers" role="radiogroup" [attr.aria-label]="'Your estimate for ' + pk.title">
+            @for (c of cards(); track c) {
+              <button type="button" class="answer card" role="radio" [attr.aria-checked]="myEstimate() === c" [attr.aria-label]="c === '?' ? 'Not sure yet' : c" (click)="estimate(c)">{{ c }}</button>
+            }
+          </div>
+        } @else if (pokerResult(); as r) {
+          @if (r.total) {
+            <ul class="result">
+              @for (c of r.counts; track c.value) {
+                <li>
+                  <span class="result-label">{{ c.value }}</span>
+                  <span class="bar" aria-hidden="true"><span [style.width.%]="c.share * 100"></span></span>
+                  <span class="count">{{ c.count }}</span>
+                </li>
+              }
+            </ul>
+            @if (r.note) {
+              <span class="label">{{ r.note }}</span>
+            }
+            @if (canRun() && pk.taskId && r.size) {
+              <div class="row"><tc-button size="sm" variant="secondary" [label]="'Set estimate to ' + r.size" (click)="setEstimate.emit({ taskId: pk.taskId, estimate: r.size })"></tc-button></div>
+            }
+          } @else {
+            <span class="label">Nobody estimated.</span>
+          }
+        }
+      </div>
+    }
+
     @if (timerShown()) {
       <div class="item timer" [class.up]="timesUp()" role="timer" [attr.aria-label]="timesUp() ? 'Time is up' : clock() + ' left'">
         <app-icon name="timer" />
@@ -208,6 +251,22 @@
               <span class="grow"></span>
               <tc-button size="sm" variant="secondary" label="Start poll" [disabled]="!canStartPoll()" (click)="startPoll()"></tc-button>
             </div>
+          }
+        }
+        @case ('poker') {
+          @if (poker() && !poker()!.revealed) {
+            <p class="hint">Under way: {{ estimated() }} estimated. Estimates show when you reveal them.</p>
+            <div class="row"><tc-button size="sm" variant="secondary" label="Reveal" (click)="revealPoker()"></tc-button></div>
+          } @else {
+            <p class="hint">Everyone estimates at once, and nobody sees anyone else's until you reveal them.</p>
+            <tc-select label="Deck" [labelVisible]="false" [options]="pokerDecks" [value]="pokerDeck()" (tc-value-change)="pokerDeck.set($any($event.detail.value))"></tc-select>
+            @if (tasks().length) {
+              <tc-select label="What to estimate" [labelVisible]="false" [options]="pokerTaskOptions()" [value]="pokerTask()" (tc-value-change)="pokerTask.set($event.detail.value)"></tc-select>
+            }
+            @if (!pokerTask()) {
+              <input type="text" class="text-input" maxlength="200" placeholder="What are we estimating?" aria-label="What to estimate" [value]="pokerTitle()" (input)="pokerTitle.set($any($event.target).value)" />
+            }
+            <div class="row"><span class="grow"></span><tc-button size="sm" variant="secondary" label="Start estimating" [disabled]="!canStartPoker()" (click)="startPoker()"></tc-button></div>
           }
         }
         @case ('writing') {
