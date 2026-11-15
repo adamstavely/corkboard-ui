@@ -49,9 +49,10 @@ export interface Frame {
   h: number;
   z: number;
   title: string;
-  /** How it looks: its fill and its border (see FRAME_FILLS and FRAME_BORDERS). */
+  /** How it looks: its fill, its border and its shape (see FRAME_FILLS, FRAME_BORDERS and FRAME_LOOKS). */
   fill: FrameFill;
   border: FrameBorder;
+  look: FrameLook;
   /** On a timeline's outer frame: when its first column starts and how long each lasts, for the Gantt view. */
   schedule?: { start: string; every: 'week' | '2weeks' | 'month' | 'quarter' };
 }
@@ -61,8 +62,16 @@ export const FRAME_FILLS = ['clear', 'solid', ...NOTE_COLORS] as const;
 export type FrameFill = (typeof FRAME_FILLS)[number];
 export const FRAME_BORDERS = ['solid', 'dashed', 'none'] as const;
 export type FrameBorder = (typeof FRAME_BORDERS)[number];
-export type FrameStyle = Pick<Frame, 'fill' | 'border'>;
-export const DEFAULT_FRAME: FrameStyle = { fill: 'clear', border: 'solid' };
+/**
+ * A frame's shape: outlined (as frames always were), a card, a header band, a folder tab, a soft zone, a drop zone, a
+ * lane, a 16:9 slide or a browser window (corkboard-api's boards/layout.ts takes the same).
+ */
+export const FRAME_LOOKS = ['outline', 'card', 'band', 'tab', 'zone', 'drop', 'lane', 'slide', 'browser'] as const;
+export type FrameLook = (typeof FRAME_LOOKS)[number];
+export type FrameStyle = Pick<Frame, 'fill' | 'border' | 'look'>;
+export const DEFAULT_FRAME: FrameStyle = { fill: 'clear', border: 'solid', look: 'outline' };
+/** A slide frame's height for its width: always 16:9. */
+export const slideHeight = (w: number) => Math.round((w * 9) / 16);
 
 /** Where a selection moves in the stack: to the top or bottom, or past the next thing it overlaps. */
 export type Restack = 'front' | 'forward' | 'backward' | 'back';
@@ -208,7 +217,7 @@ export const FILE_CARD = { w: 240, h: 72 } as const;
  * arrows joined by key. Choices arrive as strings and are checked as they're placed.
  */
 export interface Layout {
-  frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string }[];
+  frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string; look?: string }[];
   notes?: { key?: string; text: string; color?: string; x: number; y: number }[];
   texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number }[];
   shapes?: { key?: string; shape: string; color?: string; label?: string; x: number; y: number; w: number; h: number }[];
@@ -300,9 +309,11 @@ export const REMOTE = Symbol('remote');
 function frameStyleOf(node: Y.Map<unknown>): FrameStyle {
   const fill = node.get('fill') as FrameFill;
   const border = node.get('border') as FrameBorder;
+  const look = node.get('look') as FrameLook;
   return {
     fill: FRAME_FILLS.includes(fill) ? fill : DEFAULT_FRAME.fill,
     border: FRAME_BORDERS.includes(border) ? border : DEFAULT_FRAME.border,
+    look: FRAME_LOOKS.includes(look) ? look : DEFAULT_FRAME.look,
   };
 }
 
@@ -454,6 +465,8 @@ export class BoardDoc {
           n.set('title', f.title);
           if ((FRAME_FILLS as readonly string[]).includes(f.fill ?? '')) n.set('fill', f.fill);
           if ((FRAME_BORDERS as readonly string[]).includes(f.border ?? '')) n.set('border', f.border);
+          if ((FRAME_LOOKS as readonly string[]).includes(f.look ?? '')) n.set('look', f.look);
+          if (f.look === 'slide') n.set('h', slideHeight(f.w));
         });
       for (const note of layout.notes ?? [])
         add('note', note.key, { ...note, ...NOTE_SIZE }, (n) => {
@@ -570,13 +583,14 @@ export class BoardDoc {
     this.doc.transact(() => node.set('title', title), this);
   }
 
-  /** Resizes a frame from its bottom-right corner, no smaller than FRAME_MIN. */
+  /** Resizes a frame from its bottom-right corner, no smaller than FRAME_MIN; a slide keeps to 16:9, from its width. */
   resizeFrame(id: string, w: number, h: number): void {
     const node = this.#writable(id);
     if (!node || node.get('kind') !== 'frame') return;
     this.doc.transact(() => {
-      node.set('w', Math.round(Math.max(FRAME_MIN.w, w)));
-      node.set('h', Math.round(Math.max(FRAME_MIN.h, h)));
+      const width = Math.round(Math.max(FRAME_MIN.w, node.get('look') === 'slide' ? Math.max(w, (FRAME_MIN.h * 16) / 9) : w));
+      node.set('w', width);
+      node.set('h', node.get('look') === 'slide' ? slideHeight(width) : Math.round(Math.max(FRAME_MIN.h, h)));
     }, this);
   }
 
@@ -695,7 +709,7 @@ export class BoardDoc {
     }, this);
   }
 
-  /** Changes frames' fill or border. */
+  /** Changes frames' fill, border or look; a frame made a slide becomes 16:9. */
   setFrameStyle(ids: Iterable<string>, change: Partial<FrameStyle>): void {
     this.undo.stopCapturing();
     this.doc.transact(() => {
@@ -704,6 +718,10 @@ export class BoardDoc {
         if (node?.get('kind') !== 'frame') continue;
         if (change.fill && FRAME_FILLS.includes(change.fill)) node.set('fill', change.fill);
         if (change.border && FRAME_BORDERS.includes(change.border)) node.set('border', change.border);
+        if (change.look && FRAME_LOOKS.includes(change.look)) {
+          node.set('look', change.look);
+          if (change.look === 'slide') node.set('h', slideHeight(Math.max(node.get('w') as number, (FRAME_MIN.h * 16) / 9)));
+        }
       }
     }, this);
   }

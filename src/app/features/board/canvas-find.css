@@ -147,9 +147,9 @@
   padding: 0 !important;
 }
 
-/* The frame style picker: fills as small frames (square, not round), four to a row, then the borders. */
+/* The frame style picker: the looks, then fills as small frames (square, not round), four to a row, then the borders. */
 .frame-menu {
-  min-width: 176px !important;
+  min-width: 216px !important;
 }
 .frame-menu .colour-grid {
   grid-template-columns: repeat(4, 32px);
@@ -177,6 +177,87 @@
 }
 .frame-menu .app-menu-item[aria-checked='true'] {
   color: var(--tc-accent-text);
+}
+/* The looks, three to a row: each a small frame drawn the way that look draws it, over its name. */
+.look-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: var(--tc-space-1);
+}
+[data-ui='mmo'] > [data-menu] .look-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--tc-radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--tc-text-primary);
+  cursor: pointer;
+}
+[data-ui='mmo'] > [data-menu] .look-item:hover {
+  background: color-mix(in srgb, var(--tc-text-strong) 6%, transparent);
+}
+[data-ui='mmo'] > [data-menu] .look-item[aria-checked='true'] {
+  border-color: var(--tc-accent-text);
+  color: var(--tc-accent-text);
+}
+.look-sample {
+  position: relative;
+  width: 40px;
+  height: 28px;
+  border: 1.5px solid var(--tc-text-secondary);
+  border-radius: 5px;
+}
+.look-sample[data-look='card'],
+.look-sample[data-look='slide'] {
+  border-color: transparent;
+  background: var(--tc-surface-base);
+  box-shadow: var(--tc-shadow-raised);
+}
+.look-sample[data-look='slide'] {
+  height: 22.5px;
+  border-radius: 2px;
+}
+.look-sample[data-look='band'] {
+  border-top: 8px solid var(--tc-accent-solid);
+}
+.look-sample[data-look='browser'] {
+  border-top: 8px solid color-mix(in srgb, var(--tc-text-strong) 25%, transparent);
+}
+.look-sample[data-look='tab'] {
+  margin-top: 5px;
+  height: 23px;
+  border-top-left-radius: 0;
+}
+.look-sample[data-look='tab']::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: -1.5px;
+  width: 16px;
+  height: 5px;
+  border: 1.5px solid var(--tc-text-secondary);
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
+}
+.look-sample[data-look='zone'] {
+  border-color: transparent;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tc-text-strong) 14%, transparent);
+}
+.look-sample[data-look='drop'] {
+  border: 2px dashed var(--tc-text-secondary);
+}
+.look-sample[data-look='lane'] {
+  border-color: transparent;
+  border-left: 4px solid var(--tc-accent-solid);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--tc-text-strong) 8%, transparent);
 }
 
 .tag-menu .tag-tools {

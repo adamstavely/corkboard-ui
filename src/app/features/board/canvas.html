@@ -30,6 +30,7 @@
         [attr.data-frame-id]="frame.id"
         [attr.data-fill]="frame.fill"
         [attr.data-border]="frame.border"
+        [attr.data-look]="frame.look"
         [style.--frame-tint]="frame.fill === 'clear' || frame.fill === 'solid' ? null : 'var(--note-' + frame.fill + ')'"
         [class.selected]="selection().has(frame.id)"
         [style.left.px]="frame.x"
@@ -39,6 +40,13 @@
         [style.--peer-color]="peerMarks().get(frame.id)?.color ?? null"
         [class.peer]="peerMarks().has(frame.id)"
       >
+        @if (frame.look === 'band' || frame.look === 'browser') {
+          <div class="frame-chrome" aria-hidden="true">
+            @if (frame.look === 'browser') {
+              <span class="frame-dot"></span><span class="frame-dot"></span><span class="frame-dot"></span>
+            }
+          </div>
+        }
         @if (renaming() === frame.id) {
           <input
             #renameInput
@@ -414,6 +422,14 @@
             <span class="frame-swatch current-colour" [attr.data-border]="frameStyle().border" [style.background]="fillLook(frameStyle().fill)"></span>
           </button>
           <div data-menu class="app-menu frame-menu" aria-label="Frame style">
+            <div class="look-grid" role="group" aria-label="Look">
+              @for (look of frameLooks; track look.id) {
+                <button type="button" class="look-item" role="menuitemradio" [attr.aria-checked]="frameStyle().look === look.id" (click)="restyleFrames({ look: look.id })">
+                  <span class="look-sample" [attr.data-look]="look.id" aria-hidden="true"></span>{{ look.label }}
+                </button>
+              }
+            </div>
+            <hr />
             <div class="colour-grid" role="group" aria-label="Fill">
               @for (fill of frameFills; track fill.id) {
                 <button
