@@ -1,9 +1,4 @@
 /* The tool rail down the board's left side, vertically centred, with undo below. */
-:host {
-  /* Room for Trench Coat's side-pane launcher in the bottom-right corner (16px in, about 105px wide). */
-  --launcher-clear: 132px;
-}
-
 .rail-stack {
   position: absolute;
   top: 50%;
@@ -28,10 +23,10 @@
   color: var(--tc-text-secondary, var(--tc-text-muted));
 }
 
-/* Bottom right, left of the assistant's "Ask AI" launcher: map, fit, zoom and the shortcuts. */
+/* Bottom right, against the board's edge: fit, zoom and the shortcuts. */
 .zoom-panel {
   position: absolute;
-  right: var(--launcher-clear);
+  right: var(--tc-space-3);
   bottom: var(--tc-space-3);
   z-index: 8;
 }

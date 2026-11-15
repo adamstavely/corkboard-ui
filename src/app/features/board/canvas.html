@@ -313,7 +313,14 @@
     <p class="hint">{{ readOnly() ? 'Nothing on this board yet' : 'Double-click anywhere to add a note' }}</p>
   }
 
+  <!-- Bottom left: the map, or the button that shows it. -->
+  @if (!minimapOpen()) {
+    <div class="app-island map-toggle">
+      <button type="button" class="icon-btn" aria-label="Show the map" data-tip="Map" data-tip-side="top" (click)="minimapOpen.set(true)"><app-icon name="map" /></button>
+    </div>
+  }
   @if (minimapOpen() && minimap(); as m) {
+    <button type="button" class="icon-btn map-hide" aria-label="Hide the map" data-tip="Hide the map" data-tip-side="top" (click)="minimapOpen.set(false)"><app-icon name="close" /></button>
     <svg
       class="minimap"
       role="img"
@@ -604,9 +611,8 @@
     </div>
   }
 
-  <!-- Bottom right: the map, fitting everything in, zoom, and the keyboard shortcuts. -->
+  <!-- Bottom right: fitting everything in, zoom, and the keyboard shortcuts. -->
   <div class="app-island zoom-panel" role="toolbar" aria-label="View">
-    <button type="button" class="icon-btn" aria-label="Map" data-tip="Map" data-tip-side="top" [attr.aria-pressed]="minimapOpen()" (click)="minimapOpen.set(!minimapOpen())"><app-icon name="map" /></button>
     <button type="button" class="icon-btn" aria-label="Fit everything" data-tip="Fit everything  ⇧1" data-tip-side="top" (click)="fitAll()"><app-icon name="fit" /></button>
     <span class="sep" aria-hidden="true"></span>
     <button type="button" class="icon-btn" aria-label="Zoom out" data-tip="Zoom out" data-tip-side="top" (click)="zoomBy(1 / 1.25)"><app-icon name="minus" /></button>
