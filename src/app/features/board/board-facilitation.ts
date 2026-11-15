@@ -22,8 +22,9 @@ const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n
 const TIMES_UP_MS = 60_000;
 
 /**
- * What the facilitator runs, along the top of the board: the shared timer, a round of dot voting and its results, and
- * who's presenting. Updaters and owners start and stop things; everyone sees them.
+ * What the facilitator runs. What's live (the shared timer, a round of dot voting and its results, hidden writing,
+ * breakouts, who's presenting) shows along the top of the board for everyone; the controls that start them sit in a
+ * panel docked on the right, one section each. Updaters and owners start and stop things; everyone sees them.
  */
 @Component({
   selector: 'app-board-facilitation',
@@ -68,6 +69,8 @@ export class BoardFacilitation {
   readonly stopPresenting = output<void>();
   /** Show these notes: the top-voted ones. */
   readonly show = output<readonly string[]>();
+  /** Close the facilitator's controls. */
+  readonly closed = output<void>();
 
   protected readonly timerMinutes = TIMER_MINUTES;
   protected readonly voteOptions = VOTE_OPTIONS;
@@ -108,9 +111,9 @@ export class BoardFacilitation {
 
   protected readonly results = computed(() => (this.voting().open ? [] : ranking(this.votes())));
 
+  /** Something live to show along the top: the controls themselves sit in their own panel. */
   protected readonly anything = computed(
     () =>
-      this.controlsOpen() ||
       this.timerShown() ||
       this.voting().open ||
       this.writing().open ||

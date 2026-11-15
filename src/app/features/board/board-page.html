@@ -96,7 +96,7 @@
 
       <div class="app-island island-right">
         @if (canRun()) {
-          <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, hidden writing" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="facilitating.set(!facilitating())">
+          <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, writing, breakouts" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="toggleFacilitating()">
             <app-icon name="timer" />
           </button>
         }
@@ -248,6 +248,7 @@
             (follow)="setFollowing($event)"
             (stopPresenting)="togglePresenting()"
             (show)="canvas()?.show($event)"
+            (closed)="facilitating.set(false)"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {
