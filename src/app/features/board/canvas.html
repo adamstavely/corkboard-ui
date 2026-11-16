@@ -639,7 +639,9 @@
           <div data-menu class="app-menu" aria-label="More">
             <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="copy" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
             @if (selectedNoteIds().length > 1) {
-              <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
+              @if (mindMapNotes() > 1) {
+                <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
+              }
               @if (can('assistant')) {
                 <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeAppPrompt)"><app-icon name="app" /><span class="app-menu-label">Make an app from these</span></button>
                 <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); askAi.emit(makeDiagramPrompt)"><app-icon name="diagram" /><span class="app-menu-label">Make a diagram from these</span></button>

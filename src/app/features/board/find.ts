@@ -22,7 +22,10 @@ export function findOnBoard(board: BoardDoc, q: FindQuery): string[] | null {
   const hit = (text: string) => words.every((w) => text.toLowerCase().includes(w));
   const narrowsToNotes = !!(q.tag || q.person);
   const found: { id: string; x: number; y: number }[] = [];
+  // Notes in a folded branch can't be seen, so they aren't found.
+  const hidden = board.hiddenNotes();
   for (const n of board.notes()) {
+    if (hidden.has(n.id)) continue;
     if (q.tag && !n.tags.includes(q.tag)) continue;
     if (q.person && n.createdBy?.id !== q.person && n.authorName !== q.person) continue;
     if (words.length && !hit(`${plainText(n.text)} ${n.tags.join(' ')}`)) continue;

@@ -70,7 +70,13 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
 type Box = { x: number; y: number; w: number; h: number };
 
 /** Everything on the board that takes up room: frames, notes, images and file cards. Arrows run between them. */
-export const boardBoxes = (board: BoardDoc): (Box & { id: string })[] => [...board.frames(), ...board.notes(), ...board.media(), ...board.items()];
+/** The notes on show: not those in a folded mind-map branch. */
+const shownNotes = (board: BoardDoc) => {
+  const hidden = board.hiddenNotes();
+  return hidden.size ? board.notes().filter((n) => !hidden.has(n.id)) : board.notes();
+};
+
+export const boardBoxes = (board: BoardDoc): (Box & { id: string })[] => [...board.frames(), ...shownNotes(board), ...board.media(), ...board.items()];
 
 /** The box around everything on the board, with a margin; null for an empty board. */
 export function boardBounds(board: BoardDoc, margin = 40): Box | null {
@@ -111,7 +117,8 @@ export interface ArrowPath {
  * (or down, across, down), curves bowing the same way.
  */
 export function arrowLines(board: BoardDoc): ArrowPath[] {
-  const boxes = new Map<string, Box>([...board.notes(), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
+  // Arrows into a folded branch go with it.
+  const boxes = new Map<string, Box>([...shownNotes(board), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
   return board.connectors().flatMap((c) => {
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
@@ -374,7 +381,7 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   const content = [
     ...board.media().map((m) => ({ id: m.id, draw: () => drawMedia(ctx, m, images.get(m.fileId), colours) })),
     ...board.items().map((item) => ({ id: item.id, draw: () => drawItem(ctx, item, colours, images.get(item.id)) })),
-    ...board.notes().map((n) => ({ id: n.id, draw: () => drawNote(ctx, n, colours) })),
+    ...shownNotes(board).map((n) => ({ id: n.id, draw: () => drawNote(ctx, n, colours) })),
   ];
   for (const c of content.sort((a, b) => (stack.get(a.id) ?? 0) - (stack.get(b.id) ?? 0))) c.draw();
   return canvas;

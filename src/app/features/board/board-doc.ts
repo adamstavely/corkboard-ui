@@ -751,14 +751,29 @@ export class BoardDoc {
     }, this);
   }
 
-  /** Removes notes, frames and arrows; arrows to or from what's removed go too. */
+  /**
+   * Removes notes, frames and arrows; arrows to or from what's removed go too. A mind-map note takes its branches with
+   * it (the whole map, for its root), and the map closes up around the gap.
+   */
   remove(ids: Iterable<string>): void {
     const gone = new Set(ids);
     this.undo.stopCapturing();
     this.doc.transact(() => {
       for (const id of gone) if (!this.#writable(id)) gone.delete(id);
+      const maps = this.#mindBoxes();
+      const byId = new Map(maps.map((b) => [b.id, b]));
+      const under = (b: { mind?: MindLink }) => {
+        for (let p = b.mind?.parent, depth = 0; p && depth < 100; depth++) {
+          if (gone.has(p)) return true;
+          p = byId.get(p)?.mind?.parent ?? null;
+        }
+        return false;
+      };
+      for (const b of maps) if (!gone.has(b.id) && under(b) && this.#writable(b.id)) gone.add(b.id);
       for (const c of this.connectors()) if (gone.has(c.from) || gone.has(c.to)) gone.add(c.id);
+      const roots = new Set(maps.filter((b) => gone.has(b.id) && !gone.has(b.mind!.root)).map((b) => b.mind!.root));
       for (const id of gone) this.#nodes.delete(id);
+      for (const root of roots) this.#layoutMind(root);
     }, this);
   }
 
@@ -1006,15 +1021,37 @@ export class BoardDoc {
         if (this.author && original.get('kind') === 'note') copy.set('createdBy', { ...this.author });
         copies.set(id, newId);
       }
+      // Copied mind-map notes make a map of their own: parents and roots point at the copies. A copy whose parent
+      // wasn't copied heads the new map if it has branches with it, and is a plain note otherwise.
+      const minds = new Map<string, MindLink>();
+      for (const id of wanted) {
+        const link = mindLinkOf(this.#nodes.get(id)!.get('mind'));
+        if (link) minds.set(id, link);
+      }
+      const top = (id: string): string => {
+        let at = id;
+        for (let depth = 0; depth < 100; depth++) {
+          const parent = minds.get(at)?.parent;
+          if (!parent || !minds.has(parent)) return at;
+          at = parent;
+        }
+        return at;
+      };
+      for (const [id, link] of minds) {
+        const copy = this.#nodes.get(copies.get(id)!)!;
+        const head = top(id);
+        if (head !== id) copy.set('mind', { ...link, root: copies.get(head)!, parent: copies.get(link.parent!)! });
+        else if ([...minds.values()].some((m) => m.parent === id)) copy.set('mind', { ...link, root: copies.get(id)!, parent: null, order: 0 });
+        else copy.delete('mind');
+      }
       for (const c of this.connectors()) {
         const from = copies.get(c.from);
         const to = copies.get(c.to);
         if (!from || !to) continue;
-        const arrow = new Y.Map<unknown>();
-        arrow.set('kind', 'connector');
+        // The arrow as it is (its route, dashes and weight), between the copies.
+        const arrow = this.#nodes.set(crypto.randomUUID(), (this.#nodes.get(c.id) as Y.Map<unknown>).clone());
         arrow.set('from', from);
         arrow.set('to', to);
-        this.#nodes.set(crypto.randomUUID(), arrow);
       }
     }, this);
     return wanted.map((id) => copies.get(id)!);
