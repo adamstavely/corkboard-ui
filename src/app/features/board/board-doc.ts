@@ -234,7 +234,8 @@ export const FILE_CARD = { w: 240, h: 72 } as const;
  */
 export interface Layout {
   frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string; look?: string }[];
-  notes?: { key?: string; text: string; color?: string; x: number; y: number }[];
+  /** `rich`: a saved board's note as written (corkboard-api's boards/rich-text.ts), used instead of `text` when given. */
+  notes?: { key?: string; text: string; rich?: readonly object[]; color?: string; x: number; y: number; w?: number; h?: number }[];
   texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number }[];
   shapes?: { key?: string; shape: string; color?: string; label?: string; x: number; y: number; w: number; h: number }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
@@ -254,7 +255,7 @@ const tableBox = (t: LayoutTable) => {
 export function layoutSize(layout: Layout): { w: number; h: number } {
   const boxes = [
     ...(layout.frames ?? []),
-    ...(layout.notes ?? []).map((n) => ({ ...n, ...NOTE_SIZE })),
+    ...(layout.notes ?? []).map((n) => ({ ...n, w: n.w ?? NOTE_SIZE.w, h: n.h ?? NOTE_SIZE.h })),
     ...(layout.shapes ?? []),
     ...(layout.texts ?? []).map((t) => ({ x: t.x, y: t.y, w: t.w ?? 240, h: TEXT_SIZES[textSize(t.size)] * 1.6 })),
     ...(layout.tables ?? []).map((t) => ({ x: t.x, y: t.y, ...tableBox(t) })),
@@ -494,12 +495,13 @@ export class BoardDoc {
           if (f.look === 'slide') n.set('h', slideHeight(f.w));
         });
       for (const note of layout.notes ?? [])
-        add('note', note.key, { ...note, ...NOTE_SIZE }, (n) => {
+        add('note', note.key, { ...note, w: size(note.w, NOTE_SIZE.w), h: size(note.h, NOTE_SIZE.h) }, (n) => {
           n.set('color', color(note.color, 'yellow'));
           if (this.author) n.set('createdBy', { ...this.author });
           const fragment = new Y.XmlFragment();
           n.set('text', fragment);
-          fragment.insert(0, paragraphsOf(note.text));
+          const rich = note.rich && richNodes(note.rich);
+          fragment.insert(0, rich?.length ? rich : paragraphsOf(note.text));
         });
       for (const t of layout.texts ?? []) {
         const size = textSize(t.size);
@@ -1548,4 +1550,30 @@ function tagsOf(node: Y.Map<unknown>): string[] {
 function createdByOf(node: Y.Map<unknown>): Pick<Note, 'createdBy'> {
   const by = node.get('createdBy') as { id?: unknown; name?: unknown } | undefined;
   return by && typeof by.id === 'string' && typeof by.name === 'string' ? { createdBy: { id: by.id, name: by.name } } : {};
+}
+
+/** A note's rich text as plain data, as a saved template keeps it: an element, or a run of text with its marks. */
+export type RichNode = { n: string; a?: Record<string, unknown>; c?: RichNode[] } | { t: { insert: string; attributes?: Record<string, unknown> }[] };
+
+/** The blocks a note's editor writes (note-text.ts): anything else in a template's rich text is left out. */
+const RICH_ELEMENTS = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'codeBlock', 'blockquote', 'hardBreak', 'horizontalRule', 'math', 'mathBlock']);
+
+/** Rich data as the Yjs nodes of a note's text; empty when there's nothing the editor can show. */
+export function richNodes(rich: readonly object[], depth = 0): (Y.XmlElement | Y.XmlText)[] {
+  if (depth > 12) return [];
+  return (rich as readonly RichNode[]).flatMap((node): (Y.XmlElement | Y.XmlText)[] => {
+    if (!node || typeof node !== 'object') return [];
+    if ('t' in node) {
+      if (!Array.isArray(node.t)) return [];
+      const text = new Y.XmlText();
+      text.applyDelta(node.t.filter((op) => typeof op?.insert === 'string'));
+      return [text];
+    }
+    if (typeof node.n !== 'string' || !RICH_ELEMENTS.has(node.n)) return [];
+    const el = new Y.XmlElement(node.n);
+    for (const [k, v] of Object.entries(node.a ?? {})) el.setAttribute(k, v as string);
+    const children = Array.isArray(node.c) ? richNodes(node.c, depth + 1) : [];
+    if (children.length) el.insert(0, children);
+    return [el];
+  });
 }

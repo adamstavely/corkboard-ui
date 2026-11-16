@@ -101,7 +101,8 @@ export class BoardSaveTemplate {
   readonly saved = output<void>();
 
   protected readonly categories = TEMPLATE_CATEGORIES.map((c) => ({ value: c.id, label: c.label }));
-  protected readonly name = linkedSignal(() => this.boardTitle());
+  /** The board's title to start with, cut to the 80 characters a template's name may have. */
+  protected readonly name = linkedSignal(() => this.boardTitle().trim().slice(0, 80));
   protected readonly description = signal('');
   protected readonly category = signal<SaveTemplateDto['category']>('retro');
   protected readonly keepNotes = signal(true);
