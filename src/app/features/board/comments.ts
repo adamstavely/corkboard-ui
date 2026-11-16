@@ -2,6 +2,7 @@ import type { ThreadMessage } from '@adamstavely/trenchcoat/comment-thread';
 import * as Y from 'yjs';
 import type { CommentThreadDto } from '../../api/generated/models/comment-thread-dto';
 import { trackText, type BoardDoc } from './board-doc';
+import { describeThing } from './describe';
 
 /** Plain text of a note, for naming it: its lines run together. */
 export function plainText(fragment: Y.XmlFragment): string {
@@ -28,7 +29,13 @@ export function nodeLabel(board: BoardDoc, nodeId: string): string {
   const frame = board.frames().find((f) => f.id === nodeId);
   if (frame) return `Frame: ${frame.title || 'Untitled frame'}`;
   const note = board.notes().find((n) => n.id === nodeId);
-  if (!note) return 'A deleted note or frame';
+  if (!note) {
+    // Anything else on the board can be commented on too: a shape, a table, a chart, an image.
+    const thing = [...board.items(), ...board.media()].find((i) => i.id === nodeId);
+    if (!thing) return 'Something since deleted';
+    const said = describeThing(board, thing.id);
+    return said.charAt(0).toUpperCase() + said.slice(1);
+  }
   const text = plainText(note.text);
   return text ? `Note: ${text.length > 48 ? `${text.slice(0, 47)}…` : text}` : 'Note: (empty)';
 }
