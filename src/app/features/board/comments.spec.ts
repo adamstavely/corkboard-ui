@@ -9,7 +9,8 @@ describe('comments', () => {
     const frame = board.addFrame(0, 0, [], 'Delivery');
     expect(nodeLabel(board, note)).toBe('Note: Deploys are slow on Fridays');
     expect(nodeLabel(board, frame)).toBe('Frame: Delivery');
-    expect(nodeLabel(board, 'gone')).toBe('A deleted note or frame');
+    expect(nodeLabel(board, 'gone')).toBe('Something since deleted');
+    expect(nodeLabel(board, board.addShape(0, 0, 'rect', 'blue', 'Risks'))).toBe('Rectangle “Risks”');
     expect(plainText(board.notes()[0].text)).toBe('Deploys are slow on Fridays');
     board.destroy();
   });

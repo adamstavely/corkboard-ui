@@ -19,6 +19,17 @@ describe('export', () => {
     // Frames inside frames go a level deeper; an empty frame is just its heading.
     board.addFrame(0, 0, board.frames(), 'Plan');
     expect(boardMarkdown(board, 'Retro')).toContain('## Plan\n\n### Delivery\n\n- Deploys are slow');
+    // What's written outside notes is in it too: text boxes, shape labels, tables, links and files.
+    board.addText(0, 900, 'Goal: ship by May');
+    board.addShape(0, 1000, 'rect', 'blue', 'Risks');
+    const table = board.addTable(0, 1200, 2, 2);
+    board.setCell(table, 0, 0, 'Owner');
+    board.setCell(table, 0, 1, 'Task');
+    board.setCell(table, 1, 0, 'Ada');
+    board.setCell(table, 1, 1, 'Fix | deploys');
+    const md = boardMarkdown(board, 'Retro');
+    expect(md).toContain('## Text\n\n- Goal: ship by May\n- Risks\n');
+    expect(md).toContain('## Table\n\n| Owner | Task |\n| --- | --- |\n| Ada | Fix \\| deploys |\n');
     board.destroy();
   });
 

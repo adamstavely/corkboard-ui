@@ -54,6 +54,33 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
     }
     out.push('');
   }
+  // What's written elsewhere on the board, top to bottom: text boxes and labelled shapes.
+  const writing = board
+    .items()
+    .flatMap((i) => (i.kind === 'text' && i.text.trim() ? [{ y: i.y, x: i.x, text: i.text.trim() }] : i.kind === 'shape' && i.label.trim() ? [{ y: i.y, x: i.x, text: i.label.trim() }] : []))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  if (writing.length) {
+    out.push('## Text', '');
+    for (const w of writing) out.push(`- ${w.text.replace(/\s*\n\s*/g, ' ')}`);
+    out.push('');
+  }
+  const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ');
+  for (const t of board.items().flatMap((i) => (i.kind === 'table' && [...i.cells.values()].some((v) => v.trim()) ? [i] : []))) {
+    out.push('## Table', '');
+    for (let r = 0; r < t.rows; r++) {
+      out.push(`| ${Array.from({ length: t.cols }, (_, c) => cell(t.cells.get(`${r}:${c}`) ?? '')).join(' | ')} |`);
+      if (r === 0) out.push(`|${' --- |'.repeat(t.cols)}`);
+    }
+    out.push('');
+  }
+  const links = board.items().flatMap((i) => (i.kind === 'link' && i.url ? [i] : []));
+  const files = board.media();
+  if (links.length || files.length) {
+    out.push('## Links and files', '');
+    for (const l of links) out.push(`- [${(l.title || l.url).replace(/[[\]]/g, '')}](${l.url})`);
+    for (const f of files) out.push(`- ${f.name}`);
+    out.push('');
+  }
   const charts = board.items().flatMap((i) => (i.kind === 'chart' && i.rows.length ? [i] : []));
   if (charts.length) {
     out.push('## Charts', '');

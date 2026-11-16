@@ -165,16 +165,23 @@ export class BoardPage {
   protected readonly facilitating = signal(false);
   protected readonly canRun = computed(() => atLeast(this.role(), 'updater'));
   protected readonly fstate = computed(() => this.facilitation()?.state());
+  /** Each person's votes on notes still on the board: one on a deleted note counts for nothing and is theirs again. */
+  protected readonly liveVotes = computed<ReadonlyMap<string, readonly string[]>>(() => {
+    const votes = this.fstate()?.votes;
+    if (!votes?.size) return votes ?? new Map();
+    const notes = new Set(this.board()?.notes().map((n) => n.id) ?? []);
+    return new Map([...votes].map(([person, ids]) => [person, ids.filter((id) => notes.has(id))]));
+  });
   protected readonly noteVotes = computed(() => {
     const s = this.fstate();
     const me = this.#me()?.id;
-    return s && me ? noteVotes(s.voting, s.votes, me) : new Map();
+    return s && me ? noteVotes(s.voting, this.liveVotes(), me) : new Map();
   });
   protected readonly votingNow = computed(() => !!this.fstate()?.voting.open && this.canComment());
   protected readonly votesLeft = computed(() => {
     const s = this.fstate();
     const me = this.#me()?.id;
-    return s && me ? Math.max(0, s.voting.votesEach - (s.votes.get(me)?.length ?? 0)) : 0;
+    return s && me ? Math.max(0, s.voting.votesEach - (this.liveVotes().get(me)?.length ?? 0)) : 0;
   });
   protected readonly presenting = signal(false);
   /** The person this person follows, by their connection; null when not following. */
