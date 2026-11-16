@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, ElementRef, inject, input, output, resource, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, ElementRef, HostListener, inject, input, output, resource, signal, viewChild } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { CodeBlock } from '@adamstavely/trenchcoat/angular/code-block';
 import { toast } from '@adamstavely/trenchcoat/toaster';
@@ -11,7 +11,7 @@ import { Icon } from '../../shared/icon';
 import type { AppItem, BoardDoc } from './board-doc';
 import { plainText } from './comments';
 import { download } from './export';
-import { appFileName, notesMessage, sandboxed, type AppNote } from './mini-app';
+import { appFileName, LEFT_MESSAGE, notesMessage, sandboxed, type AppNote } from './mini-app';
 
 const when = (d: string) => new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
@@ -72,7 +72,7 @@ const when = (d: string) => new Date(d).toLocaleString(undefined, { day: 'numeri
                 <li>
                   <span class="what"><strong>Version {{ v.version }}</strong> {{ v.note }}</span>
                   <span class="when">{{ v.model ? v.model + ' · ' : '' }}{{ when(v.createdAt) }}</span>
-                  @if (v.version !== item().version) {
+                  @if (v.version !== shownVersion()) {
                     <tc-button size="sm" variant="ghost" label="Show" (click)="show(v.version)"></tc-button>
                   } @else {
                     <span class="current">Shown</span>
@@ -227,13 +227,16 @@ export class BoardApp {
   protected readonly stopped = signal(false);
   protected readonly when = when;
 
-  protected readonly shownVersion = computed(() => this.viewing() ?? this.item().version);
+  // The app and version on their own, so moving or resizing the app doesn't fetch its code again.
+  readonly #appId = computed(() => this.item().appId);
+  readonly #latest = computed(() => this.item().version);
+  protected readonly shownVersion = computed(() => this.viewing() ?? this.#latest());
   protected readonly code = resource({
-    params: () => ({ id: this.boardId(), appId: this.item().appId, version: this.shownVersion() }),
+    params: () => ({ id: this.boardId(), appId: this.#appId(), version: this.shownVersion() }),
     loader: ({ params }) => this.#api.invoke(appsControllerVersion, params),
   });
   protected readonly versions = resource({
-    params: () => (this.mode() === 'versions' ? { id: this.boardId(), appId: this.item().appId, latest: this.item().version } : undefined),
+    params: () => (this.mode() === 'versions' ? { id: this.boardId(), appId: this.#appId(), latest: this.#latest() } : undefined),
     loader: ({ params }) => this.#api.invoke(appsControllerGet, { id: params.id, appId: params.appId }),
   });
   protected readonly fileName = computed(() => appFileName(this.item().title));
@@ -268,6 +271,16 @@ export class BoardApp {
       const notes = this.#notes();
       this.frame()?.nativeElement.contentWindow?.postMessage(notesMessage(notes), '*');
     });
+  }
+
+  /** The app's holder says it tried to go to another page: it was refused, and the app is stopped. */
+  @HostListener('window:message', ['$event'])
+  protected onMessage(event: MessageEvent): void {
+    const frame = this.frame()?.nativeElement;
+    if (!frame || event.source !== frame.contentWindow || (event.data as { type?: unknown } | null)?.type !== LEFT_MESSAGE.type) return;
+    this.stopped.set(true);
+    this.#loaded = null;
+    frame.srcdoc = '';
   }
 
   protected onLoad(): void {

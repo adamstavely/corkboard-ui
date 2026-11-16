@@ -11,6 +11,9 @@ export const DIAGRAM_STARTERS = {
 } as const;
 export type DiagramKind = keyof typeof DIAGRAM_STARTERS;
 
+/** The longest a diagram's text may be: what the server takes for it (corkboard-api's node-schema.ts). */
+export const MAX_DIAGRAM_CHARS = 20_000;
+
 /** The kinds Corkboard draws; Mermaid knows more, but these are the two it promises. */
 const KNOWN = /^\s*(flowchart|graph|sequenceDiagram)\b/;
 
@@ -33,6 +36,8 @@ function mermaid(): Promise<Mermaid> {
     });
     return m;
   });
+  // A failed load (offline for a moment) is tried again next time, not kept.
+  loading.catch(() => (loading = null));
   return loading;
 }
 
@@ -53,7 +58,14 @@ async function draw(text: string): Promise<Rendered> {
   if (!text) return { error: 'Write a flowchart or a sequence diagram.' };
   if (!KNOWN.test(text)) return { error: 'Start with “flowchart TD” for a flowchart, or “sequenceDiagram” for a sequence diagram.' };
   try {
-    const m = await mermaid();
+    let m: Mermaid;
+    try {
+      m = await mermaid();
+    } catch {
+      // Not the diagram's fault: draw it again when asked, rather than keep this answer.
+      cache.delete(text);
+      return { error: 'Diagrams couldn’t be loaded. Check your connection and try again.' };
+    }
     const { svg } = await m.render(`corkboard-diagram-${++n}`, text);
     const view = /viewBox="([\d.\s-]+)"/.exec(svg)?.[1]?.split(/\s+/).map(Number);
     const width = Math.ceil(view?.[2] ?? 400);
