@@ -29,6 +29,7 @@ import { pokerControllerMine } from '../../api/generated/fn/facilitation/poker-c
 import { pokerControllerReveal } from '../../api/generated/fn/facilitation/poker-controller-reveal';
 import type { PokerEstimateDto } from '../../api/generated/models/poker-estimate-dto';
 import { pokerControllerStart } from '../../api/generated/fn/facilitation/poker-controller-start';
+import { serverNow } from '../../core/server-clock';
 import { activityLabel, formatRemaining, pokerSummary, pollTally, POKER_DECKS, ranking, type Poker, type PokerDeck, type StepActivity, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
 
 const TIMER_MINUTES = [1, 3, 5, 10];
@@ -203,7 +204,7 @@ export class BoardFacilitation {
   protected readonly problem = signal('');
 
   /** Now, every second while a timer runs. */
-  readonly #now = signal(Date.now());
+  readonly #now = signal(serverNow());
   constructor() {
     // A tool's setup takes focus as it opens, so Escape closes it and Tab goes through it.
     effect(() => this.pop()?.nativeElement.focus());
@@ -215,7 +216,7 @@ export class BoardFacilitation {
     });
     effect((onCleanup) => {
       if (this.timer().endsAt === null) return;
-      const tick = setInterval(() => this.#now.set(Date.now()), 250);
+      const tick = setInterval(() => this.#now.set(serverNow()), 250);
       onCleanup(() => clearInterval(tick));
     });
   }

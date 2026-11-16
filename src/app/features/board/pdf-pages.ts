@@ -123,8 +123,14 @@ export class PdfPages {
       const box = this.#box();
       if (!doc) return;
       let task: { cancel: () => void } | undefined;
-      onCleanup(() => task?.cancel());
+      // Turned again before the page arrived: that page isn't drawn, so two renders never share the canvas.
+      let gone = false;
+      onCleanup(() => {
+        gone = true;
+        task?.cancel();
+      });
       void doc.getPage(n).then((page) => {
+        if (gone) return;
         const base = page.getViewport({ scale: 1 });
         // Drawn at twice the card's size, so it stays sharp when the board is zoomed in a little.
         const scale = Math.min(box.w / base.width, box.h / base.height) * 2;

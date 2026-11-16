@@ -10,9 +10,12 @@ export function plainText(fragment: Y.XmlFragment): string {
   const lines: string[] = [];
   const walk = (node: Y.XmlFragment | Y.XmlElement | Y.XmlText): void => {
     if (node instanceof Y.XmlText) {
-      lines.push(node.toString().replace(/<[^>]+>/g, ''));
+      // The words themselves, not the tags its marks would print as (and so not a literal "a<b and c>d" cut out).
+      lines.push((node.toDelta() as { insert: unknown }[]).map((op) => (typeof op.insert === 'string' ? op.insert : '')).join(''));
       return;
     }
+    // Maths keeps its LaTeX in an attribute.
+    if (node instanceof Y.XmlElement && (node.nodeName === 'math' || node.nodeName === 'mathBlock')) lines.push(String(node.getAttribute('latex') ?? ''));
     node.toArray().forEach((child) => walk(child as Y.XmlElement | Y.XmlText));
   };
   walk(fragment);
