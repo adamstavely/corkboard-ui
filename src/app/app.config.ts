@@ -5,12 +5,13 @@ import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
 import { provideApiConfiguration } from './api/generated/api-configuration';
 import { authInterceptor } from './core/auth.interceptor';
+import { serverClockInterceptor } from './core/server-clock';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, serverClockInterceptor])),
     // The dev server proxies /api to corkboard-api (proxy.conf.mjs); in the image nginx does.
     provideApiConfiguration('/api'),
   ],

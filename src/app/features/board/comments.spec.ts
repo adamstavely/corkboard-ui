@@ -1,3 +1,4 @@
+import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
 import type { CommentThreadDto } from '../../api/generated/models/comment-thread-dto';
 import { imagePins, messagesOf, nodeLabel, openCounts, pinOf, plainText } from './comments';
@@ -12,6 +13,13 @@ describe('comments', () => {
     expect(nodeLabel(board, 'gone')).toBe('Something since deleted');
     expect(nodeLabel(board, board.addShape(0, 0, 'rect', 'blue', 'Risks'))).toBe('Rectangle “Risks”');
     expect(plainText(board.notes()[0].text)).toBe('Deploys are slow on Fridays');
+    // Maths reads as its LaTeX, and text that looks like a tag stays.
+    const maths = board.addNote(0, 0, 'yellow', 'a<b and c>d');
+    const fragment = board.notes().find((n) => n.id === maths)!.text;
+    const math = new Y.XmlElement('math');
+    math.setAttribute('latex', '\\alpha');
+    (fragment.get(0) as Y.XmlElement).insert(1, [math]);
+    expect(plainText(board.notes().find((n) => n.id === maths)!.text)).toBe('a<b and c>d \\alpha');
     board.destroy();
   });
 

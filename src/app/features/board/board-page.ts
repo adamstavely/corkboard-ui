@@ -83,6 +83,7 @@ import { modelChoice } from './model-choice';
 import { dictate } from '../../shared/speech';
 import { AiSidePane } from '@adamstavely/trenchcoat/angular/ai-side-pane';
 import { BoardStart } from './board-start';
+import { serverNow } from '../../core/server-clock';
 
 const STATUS_TEXT: Record<ConnectionStatus, string> = {
   connecting: 'Connecting…',
@@ -545,7 +546,7 @@ export class BoardPage {
   });
   protected readonly framesSelected = computed(() => (this.board()?.frames() ?? []).filter((f) => this.selectionIds().includes(f.id)).length >= 2);
   /** Now, every second while a breakout group has a timer. */
-  readonly #tick = signal(Date.now());
+  readonly #tick = signal(serverNow());
   /** Under each group's frame: who's in it and the time left; their own group stands out, others can be joined. */
   protected readonly frameBadges = computed(() => {
     const b = this.#breakouts();
@@ -873,19 +874,21 @@ export class BoardPage {
     // when they end.
     effect((onCleanup) => {
       if (!this.#breakouts().groups.some((g) => g.endsAt !== null)) return;
-      const timer = setInterval(() => this.#tick.set(Date.now()), 1000);
+      const timer = setInterval(() => this.#tick.set(serverNow()), 1000);
       onCleanup(() => clearInterval(timer));
     });
+    // Starting breakouts again reshuffles the groups: anyone put in another group's frame goes there.
     let wasOpen = false;
+    let myFrame: string | null = null;
     effect(() => {
       const b = this.#breakouts();
       const me = this.meUser()?.id;
       untracked(() => {
-        if (b.open && !wasOpen) {
-          const mine = b.groups.find((g) => g.members.some((m) => m.id === me));
-          if (mine) this.canvas()?.show([mine.frameId]);
-        } else if (!b.open && wasOpen) this.canvas()?.fitAll();
+        const mine = b.open ? (b.groups.find((g) => g.members.some((m) => m.id === me))?.frameId ?? null) : null;
+        if (mine && mine !== myFrame) this.canvas()?.show([mine]);
+        else if (!b.open && wasOpen) this.canvas()?.fitAll();
         wasOpen = b.open;
+        myFrame = mine;
       });
     });
 

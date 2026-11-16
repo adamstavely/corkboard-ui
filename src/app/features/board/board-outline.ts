@@ -152,7 +152,13 @@ export class BoardOutline {
   /** Present the frames as slides, full screen, from this one. */
   readonly slides = output<string>();
 
-  protected readonly step = signal(-1);
+  /** The frame being presented, by id: when frames are reordered or deleted, its place follows it. */
+  readonly #current = signal<string | null>(null);
+  /** Where the presented frame is in the order now; -1 before presenting, or once it's gone. */
+  protected readonly step = computed(() => {
+    const id = this.#current();
+    return id === null ? -1 : this.rows().findIndex((r) => r.frame.id === id);
+  });
 
   protected readonly rows = computed(() => {
     const board = this.board();
@@ -175,7 +181,7 @@ export class BoardOutline {
   protected go(i: number): void {
     const row = this.rows()[i];
     if (!row) return;
-    this.step.set(i);
+    this.#current.set(row.frame.id);
     this.present.emit(row.frame.id);
   }
 
