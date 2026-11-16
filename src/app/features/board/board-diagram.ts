@@ -1,6 +1,7 @@
 import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import type { BoardDoc } from './board-doc';
+import { MAX_DIAGRAM_CHARS } from './diagram';
 import { DiagramView } from './diagram-view';
 
 /**
@@ -22,6 +23,7 @@ import { DiagramView } from './diagram-view';
         aria-label="Diagram text, in Mermaid"
         aria-describedby="diagram-help"
         [value]="draft()"
+        [maxLength]="max"
         (input)="type($any($event.target).value)"
         (keydown.meta.enter)="save()"
         (keydown.control.enter)="save()"
@@ -33,7 +35,16 @@ import { DiagramView } from './diagram-view';
       <div class="preview" aria-label="Preview">
         <app-diagram-view [source]="shown()" label="Preview of the diagram" />
       </div>
+      @if (theirs()) {
+        <p class="notice" role="status">
+          Someone else changed this diagram while you were writing.
+          <tc-button size="sm" variant="ghost" label="Use their version" (click)="useTheirs()"></tc-button>
+        </p>
+      }
       <div class="actions">
+        @if (draft().length > max * 0.9) {
+          <span class="help" aria-live="polite">{{ draft().length }} of {{ max }} characters</span>
+        }
         <span class="grow"></span>
         <tc-button size="sm" variant="primary" label="Save to the board" [disabled]="!changed()" (click)="save()"></tc-button>
       </div>
@@ -81,6 +92,13 @@ import { DiagramView } from './diagram-view';
       font-size: var(--tc-font-size-sm);
       resize: vertical;
     }
+    .notice {
+      display: flex;
+      align-items: center;
+      gap: var(--tc-space-2);
+      margin: 0;
+      font-size: var(--tc-font-size-sm);
+    }
     .help {
       margin: 0;
       color: var(--tc-text-muted);
@@ -107,27 +125,50 @@ export class BoardDiagram {
     return item?.kind === 'diagram' ? item.source : null;
   });
   protected readonly draft = signal('');
+  /** What's on the board as the draft started from it: when the board moves on, an untouched draft follows. */
+  readonly #base = signal<string | null>(null);
   /** What the preview draws: the draft, a moment after typing stops. */
   protected readonly shown = signal('');
+  protected readonly max = MAX_DIAGRAM_CHARS;
   protected readonly changed = computed(() => this.#saved() !== null && this.draft().trim() !== this.#saved()!.trim());
+  /** Someone else saved while this draft had changes of its own: saving now would put theirs back. */
+  protected readonly theirs = computed(() => {
+    const saved = this.#saved();
+    const base = this.#base();
+    return saved !== null && base !== null && saved.trim() !== base.trim() && this.changed();
+  });
   #wait?: ReturnType<typeof setTimeout>;
+  #openedId: string | null = null;
 
   constructor() {
-    // Each diagram opened starts from what's on the board; one taken off the board closes the panel.
+    // Each diagram opened starts from what's on the board, and keeps up with it while the draft is untouched.
     effect(() => {
       const id = this.diagramId();
-      const saved = untracked(this.#saved);
+      const saved = this.#saved();
       if (saved === null) {
         this.closed.emit();
         return;
       }
-      void id;
-      this.draft.set(saved);
-      this.shown.set(saved);
+      untracked(() => {
+        const opened = this.#openedId !== id;
+        const untouched = this.draft().trim() === (this.#base() ?? '').trim();
+        if (!opened && !untouched) return;
+        this.#openedId = id;
+        this.#start(saved);
+      });
     });
-    effect(() => {
-      if (this.#saved() === null) this.closed.emit();
-    });
+  }
+
+  protected useTheirs(): void {
+    const saved = this.#saved();
+    if (saved !== null) this.#start(saved);
+  }
+
+  #start(text: string): void {
+    clearTimeout(this.#wait);
+    this.#base.set(text);
+    this.draft.set(text);
+    this.shown.set(text);
   }
 
   protected type(text: string): void {
@@ -138,7 +179,9 @@ export class BoardDiagram {
 
   protected save(): void {
     if (!this.changed()) return;
-    this.board().setDiagram(this.diagramId(), this.draft().trim());
+    const text = this.draft().trim().slice(0, MAX_DIAGRAM_CHARS);
+    this.board().setDiagram(this.diagramId(), text);
+    this.#base.set(text);
     this.shown.set(this.draft());
   }
 }

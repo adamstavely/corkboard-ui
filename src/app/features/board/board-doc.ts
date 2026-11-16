@@ -1,5 +1,6 @@
 import { computed, signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
+import { MAX_DIAGRAM_CHARS } from './diagram';
 import { CHART_KINDS, cleanRows, type ChartKind, type ChartRow } from './chart';
 import { hiddenByFolds, mindChildren, mindLayout, mindLinkOf, type MindLink } from './mindmap';
 
@@ -867,12 +868,13 @@ export class BoardDoc {
 
   /** Puts a diagram on the board from its Mermaid text, centred on a point, and returns its id. */
   addDiagram(cx: number, cy: number, source: string, w = 480, h = 360): string {
-    return this.#place('diagram', cx, cy, w, h, (n) => n.set('source', source));
+    return this.#place('diagram', cx, cy, w, h, (n) => n.set('source', source.slice(0, MAX_DIAGRAM_CHARS)));
   }
 
   /** A diagram's new text, as one undoable change. */
   setDiagram(id: string, source: string): void {
     const node = this.#writable(id);
+    source = source.slice(0, MAX_DIAGRAM_CHARS);
     if (node?.get('kind') !== 'diagram' || node.get('source') === source) return;
     this.undo.stopCapturing();
     this.doc.transact(() => node.set('source', source), this);
