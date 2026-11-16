@@ -176,7 +176,8 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
       } else if (item.kind === 'chart' && item.rows.length) {
         try {
           const { renderChartToSVG } = await import('@adamstavely/trenchcoat/charts');
-          const svg = await renderChartToSVG(chartSpec(item.chart, item.title, item.rows), { width: item.w, height: Math.max(80, item.h - 96), tokensCss: pageCss(), theme: pageTheme() });
+          const { w, h } = chartPlot(item);
+          const svg = await renderChartToSVG(chartSpec(item.chart, item.title, item.rows), { width: w, height: h, tokensCss: pageCss(), theme: pageTheme() });
           await image(item.id, svgUrl(svg));
         } catch {
           // Drawn as a titled card instead.
@@ -205,6 +206,13 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
 }
 
 /** The page's stylesheets as text: Trench Coat's tokens are among them, for a chart drawn on its own to resolve. */
+/** Where a chart's plot sits in its box, as the board lays it out (chart-view.ts): under the title, inside the padding. */
+export function chartPlot(item: { w: number; h: number }): { x: number; y: number; w: number; h: number } {
+  const pad = 12;
+  const h = Math.max(80, item.h - 72);
+  return { x: pad, y: Math.max(44, item.h - pad - h), w: Math.max(80, item.w - 2 * pad), h };
+}
+
 function pageCss(): string {
   const rules = (sheet: CSSStyleSheet): string[] => {
     try {
@@ -469,11 +477,13 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       ctx.roundRect(0, 0, item.w, item.h, 12);
       ctx.fill();
       ctx.stroke();
-      if (image) ctx.drawImage(image, 0, 0, item.w, item.h);
-      else {
-        ctx.fillStyle = c.text;
-        ctx.font = `600 16px ${c.font}`;
-        ctx.fillText(item.title || 'Chart', 16, 30, item.w - 32);
+      // As on the board: the title, then the plot under it at the size it was drawn.
+      ctx.fillStyle = c.text;
+      ctx.font = `600 16px ${c.font}`;
+      ctx.fillText(item.title || 'Chart', 16, 30, item.w - 32);
+      if (image) {
+        const plot = chartPlot(item);
+        ctx.drawImage(image, plot.x, plot.y, plot.w, plot.h);
       }
       break;
     case 'diagram': {
