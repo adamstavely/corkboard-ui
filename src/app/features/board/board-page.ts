@@ -608,7 +608,8 @@ export class BoardPage {
     try {
       await this.#api.invoke(facilitationControllerSetAgenda, {
         id: this.id(),
-        body: { steps: t.agenda.map((s) => ({ title: s.title, seconds: s.minutes * 60, frameId: (s.frame && frameIds.get(s.frame)) || null })) },
+        // Each step with what it runs (its vote, poll or hidden writing), as a new board from the template gets.
+        body: { steps: t.agenda.map((s) => ({ title: s.title, seconds: Math.round(s.minutes * 60), frameId: (s.frame && frameIds.get(s.frame)) || null, activity: s.activity ?? null })) },
       });
       toast.success(`Added its ${t.agenda.length}-step agenda`, { description: 'Run it from Facilitate.' });
     } catch {
