@@ -457,6 +457,8 @@ export class Canvas {
   // ── Note templates, tags, and finding things ──
 
   protected readonly noteTemplates = NOTE_TEMPLATES;
+  /** The selected notes not already in a mind map: what "Make a mind map" would use, offered for two or more. */
+  protected readonly mindMapNotes = computed(() => this.board().notes().filter((n) => this.selection().has(n.id) && !n.mind).length);
   protected readonly selectedNoteIds = computed(() => this.board().notes().filter((n) => this.selection().has(n.id)).map((n) => n.id));
   /** Tags on any selected note, to take off. */
   protected readonly selectedTags = computed(() => [...new Set(this.board().notes().filter((n) => this.selection().has(n.id)).flatMap((n) => n.tags))]);
@@ -1285,11 +1287,12 @@ export class Canvas {
     } else {
       const rect = rectFrom(g.start, toWorld(this.viewport(), screen));
       this.marquee.set(rect);
-      // Notes the box touches, and frames it takes in whole.
+      // Notes the box touches (not those folded away), and frames it takes in whole.
+      const hidden = this.board().hiddenNotes();
       const hit = [
         ...this.board()
           .notes()
-          .filter((n) => intersects(rect, n))
+          .filter((n) => !hidden.has(n.id) && intersects(rect, n))
           .map((n) => n.id),
         ...this.board()
           .frames()

@@ -39,6 +39,39 @@ describe('mind maps', () => {
     expect(board.hiddenNotes().has(deep)).toBe(false);
   });
 
+  it('takes a branch away with everything under it, and closes the map up', () => {
+    const root = board.startMindMap(0, 0, 'Root');
+    const a = board.addMindChild(root, 'A')!;
+    const deep = board.addMindChild(a, 'Deep')!;
+    const b = board.addMindChild(root, 'B')!;
+    board.toggleMindFold(a);
+    board.remove([a]);
+    expect(board.notes().map((n) => n.id).sort()).toEqual([b, root].sort());
+    expect(board.connectors().map((c) => [c.from, c.to])).toEqual([[root, b]]);
+    // B moves up to sit level with the root, alone in its column.
+    expect(note(b).y + NOTE_SIZE.h / 2).toBeCloseTo(note(root).y + note(root).h / 2, 0);
+    expect(board.notes().some((n) => n.id === deep)).toBe(false);
+    board.undo.undo();
+    expect(board.notes().map((n) => n.id).sort()).toEqual([a, b, deep, root].sort());
+  });
+
+  it('makes a copied map its own, with its arrows as they were', () => {
+    const root = board.startMindMap(0, 0, 'Root');
+    const a = board.addMindChild(root, 'A')!;
+    const copies = board.duplicate([root, a], 0, 800);
+    const [root2, a2] = copies;
+    expect(note(root2).mind).toMatchObject({ root: root2, parent: null });
+    expect(note(a2).mind).toMatchObject({ root: root2, parent: root2 });
+    expect(board.connectors().find((c) => c.from === root2)).toMatchObject({ to: a2, route: 'curve' });
+    // Growing the original leaves the copy where it is.
+    const before = note(a2).y;
+    board.addMindChild(root, 'B');
+    expect(note(a2).y).toBe(before);
+    // A branch copied alone is a plain note.
+    const [lone] = board.duplicate([a], 400, 0);
+    expect(note(lone).mind).toBeUndefined();
+  });
+
   it('makes a map of loose notes around the one nearest their middle', () => {
     const top = board.addNote(0, -400, 'yellow', 'Top');
     const middle = board.addNote(0, 0, 'yellow', 'Middle');
