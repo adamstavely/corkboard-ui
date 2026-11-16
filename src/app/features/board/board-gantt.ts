@@ -7,9 +7,10 @@ import type { BoardDoc } from './board-doc';
 import type { StoredTask } from './tasks';
 import { PERIODS, roadmapOf, timelinesOf, type Period, type Schedule } from './timeline';
 
-/** Next Monday, as "YYYY-MM-DD": where a timeline starts until someone says otherwise. */
+/** Next Monday where the person is, as "YYYY-MM-DD": where a timeline starts until someone says otherwise. */
 export function nextMonday(now = new Date()): string {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // Their calendar day, not UTC's: on a Sunday evening in California it is already Monday in UTC.
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7 || 7));
   return d.toISOString().slice(0, 10);
 }

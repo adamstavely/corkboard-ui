@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { BarChart } from '@adamstavely/trenchcoat/angular/bar-chart';
 import { LineChart } from '@adamstavely/trenchcoat/angular/line-chart';
 import { PieChart } from '@adamstavely/trenchcoat/angular/pie-chart';
-import type { ChartKind, ChartRow } from './chart';
+import { chartPoints, type ChartKind, type ChartRow } from './chart';
 
 /** A board chart drawn with Trench Coat's bar, line or pie chart, filling its box under its title. */
 @Component({
@@ -16,10 +16,10 @@ import type { ChartKind, ChartRow } from './chart';
           <tc-bar-chart bare still [heading]="title() || 'Chart'" [data]="xy()" [height]="plot()" [highlight]="'max'"></tc-bar-chart>
         }
         @case ('line') {
-          <tc-line-chart bare still [heading]="title() || 'Chart'" [data]="xy()" [height]="plot()"></tc-line-chart>
+          <tc-line-chart bare still [heading]="title() || 'Chart'" [data]="xy()" [height]="plot()" x-type="band"></tc-line-chart>
         }
         @case ('pie') {
-          <tc-pie-chart bare still [heading]="title() || 'Chart'" [data]="slices()" [height]="plot()"></tc-pie-chart>
+          <tc-pie-chart bare still [heading]="title() || 'Chart'" [data]="slices()" [height]="plot()" [labelMode]="'label'"></tc-pie-chart>
         }
       }
     } @else {
@@ -58,6 +58,7 @@ export class ChartView {
   readonly boxHeight = input(380);
   protected readonly plot = computed(() => Math.max(80, this.boxHeight() - 72));
   /** The rows in the fields the charts read by default: x and y for bars and lines, label and value for slices. */
-  protected readonly xy = computed(() => this.rows().map((r) => ({ x: r.label, y: r.value })));
-  protected readonly slices = computed(() => this.rows().map((r) => ({ label: r.label, value: r.value })));
+  readonly #points = computed(() => chartPoints(this.kind(), this.rows()));
+  protected readonly xy = computed(() => this.#points().map((r) => ({ x: r.label, y: r.value })));
+  protected readonly slices = computed(() => this.#points().map((r) => ({ label: r.label, value: r.value })));
 }
