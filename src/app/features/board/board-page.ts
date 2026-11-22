@@ -57,6 +57,8 @@ import { BoardActivity } from './board-activity';
 import { AwaySummary } from '@adamstavely/trenchcoat/angular/away-summary';
 import type { AwayItem } from '@adamstavely/trenchcoat/away-summary';
 import { toast } from '@adamstavely/trenchcoat/toaster';
+import type { SessionRecapDto } from '../../api/generated/models/session-recap-dto';
+import { recapLayout } from './recap';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { activityControllerList } from '../../api/generated/fn/activity/activity-controller-list';
 import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
@@ -763,6 +765,25 @@ export class BoardPage {
     });
     if (!rows.length) return;
     canvas.show([canvas.placeChart('Vote results', rows.slice(0, 30))]);
+  }
+
+  // ── Session recap ──
+
+  /** The recap has been asked for from outside the chat, until the chat takes it up (once, however often it opens). */
+  protected readonly recapWanted = signal(false);
+
+  /** The end of a facilitated session: the chat opens and writes the recap there. */
+  protected askRecap(): void {
+    this.chatOpen.set(true);
+    this.recapWanted.set(true);
+  }
+
+  /** The recap as a frame on the board, titled with its title, beside what's there. */
+  protected placeRecap(r: SessionRecapDto): void {
+    const canvas = this.canvas();
+    if (!canvas || !this.canEdit()) return;
+    const [frame] = canvas.placeLayout(recapLayout(r));
+    if (frame) toast.success('Recap put on the board', { description: r.title });
   }
 
   /** Planning poker's result, written to the task it estimated. */

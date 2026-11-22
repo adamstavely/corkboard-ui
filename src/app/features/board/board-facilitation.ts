@@ -149,6 +149,10 @@ export class BoardFacilitation {
   readonly chartVotes = output<readonly { id: string; votes: number }[]>();
   /** Write planning poker's result to the task it estimated. */
   readonly setEstimate = output<{ taskId: string; estimate: string }>();
+  /** Whether this person may have the session recapped (commenters and up, with a model to write it). */
+  readonly canRecap = input(false);
+  /** Write the session's recap: offered when the facilitator finishes the agenda. */
+  readonly writeRecap = output<void>();
 
   protected readonly tools = TOOLS;
   /** The dock tool whose setup is open, if any, and whether the run sheet is. */
@@ -438,7 +442,24 @@ export class BoardFacilitation {
 
   /** Goes to a step: its timer starts and everyone goes to its frame. Null ends the agenda. */
   protected async goTo(step: number | null): Promise<void> {
-    await this.#run(() => this.#api.invoke(facilitationControllerGoToStep, { id: this.boardId(), body: { step } }));
+    const ending = step === null && this.agenda().current !== null;
+    const done = await this.#run(() => this.#api.invoke(facilitationControllerGoToStep, { id: this.boardId(), body: { step } }));
+    if (step !== null) this.finished.set(false);
+    if (!done || !ending || !this.canRecap()) return;
+    // The session is over: offer the recap, without writing it (a model's work costs money) until they say so.
+    this.finished.set(true);
+    toast.info('Session finished', {
+      description: 'The recap lists its decisions, actions and results.',
+      action: { label: 'Write the recap', onClick: () => this.recap() },
+    });
+  }
+
+  /** The session just ended here, so the run sheet offers the recap. */
+  protected readonly finished = signal(false);
+
+  protected recap(): void {
+    this.finished.set(false);
+    this.writeRecap.emit();
   }
 
   protected async claim(): Promise<void> {
@@ -544,13 +565,16 @@ export class BoardFacilitation {
     this.show.emit(this.results().filter((r) => r.votes === top).map((r) => r.id));
   }
 
-  async #run(call: () => Promise<unknown>): Promise<void> {
+  /** Runs a call, showing why when it fails; says whether it worked. */
+  async #run(call: () => Promise<unknown>): Promise<boolean> {
     this.problem.set('');
     try {
       await call();
+      return true;
     } catch (err) {
       const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
       this.problem.set(typeof message === 'string' ? message : "That didn't work. Try again.");
+      return false;
     }
   }
 }

@@ -92,3 +92,18 @@ tc-multiplayer-thread {
   color: var(--tc-status-danger-fg);
   font-size: var(--tc-font-size-sm);
 }
+.recap-hint {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: var(--tc-space-2);
+  justify-content: flex-end;
+  margin: 0;
+  color: var(--tc-text-secondary);
+  font-size: var(--tc-font-size-sm);
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tc-space-1);
+}
