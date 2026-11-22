@@ -1,4 +1,4 @@
-import type { BoardDoc, Frame } from './board-doc';
+import type { Frame, Media, Note } from './board-doc';
 import { plainText } from './comments';
 
 /** What's different between a saved version of a board and the board now. */
@@ -22,11 +22,28 @@ export interface BoardChanges {
   mediaRemoved: string[];
 }
 
+/** A note's words as plain text. */
+const words = (text: Note['text'] | string) => (typeof text === 'string' ? text : plainText(text));
+
+/** What's on a board, as far as comparing two states of it goes: a BoardDoc, or what one held at some point. */
+export interface BoardContent {
+  /** A note's words, or (kept from an earlier point, as they were then) as plain text. */
+  notes(): readonly (Omit<Note, 'text'> & { text: Note['text'] | string })[];
+  frames(): readonly Frame[];
+  media(): readonly Media[];
+}
+
+/** What a board holds now, kept as it is (words included), to compare with later. */
+export function contentOf(board: BoardContent): BoardContent {
+  const [notes, frames, media] = [board.notes().map((n) => ({ ...n, text: words(n.text) })), board.frames(), board.media()];
+  return { notes: () => notes, frames: () => frames, media: () => media };
+}
+
 const label = (text: string) => text || 'Empty note';
 const title = (f: Frame) => f.title || 'Untitled frame';
 
 /** What would change if the board went back to `then`, as what's happened since: added, removed and edited. */
-export function changesSince(then: BoardDoc, now: BoardDoc): BoardChanges {
+export function changesSince(then: BoardContent, now: BoardContent): BoardChanges {
   const thenNotes = new Map(then.notes().map((n) => [n.id, n]));
   const nowNotes = new Map(now.notes().map((n) => [n.id, n]));
   const thenFrames = new Map(then.frames().map((f) => [f.id, f]));
@@ -40,15 +57,15 @@ export function changesSince(then: BoardDoc, now: BoardDoc): BoardChanges {
   for (const [id, was] of thenNotes) {
     const is = nowNotes.get(id);
     if (!is) continue;
-    const before = plainText(was.text);
-    const after = plainText(is.text);
+    const before = words(was.text);
+    const after = words(is.text);
     if (before !== after) edited.push({ before: label(before), after: label(after) });
     if (was.x !== is.x || was.y !== is.y) moved++;
     if (was.color !== is.color) recoloured++;
   }
   return {
-    added: [...nowNotes.values()].filter((n) => !thenNotes.has(n.id)).map((n) => label(plainText(n.text))),
-    removed: [...thenNotes.values()].filter((n) => !nowNotes.has(n.id)).map((n) => label(plainText(n.text))),
+    added: [...nowNotes.values()].filter((n) => !thenNotes.has(n.id)).map((n) => label(words(n.text))),
+    removed: [...thenNotes.values()].filter((n) => !nowNotes.has(n.id)).map((n) => label(words(n.text))),
     edited,
     moved,
     recoloured,
