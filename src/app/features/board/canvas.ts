@@ -21,7 +21,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Clip, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -119,6 +119,12 @@ const COLOR_LABELS: Record<NoteColor, string> = {
 
 /** Spacing of the background dots at 100%. */
 const GRID = 24;
+
+/**
+ * What ⌘/Ctrl C or X last took, shared by the boards open in this tab, with the text it put on the system clipboard (so a
+ * paste after copying something else elsewhere doesn't bring it back) and how many times it's been pasted.
+ */
+let clipboard: { clip: Clip; text: string | null; pastes: number } | null = null;
 
 const isEditable = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
@@ -1432,6 +1438,12 @@ export class Canvas {
       }
     }
     if (!isEditable(e.target) && !this.readOnly() && this.selection().size) {
+      // ⌘/Ctrl C and X: copy, or copy and delete, what's selected (⌘/Ctrl V pastes it: see onPaste).
+      if (mod && !e.shiftKey && !e.altKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x')) {
+        e.preventDefault();
+        this.#copySelection(e.key.toLowerCase() === 'x');
+        return;
+      }
       // ⌘/Ctrl ] and [: forward and backward; with Shift, to the front and back.
       if (mod && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
         e.preventDefault();
@@ -1764,6 +1776,51 @@ export class Canvas {
     this.react.emit({ nodeId, emoji, on: !mine });
   }
 
+  #copySelection(cut: boolean): void {
+    const board = this.board();
+    const clip = board.copyOut(this.selection());
+    if (!clip) return;
+    // Plain text for pasting elsewhere; pasting it back here brings the things themselves.
+    const text = clip.ids.map((id) => describeThing(board, id)).join('\n');
+    const entry = { clip, text: text as string | null, pastes: 0 };
+    clipboard = entry;
+    navigator.clipboard?.writeText(text).catch(() => (entry.text = null));
+    const what = clip.ids.length === 1 ? describeThing(board, clip.ids[0]) : `${clip.ids.length} things`;
+    if (cut) this.deleteSelection();
+    // A cut that deleteSelection refused (something locked) has said why already.
+    if (!cut || this.selection().size === 0) this.announcement.set(`${cut ? 'Cut' : 'Copied'} ${what}`);
+  }
+
+  /** ⌘/Ctrl V: what was copied on the board, beside the originals if they're in view, else in the middle of the view. */
+  @HostListener('document:paste', ['$event'])
+  onPaste(e: ClipboardEvent): void {
+    if (!clipboard || this.readOnly() || isEditable(e.target)) return;
+    // Something else was copied since (here or in another app): leave that paste alone.
+    const pasted = (e.clipboardData?.getData('text/plain') ?? '').replace(/\r\n/g, '\n');
+    if (clipboard.text !== null ? pasted !== clipboard.text : pasted !== '') return;
+    e.preventDefault();
+    const { clip } = clipboard;
+    const board = this.board();
+    const { width, height } = this.surface().nativeElement.getBoundingClientRect();
+    const view = rectFrom(toWorld(this.viewport(), { x: 0, y: 0 }), toWorld(this.viewport(), { x: width, y: height }));
+    let dx: number;
+    let dy: number;
+    if (clip.from === board && contains(view, clip.box)) {
+      dx = dy = 24 * ++clipboard.pastes;
+    } else {
+      const at = this.#viewCentre();
+      dx = Math.round(at.x - (clip.box.x + clip.box.w / 2));
+      dy = Math.round(at.y - (clip.box.y + clip.box.h / 2));
+    }
+    const copies = board.paste(clip, dx, dy);
+    if (!copies.length) {
+      this.announcement.set('Files and apps can only be pasted on the board they were added to.');
+      return;
+    }
+    this.selection.set(new Set(copies));
+    this.announcement.set(copies.length === 1 ? `Pasted ${describeThing(board, copies[0])}` : `Pasted ${copies.length} things`);
+  }
+
   protected deleteSelection(): void {
     if ([...this.selection()].some((id) => this.board().locked().has(id))) {
       this.announcement.set('Locked things can’t be deleted. Unlock them first.');
@@ -1828,6 +1885,7 @@ export class Canvas {
     { label: 'Find on this board', keys: `${this.modKey}F` },
     { label: 'Undo', keys: `${this.modKey}Z` },
     { label: 'Redo', keys: `⇧${this.modKey}Z` },
+    { label: 'Copy, cut, paste', keys: `${this.modKey}C ${this.modKey}X ${this.modKey}V` },
     { label: 'Duplicate', keys: `${this.modKey}D` },
     { label: 'Bring forward', keys: `${this.modKey}]` },
     { label: 'Bring to front', keys: `⇧${this.modKey}]` },

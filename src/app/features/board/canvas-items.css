@@ -193,6 +193,29 @@
   text-align: center;
   resize: none;
 }
+/*
+ * A shape's label is typed in place: no box of its own over the shape (that hid a new circle or triangle behind a square
+ * until editing ended), just the label's area and colour. The selection outline shows what's being edited.
+ */
+.item-shape .item-editor {
+  /* Centred like the label: as tall as its text (one line where field-sizing isn't supported), up to the label's area. */
+  inset: auto 12%;
+  top: 50%;
+  translate: 0 -50%;
+  width: 76%;
+  height: auto;
+  min-height: 1.5em;
+  max-height: 76%;
+  field-sizing: content;
+  overflow-wrap: anywhere;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #1a1a1a;
+  font-weight: var(--tc-font-weight-medium);
+  outline: none;
+}
 .item-editor.for-text {
   font-weight: var(--tc-font-weight-semibold);
   text-align: left;

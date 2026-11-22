@@ -46,6 +46,30 @@ describe('shapes, text, drawings, tables and link cards', () => {
     expect(z(star)).toBeGreaterThan(z(note));
   });
 
+  it('copies things out and pastes them back, after a cut and on another board, with the arrows between them', () => {
+    const a = board.addShape(100, 100, 'triangle', 'pink', 'Risk');
+    const b = board.addShape(400, 100, 'ellipse', 'green', 'Fix');
+    board.connect(a, b);
+    const [ax, bx] = [item<ShapeItem>(a).x, item<ShapeItem>(b).x];
+    const clip = board.copyOut([a, b])!;
+    expect(clip.box).toMatchObject({ x: ax, y: item<ShapeItem>(a).y });
+    board.remove([a, b]);
+    expect(board.items().length).toBe(0);
+
+    const pasted = board.paste(clip, 24, 24);
+    expect(pasted.map((id) => item<ShapeItem>(id))).toMatchObject([
+      { shape: 'triangle', color: 'pink', label: 'Risk', x: ax + 24 },
+      { shape: 'ellipse', color: 'green', label: 'Fix', x: bx + 24 },
+    ]);
+    expect(board.connectors()).toMatchObject([{ from: pasted[0], to: pasted[1] }]);
+
+    const other = new BoardDoc();
+    expect(other.paste(clip, 0, 0).length).toBe(2);
+    expect(other.connectors().length).toBe(1);
+    other.destroy();
+    expect(board.copyOut([])).toBeNull();
+  });
+
   it('adds text in a size, and changes it', () => {
     const id = board.addText(0, 0, 'Sprint goals', 'lg');
     board.setTextSize([id], 'xl');

@@ -112,6 +112,13 @@ interface Placed {
   h: number;
   z: number;
 }
+/** What ⌘/Ctrl C took (BoardDoc.copyOut): copies in a document of their own, where they were, and the board they came from. */
+export interface Clip {
+  doc: Y.Doc;
+  ids: string[];
+  box: { x: number; y: number; w: number; h: number };
+  from: BoardDoc;
+}
 /** A shape with a short label in it, in one of the note colours. */
 export interface ShapeItem extends Placed {
   kind: 'shape';
@@ -1028,13 +1035,47 @@ export class BoardDoc {
    * Returns the copies' ids, in the order given.
    */
   duplicate(ids: Iterable<string>, dx: number, dy: number): string[] {
+    return this.#copyFrom(this.#nodes, ids, dx, dy);
+  }
+
+  /**
+   * Takes copies of things (and the arrows between them) into a document of their own, for ⌘/Ctrl C: pasting still works
+   * after they're cut, changed or on another board. Null if there's nothing to copy.
+   */
+  copyOut(ids: Iterable<string>): Clip | null {
     const wanted = [...ids].filter((id) => this.#nodes.get(id) && this.#nodes.get(id)!.get('kind') !== 'connector');
+    if (!wanted.length) return null;
+    const doc = new Y.Doc();
+    const nodes = doc.getMap<Y.Map<unknown>>('nodes');
+    const keep = new Set(wanted);
+    for (const id of wanted) nodes.set(id, this.#nodes.get(id)!.clone());
+    this.#nodes.forEach((node, id) => {
+      if (node.get('kind') === 'connector' && keep.has(node.get('from') as string) && keep.has(node.get('to') as string)) nodes.set(id, node.clone());
+    });
+    const boxes = wanted.map((id) => nodes.get(id)!).map((n) => ({ x: num(n.get('x')), y: num(n.get('y')), w: size(n.get('w'), NOTE_SIZE.w), h: size(n.get('h'), NOTE_SIZE.h) }));
+    const x = Math.min(...boxes.map((b) => b.x));
+    const y = Math.min(...boxes.map((b) => b.y));
+    const box = { x, y, w: Math.max(...boxes.map((b) => b.x + b.w)) - x, h: Math.max(...boxes.map((b) => b.y + b.h)) - y };
+    return { doc, ids: wanted, box, from: this };
+  }
+
+  /**
+   * Puts copies of what was copied on the board, moved by (dx, dy), on top. Files and mini-apps belong to the board they
+   * were added to, so on another board they're left out. Returns the copies' ids.
+   */
+  paste(clip: Clip, dx: number, dy: number): string[] {
+    const ids = clip.from === this ? clip.ids : clip.ids.filter((id) => !clip.doc.getMap<Y.Map<unknown>>('nodes').get(id)?.has('fileId') && !clip.doc.getMap<Y.Map<unknown>>('nodes').get(id)?.has('appId'));
+    return this.#copyFrom(clip.doc.getMap<Y.Map<unknown>>('nodes'), ids, dx, dy);
+  }
+
+  #copyFrom(source: Y.Map<Y.Map<unknown>>, ids: Iterable<string>, dx: number, dy: number): string[] {
+    const wanted = [...ids].filter((id) => source.get(id) && source.get(id)!.get('kind') !== 'connector');
     const copies = new Map<string, string>();
     this.undo.stopCapturing();
     this.doc.transact(() => {
       let z = this.#topZ();
       for (const id of wanted) {
-        const original = this.#nodes.get(id)!;
+        const original = source.get(id)!;
         // A clone can't be read or changed until it's in the document: place it, then move it.
         const newId = crypto.randomUUID();
         const copy = this.#nodes.set(newId, original.clone());
@@ -1048,7 +1089,7 @@ export class BoardDoc {
       // wasn't copied heads the new map if it has branches with it, and is a plain note otherwise.
       const minds = new Map<string, MindLink>();
       for (const id of wanted) {
-        const link = mindLinkOf(this.#nodes.get(id)!.get('mind'));
+        const link = mindLinkOf(source.get(id)!.get('mind'));
         if (link) minds.set(id, link);
       }
       const top = (id: string): string => {
@@ -1067,12 +1108,14 @@ export class BoardDoc {
         else if ([...minds.values()].some((m) => m.parent === id)) copy.set('mind', { ...link, root: copies.get(id)!, parent: null, order: 0 });
         else copy.delete('mind');
       }
-      for (const c of this.connectors()) {
-        const from = copies.get(c.from);
-        const to = copies.get(c.to);
+      // Gathered first: when copying within this board, the new arrows go into the map being read.
+      for (const node of [...source.values()]) {
+        if (node.get('kind') !== 'connector') continue;
+        const from = copies.get(node.get('from') as string);
+        const to = copies.get(node.get('to') as string);
         if (!from || !to) continue;
         // The arrow as it is (its route, dashes and weight), between the copies.
-        const arrow = this.#nodes.set(crypto.randomUUID(), (this.#nodes.get(c.id) as Y.Map<unknown>).clone());
+        const arrow = this.#nodes.set(crypto.randomUUID(), node.clone());
         arrow.set('from', from);
         arrow.set('to', to);
       }
