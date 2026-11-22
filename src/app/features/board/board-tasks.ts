@@ -26,7 +26,9 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
     <aside class="panel" [class.placed]="placed()" aria-label="Tasks">
       <div class="head">
         <span class="note">{{ canEdit() ? hint() : 'Only updaters and owners can change tasks.' }}</span>
-        @if (canEdit() && trackers().length && unsent() > 0) {
+        @if (canEdit() && trackers().length && unsent() > 0 && sendRefusal()) {
+          <span class="note">{{ sendRefusal() }}</span>
+        } @else if (canEdit() && trackers().length && unsent() > 0) {
           <select class="tracker" aria-label="Issue tracker" [value]="tracker()" (change)="pick($any($event.target).value)">
             @for (t of trackers(); track t.id) {
               <option [value]="t.id">{{ t.label }} ({{ t.target }})</option>
@@ -145,6 +147,8 @@ export class BoardTasks {
   /** The selected notes: these become tasks instead of the Action items frame's. */
   readonly selection = input<readonly string[]>([]);
   readonly canEdit = input(false);
+  /** Why the workspace's policy stops you sending tasks to a tracker (it's an export); null when it doesn't. */
+  readonly sendRefusal = input<string | null>(null);
   /** The board's workspace, for its issue trackers. */
   readonly orgId = input<string>();
   /** On the board as an element of its own, rather than opened beside it: no Close, and it fills its box. */

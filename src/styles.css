@@ -267,6 +267,13 @@ body {
 [data-ui='mmo'] > .app-menu .app-menu-item.danger {
   color: var(--tc-status-danger-fg);
 }
+/* Why a menu's items are turned off, above them. */
+.app-menu .app-menu-note {
+  max-width: 260px;
+  margin: 4px 8px;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-xs, 12px);
+}
 .app-menu hr {
   width: 100%;
   margin: 4px 0;

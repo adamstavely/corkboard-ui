@@ -1,6 +1,6 @@
 import type { ShareEntitlement, ShareGrant, ShareRecipient, ShareSubmit } from '@adamstavely/trenchcoat/share-panel';
 import type { BoardMemberDto } from '../../api/generated/models/board-member-dto';
-import { ROLE_LABELS, type Role } from '../../core/roles';
+import { atLeast, ROLE_LABELS, type Role } from '../../core/roles';
 
 const recipientOf = (m: BoardMemberDto, meId: string | undefined): ShareRecipient => ({
   id: m.userId,
@@ -26,11 +26,17 @@ export function boardDirectoryOf(members: readonly BoardMemberDto[]): ShareRecip
   return members.filter((m) => m.role === null).map((m) => ({ ...recipientOf(m, undefined), detail: `${m.email ?? m.name} · no access to this board` }));
 }
 
-/** Workspace owners own every board: the panel says so rather than letting it be changed. */
-export function boardEntitlement(members: readonly BoardMemberDto[], recipient: ShareRecipient, level: string): ShareEntitlement {
+/**
+ * Workspace owners own every board: the panel says so rather than letting it be changed. Someone sharing who isn't a
+ * board owner (the workspace's policy can allow that) shares up to their own role, and can't change anyone above it.
+ */
+export function boardEntitlement(members: readonly BoardMemberDto[], recipient: ShareRecipient, level: string, mine: Role = 'owner'): ShareEntitlement {
   const member = members.find((m) => m.userId === recipient.id);
   if (member?.workspaceRole === 'owner' && level !== 'owner') {
     return { status: 'denied', reason: 'Workspace owners own every board. Change their role on the Members page instead.' };
+  }
+  if (mine !== 'owner' && (!atLeast(mine, level as Role) || (member?.role && !atLeast(mine, member.role)))) {
+    return { status: 'denied', reason: `You can share this board up to your own role (${ROLE_LABELS[mine].toLowerCase()}), not above it.` };
   }
   return { status: 'allowed' };
 }

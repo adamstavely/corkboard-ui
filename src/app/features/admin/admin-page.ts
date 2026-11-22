@@ -15,6 +15,7 @@ import { providersControllerList } from '../../api/generated/fn/models/providers
 import { providersControllerUpdate } from '../../api/generated/fn/models/providers-controller-update';
 import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
+import { WorkspacePolicies } from './workspace-policies';
 
 const BOARD_COLUMNS: DataColumn[] = [
   { key: 'title', label: 'Board', type: 'title' },
@@ -41,12 +42,12 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
 }
 
 /**
- * Workspace owners: the last 30 days board by board, what the models used (and cost, once prices are set), a data
- * export (not a backup: see its description), and deleting the workspace.
+ * Workspace owners: the last 30 days board by board, what the models used (and cost, once prices are set), the
+ * workspace's policies, a data export (not a backup: see its description), and deleting the workspace.
  */
 @Component({
   selector: 'app-admin-page',
-  imports: [Button, DataTable, Skeleton],
+  imports: [Button, DataTable, Skeleton, WorkspacePolicies],
   template: `
     <div class="page">
       <h1>Workspace admin</h1>
@@ -95,6 +96,12 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
           } @else {
             <p class="muted">No model calls in the last 30 days.</p>
           }
+        }
+
+        <h2>Policies</h2>
+        <p class="muted">What people may do on every board in this workspace. Corkboard enforces these, whatever the app shows.</p>
+        @if (session.org(); as org) {
+          <app-workspace-policies [orgId]="org.id" />
         }
 
         <h2>Data</h2>

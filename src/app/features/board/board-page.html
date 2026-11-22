@@ -86,9 +86,12 @@
         <tc-menu-morph [open]="exportOpen()" (tc-open-change)="exportOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Export" data-tip="Export" [disabled]="!board()"><app-icon name="export" /></button>
           <div data-menu class="app-menu" aria-label="Export the board">
-            <button type="button" class="app-menu-item" role="menuitem" (click)="exportPng()"><span class="app-menu-label">Image (PNG)</span><span class="app-menu-hint">The whole board</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="exportMarkdown()"><span class="app-menu-label">Markdown</span><span class="app-menu-hint">Frames and notes</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="exportPdf()"><span class="app-menu-label">Print or PDF</span></button>
+            @if (exportRefusal(); as why) {
+              <p class="app-menu-note" id="export-refusal">{{ why }}</p>
+            }
+            <button type="button" class="app-menu-item" role="menuitem" [disabled]="!canExport()" [attr.aria-describedby]="exportRefusal() ? 'export-refusal' : null" (click)="exportPng()"><span class="app-menu-label">Image (PNG)</span><span class="app-menu-hint">The whole board</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" [disabled]="!canExport()" [attr.aria-describedby]="exportRefusal() ? 'export-refusal' : null" (click)="exportMarkdown()"><span class="app-menu-label">Markdown</span><span class="app-menu-hint">Frames and notes</span></button>
+            <button type="button" class="app-menu-item" role="menuitem" [disabled]="!canExport()" [attr.aria-describedby]="exportRefusal() ? 'export-refusal' : null" (click)="exportPdf()"><span class="app-menu-label">Print or PDF</span></button>
           </div>
         </tc-menu-morph>
         <!-- Search folds to its icon; ⌘K or the icon opens it. -->
@@ -266,6 +269,7 @@
                   [selection]="selection()"
                   [canEdit]="canEdit()"
                   [orgId]="meta.value().orgId"
+                  [sendRefusal]="exportRefusal()"
                 />
               }
             }
@@ -471,11 +475,12 @@
           <app-board-share
             [boardId]="id()"
             [boardName]="meta.value().title"
-            [canManage]="isOwner()"
+            [role]="role() ?? 'reader'"
+            [policy]="policy.hasValue() ? policy.value() : undefined"
             [canManageFeedback]="canChangeLocked()"
             [meId]="meId()"
             (closed)="panel.set(null)"
-            (changed)="meta.reload()"
+            (changed)="meta.reload(); policy.reload()"
           />
         }
       } @else {

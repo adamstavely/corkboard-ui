@@ -17,6 +17,7 @@ import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-
 import { templateCards } from './template-cards';
 import type { BoardTemplateDto } from '../../api/generated/models/board-template-dto';
 import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
+import { policiesControllerOnBoard } from '../../api/generated/fn/policies/policies-controller-on-board';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
 import { boardsControllerRename } from '../../api/generated/fn/boards/boards-controller-rename';
@@ -128,6 +129,15 @@ export class BoardPage {
     params: () => this.id(),
     loader: ({ params: id }) => this.#api.invoke(boardsControllerGet, { id }),
   });
+
+  /** What the workspace's policies let you do here (share, links, exports, feedback), with the reason for what they don't. */
+  protected readonly policy = resource({
+    params: () => this.id(),
+    loader: ({ params: id }) => this.#api.invoke(policiesControllerOnBoard, { id }),
+  });
+  /** Exports happen in the browser, so the policy is kept here: they're off until it's known to allow them. */
+  protected readonly canExport = computed(() => this.policy.hasValue() && this.policy.value().exports.allowed);
+  protected readonly exportRefusal = computed(() => (this.policy.hasValue() ? this.policy.value().exports.reason : null));
 
   protected readonly board = signal<BoardDoc | undefined>(undefined);
   protected readonly connection = signal<BoardConnection | undefined>(undefined);
@@ -375,7 +385,7 @@ export class BoardPage {
   protected async exportPng(): Promise<void> {
     this.exportOpen.set(false);
     const board = this.board();
-    if (!board) return;
+    if (!board || !this.canExport()) return;
     (await this.#picture(board)).toBlob((blob) => {
       if (!blob) return;
       download(`${fileName(this.title())}.png`, blob);
@@ -386,7 +396,7 @@ export class BoardPage {
   protected exportMarkdown(): void {
     this.exportOpen.set(false);
     const board = this.board();
-    if (!board) return;
+    if (!board || !this.canExport()) return;
     download(`${fileName(this.title())}.md`, new Blob([boardMarkdown(board, this.title() || 'Board')], { type: 'text/markdown' }));
     toast.success('Markdown saved', { description: `${fileName(this.title())}.md` });
   }
@@ -395,7 +405,7 @@ export class BoardPage {
   protected async exportPdf(): Promise<void> {
     this.exportOpen.set(false);
     const board = this.board();
-    if (!board) return;
+    if (!board || !this.canExport()) return;
     const src = (await this.#picture(board)).toDataURL('image/png');
     const frame = document.createElement('iframe');
     frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
@@ -861,8 +871,12 @@ export class BoardPage {
         view('gantt', 'Timeline on the board'),
         view('summary', 'Open the summary'),
         view('activity', 'Open activity and versions'),
-        { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },
-        { id: 'markdown', label: 'Export as Markdown', run: () => this.exportMarkdown() },
+        ...(this.canExport()
+          ? [
+              { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },
+              { id: 'markdown', label: 'Export as Markdown', run: () => this.exportMarkdown() },
+            ]
+          : []),
         ...(edit ? [{ id: 'next', label: 'Start the next session', run: () => void this.nextSession() }] : []),
       ];
       onCleanup(this.#commands.offer(commands));

@@ -16,11 +16,12 @@ export class FileCache {
     private readonly boardId: string,
     private readonly token: () => string,
     private readonly link?: string,
+    private readonly pass?: string,
   ) {}
 
-  /** The files of the board a share link opens, fetched with the link. */
-  static forLink(boardId: string, linkToken: string): FileCache {
-    return new FileCache(boardId, () => '', linkToken);
+  /** The files of the board a share link opens, fetched with the link (and proof of its password, if it has one). */
+  static forLink(boardId: string, linkToken: string, pass?: string): FileCache {
+    return new FileCache(boardId, () => '', linkToken, pass);
   }
 
   #path(fileId = '') {
@@ -39,7 +40,7 @@ export class FileCache {
     if (have) return Promise.resolve(have);
     let loading = this.#loading.get(id);
     if (!loading) {
-      loading = fetch(this.#path(id), this.link ? {} : { headers: { Authorization: `Bearer ${this.token()}` } })
+      loading = fetch(this.#path(id), this.link ? (this.pass ? { headers: { 'X-Link-Pass': this.pass } } : {}) : { headers: { Authorization: `Bearer ${this.token()}` } })
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => {
           if (!blob) return undefined;

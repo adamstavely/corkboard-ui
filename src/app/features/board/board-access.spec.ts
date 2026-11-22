@@ -27,6 +27,14 @@ describe('board access', () => {
     expect(boardEntitlement(members, { id: 'linus', kind: 'person', name: 'linus' }, 'reader').status).toBe('allowed');
   });
 
+  it('lets someone who is not a board owner share up to their own role only', () => {
+    const grace = { id: 'grace', kind: 'person' as const, name: 'grace' };
+    const linus = { id: 'linus', kind: 'person' as const, name: 'linus' };
+    expect(boardEntitlement(members, grace, 'updater', 'updater').status).toBe('allowed');
+    expect(boardEntitlement(members, grace, 'owner', 'updater')).toEqual({ status: 'denied', reason: 'You can share this board up to your own role (updater), not above it.' });
+    expect(boardEntitlement(members, linus, 'reader', 'commenter').status).toBe('denied');
+  });
+
   it('sets board roles, going back to the workspace role when that is picked, and none for removed', () => {
     const r = (id: string) => ({ id, kind: 'person' as const, name: id });
     expect(
