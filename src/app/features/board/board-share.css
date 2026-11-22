@@ -44,3 +44,48 @@
   border-radius: var(--tc-radius-lg);
   background: var(--tc-surface-raised);
 }
+
+.embed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-3) var(--tc-space-4);
+  border: 1px solid var(--tc-border-subtle);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+}
+.embed h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+.embed h2 app-icon {
+  --icon-size: 16px;
+  color: var(--tc-accent-text);
+}
+.embed .hint {
+  margin: 0;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+}
+.embed .row {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.embed .url {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font: inherit;
+  font-size: var(--tc-font-size-sm);
+}

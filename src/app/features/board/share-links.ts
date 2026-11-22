@@ -13,7 +13,7 @@ export function shareLinks(links: readonly ShareLinkDto[], origin?: string): Sha
     createdBy: l.createdBy,
     createdAt: l.createdAt,
     ...(l.expiresAt ? { expiresAt: l.expiresAt } : {}),
-    access: l.canEdit ? 'Can edit' : 'Can view',
+    access: l.canEdit ? 'Can edit' : l.embed ? 'Can view · embedded' : 'Can view',
     ...(l.hasPassword ? { password: true } : {}),
     opens: l.opens,
     ...(l.lastOpenedAt ? { lastOpenedAt: l.lastOpenedAt } : {}),

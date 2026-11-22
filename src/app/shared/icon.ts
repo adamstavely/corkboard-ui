@@ -94,6 +94,7 @@ import {
   Hexagon,
   ArrowBigRight,
   Cylinder,
+  ExternalLink,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -193,6 +194,8 @@ export const ICONS = {
   back: ChevronLeft,
   next: ChevronRight,
   done: Check,
+  external: ExternalLink,
+  embed: CodeXml,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

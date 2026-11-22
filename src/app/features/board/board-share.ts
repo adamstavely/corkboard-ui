@@ -7,6 +7,9 @@ import { linksControllerList } from '../../api/generated/fn/links/links-controll
 import { linksControllerRevoke } from '../../api/generated/fn/links/links-controller-revoke';
 import { linksControllerSetExpiry } from '../../api/generated/fn/links/links-controller-set-expiry';
 import { expiryChoices, sharedUrl, shareLinks } from './share-links';
+import { linksControllerEmbed } from '../../api/generated/fn/links/links-controller-embed';
+import { embedUrl, iframeSnippet } from '../embed/embed-urls';
+import { Icon } from '../../shared/icon';
 import { BoardFeedback } from './board-feedback';
 import { Component, computed, inject, input, output, resource, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -37,7 +40,7 @@ const COLUMNS: DataColumn[] = [
  */
 @Component({
   selector: 'app-board-share',
-  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch, Select, SecretField, BoardFeedback],
+  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch, Select, SecretField, BoardFeedback, Icon],
   templateUrl: './board-share.html',
   styleUrl: './board-share.css',
 })
@@ -88,10 +91,42 @@ export class BoardShare {
     }
   }
 
+  /** The embed link's page and an iframe for it, once made (or found) this time the panel is open. */
+  protected readonly embed = signal<{ linkId: string; url: string; iframe: string } | null>(null);
+  protected readonly embedding = signal(false);
+  protected readonly embedRefusal = computed(() => (this.policy() ? this.policy()!.embeds.reason : "Embedding isn't available yet."));
+
+  protected async makeEmbed(): Promise<void> {
+    this.embedding.set(true);
+    try {
+      const link = await this.#api.invoke(linksControllerEmbed, { id: this.boardId() });
+      const url = embedUrl(location.origin, link.token);
+      this.embed.set({ linkId: link.id, url, iframe: iframeSnippet(url, this.boardName() || 'Board') });
+      this.#links.reload();
+    } catch (err) {
+      toast.error("The embed couldn't be made", { description: messageOf(err) ?? 'Try again.' });
+    } finally {
+      this.embedding.set(false);
+    }
+  }
+
+  protected async copy(text: string, done: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(done);
+    } catch {
+      toast.error("It couldn't be copied. Select it and copy it yourself.");
+    }
+  }
+
   protected async onLinksChange(e: CustomEvent<ShareLinksChange>): Promise<void> {
     const { change, link } = e.detail;
     try {
-      if (change === 'revoke') await this.#api.invoke(linksControllerRevoke, { id: this.boardId(), linkId: link.id });
+      if (change === 'revoke') {
+        await this.#api.invoke(linksControllerRevoke, { id: this.boardId(), linkId: link.id });
+        // If that was the embed's link, the code shown no longer works.
+        if (this.embed()?.linkId === link.id) this.embed.set(null);
+      }
       else await this.#api.invoke(linksControllerSetExpiry, { id: this.boardId(), linkId: link.id, body: { expiresAt: link.expiresAt ?? null } });
       toast.success(change === 'revoke' ? 'Link turned off' : 'Expiry changed');
     } catch (err) {

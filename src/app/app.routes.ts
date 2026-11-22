@@ -10,6 +10,12 @@ export const routes: Routes = [
     canDeactivate: [pendingWorkGuard],
     loadComponent: () => import('./features/shared/shared-board').then((m) => m.SharedBoard),
   },
+  // A board embedded in another tool (Notion, Confluence): live and read-only, outside the app's shell.
+  {
+    path: 'embed/:token',
+    title: 'Board · Corkboard',
+    loadComponent: () => import('./features/embed/embed-board').then((m) => m.EmbedBoard),
+  },
   { path: 'who', title: 'Sign in · Corkboard', loadComponent: () => import('./features/who/who-page').then((m) => m.WhoPage) },
   {
     path: '',
