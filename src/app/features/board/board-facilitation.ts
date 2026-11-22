@@ -486,11 +486,11 @@ export class BoardFacilitation {
   protected async goTo(step: number | null): Promise<void> {
     const ending = step === null && this.agenda().current !== null;
     const done = await this.#run(() => this.#api.invoke(facilitationControllerGoToStep, { id: this.boardId(), body: { step } }));
-    if (step !== null) this.finished.set(false);
+    if (step !== null) this.#endFinished();
     if (!done || !ending || !this.canRecap()) return;
     // The session is over: offer the recap, without writing it (a model's work costs money) until they say so.
     this.finished.set(true);
-    toast.info('Session finished', {
+    this.#finishedToast = toast.info('Session finished', {
       description: 'The recap lists its decisions, actions and results.',
       action: { label: 'Write the recap', onClick: () => this.recap() },
     });
@@ -498,9 +498,17 @@ export class BoardFacilitation {
 
   /** The session just ended here, so the run sheet offers the recap. */
   protected readonly finished = signal(false);
+  #finishedToast: ReturnType<typeof toast.info> | undefined;
+
+  /** Takes back both offers of the recap, so it can't be written twice by accident (each one is a model's work). */
+  #endFinished(): void {
+    this.finished.set(false);
+    if (this.#finishedToast !== undefined) toast.dismiss(this.#finishedToast);
+    this.#finishedToast = undefined;
+  }
 
   protected recap(): void {
-    this.finished.set(false);
+    this.#endFinished();
     this.writeRecap.emit();
   }
 
