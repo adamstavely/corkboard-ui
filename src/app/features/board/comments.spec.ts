@@ -29,12 +29,13 @@ describe('comments', () => {
       nodeId: `node-${id}`,
       anchor: null,
       resolvedAt: resolved ? '2026-11-12T00:00:00Z' : null,
-      comments: Array.from({ length: n }, (_, i) => ({ id: `${id}-${i}`, author: { id: i ? 'me' : 'ada', name: i ? 'Grace' : 'Ada' }, body: `c${i}`, createdAt: '2026-11-12T00:00:00Z' })),
+      comments: Array.from({ length: n }, (_, i) => ({ id: `${id}-${i}`, author: { id: i ? 'me' : 'ada', name: i ? 'Grace' : 'Ada' }, body: `c${i}`, via: i === 2 ? 'Cursor' : null, createdAt: '2026-11-12T00:00:00Z' })),
     });
     expect([...openCounts([thread('a', false, 2), thread('b', true, 5)])]).toEqual([['node-a', 2]]);
-    expect(messagesOf(thread('a', false, 2), 'me').map((m) => [m.author.name, m.text])).toEqual([
+    expect(messagesOf(thread('a', false, 3), 'me').map((m) => [m.author.name, m.text])).toEqual([
       ['Ada', 'c0'],
       ['Grace (you)', 'c1'],
+      ['Grace via Cursor (you)', 'c2'],
     ]);
   });
 

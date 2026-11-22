@@ -81,7 +81,8 @@ export function openCounts(threads: readonly CommentThreadDto[]): Map<string, nu
 export function messagesOf(thread: CommentThreadDto | undefined, meId: string | undefined): ThreadMessage[] {
   return (thread?.comments ?? []).map((c) => ({
     id: c.id,
-    author: { name: c.author.id === meId ? `${c.author.name} (you)` : c.author.name },
+    // An agent's comment is its owner's, said as theirs through it: "Ada via Cursor".
+    author: { name: `${c.author.name}${c.via ? ` via ${c.via}` : ''}${c.author.id === meId ? ' (you)' : ''}` },
     createdAt: new Date(c.createdAt),
     // Picked mentions read as "@Name"; they're highlighted where the thread shows (see paintMentions).
     text: plainMentions(c.body),

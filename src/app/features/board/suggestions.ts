@@ -7,7 +7,10 @@ import { BoardDoc } from './board-doc';
 export interface Suggestion {
   id: string;
   at: number;
+  /** The model's name, or an agent's (its access token's name: "Cursor"). */
   model: string;
+  /** Proposed by an agent through one of `forId`'s access tokens, not by the assistant. */
+  agent?: boolean;
   forId: string;
   forName: string;
   /** What was asked, shortened. */
@@ -53,12 +56,18 @@ const quoted = (texts: string[], max = 3) => {
   return texts.length > max ? `${shown.join(', ')} and ${texts.length - max} more` : shown.join(', ');
 };
 
-/** What a suggestion's card lists: the model, the notes it would add, and how much it would change. */
+/** Who suggested it, in words: "Cursor for Ada" for an agent, the model's name for the assistant. */
+export const suggestedBy = (s: Suggestion) => (s.agent ? `${s.model} for ${s.forName}` : s.model);
+
+/** What a suggestion is for: what the person asked the assistant, or what the agent said it was doing. */
+export const suggestionReason = (s: Suggestion) => (s.agent ? `${suggestedBy(s)}: “${s.asked}”` : `${s.forName} asked: “${s.asked}”`);
+
+/** What a suggestion's card lists: the model or agent, the notes it would add, and how much it would change. */
 export function suggestionDetails(s: Suggestion): ApprovalDetail[] {
   const notes = s.added.filter((n) => n.attrs['kind'] === 'note' && n.text).map((n) => n.text!);
   const frames = s.added.filter((n) => n.attrs['kind'] === 'frame').map((n) => String(n.attrs['title'] ?? 'Untitled'));
   return [
-    { label: 'Model', value: s.model },
+    s.agent ? { label: 'Agent', value: suggestedBy(s) } : { label: 'Model', value: s.model },
     ...(notes.length ? [{ label: notes.length === 1 ? 'New note' : `${notes.length} new notes`, value: quoted(notes) }] : []),
     ...(frames.length ? [{ label: frames.length === 1 ? 'New frame' : `${frames.length} new frames`, value: quoted(frames) }] : []),
     ...(s.changed.length ? [{ label: 'Changes', value: `${s.changed.length} existing ${s.changed.length === 1 ? 'item' : 'items'}` }] : []),

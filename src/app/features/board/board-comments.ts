@@ -72,7 +72,7 @@ export class BoardComments {
           label: nodeLabel(board, t.nodeId),
           resolved: !!t.resolvedAt,
           count: t.comments.length,
-          last: last ? `${last.author.name}: ${plainMentions(last.body)}` : '',
+          last: last ? `${last.author.name}${last.via ? ` via ${last.via}` : ''}: ${plainMentions(last.body)}` : '',
         };
       });
   });
