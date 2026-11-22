@@ -406,6 +406,26 @@ h3 {
   color: var(--tc-text-primary);
   transform: translateX(-50%);
 }
+.dock-pop.wide {
+  width: min(720px, calc(100% - 2 * var(--tc-space-4)));
+}
+.summary-line {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
+.summary-line app-icon,
+.private-note app-icon {
+  --icon-size: 14px;
+  flex: none;
+}
+.private-note {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
 .dock-pop:focus {
   outline: none;
 }

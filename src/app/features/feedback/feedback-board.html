@@ -32,6 +32,7 @@
         (vote)="onVote($event.noteId, $event.add)"
         (selectedIds)="selection.set($event)"
         (pinOpen)="commentsOn.set($event)"
+        (framesInView)="onFramesInView($event)"
       />
 
       @if (fstate(); as f) {

@@ -1,3 +1,5 @@
+import { feedbackControllerSeen } from '../../api/generated/fn/feedback/feedback-controller-seen';
+import { FrameLooks } from '../board/participation';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, input, resource, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
@@ -130,6 +132,13 @@ export class FeedbackBoard {
     this.comments.reload();
   };
 
+  /** The frames this participant looks at: only ever counted, for the facilitator. */
+  #frameLooks: FrameLooks | undefined;
+
+  protected onFramesInView(frameIds: readonly string[]): void {
+    this.#frameLooks?.inView(frameIds);
+  }
+
   constructor() {
     effect((onCleanup) => {
       if (!this.joined.hasValue()) return;
@@ -152,12 +161,16 @@ export class FeedbackBoard {
         const you$ = board.doc.getMap('you');
         const bump = () => this.#tick.update((n) => n + 1);
         you$.observe(bump);
+        const looks = new FrameLooks((frameIds) => this.#api.invoke(feedbackControllerSeen, { id: joined.boardId, body: { frameIds } }));
+        this.#frameLooks = looks;
         this.board.set(board);
         this.connection.set(connection);
         this.facilitation.set(facilitation);
         this.reactionsFeed.set(reactions);
         onCleanup(() => {
           you$.unobserve(bump);
+          looks.destroy();
+          this.#frameLooks = undefined;
           this.board.set(undefined);
           this.connection.set(undefined);
           this.facilitation.set(undefined);

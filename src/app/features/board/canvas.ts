@@ -221,6 +221,8 @@ export class Canvas {
 
   /** What this person is looking at, whenever it changes: for presenting it to others. */
   readonly viewChange = output<PresentedView>();
+  /** The frames on screen, close enough to read, whenever that changes: for the facilitator's participation view. */
+  readonly framesInView = output<readonly string[]>();
 
   protected readonly viewport = signal<Viewport>({ x: 80, y: 80, zoom: 1 });
   protected readonly selection = signal<ReadonlySet<string>>(new Set());
@@ -972,6 +974,19 @@ export class Canvas {
     const hidden = this.board().hiddenNotes();
     return this.#cull(hidden.size ? this.board().notes().filter((n) => !hidden.has(n.id)) : this.board().notes());
   });
+  /** The ids of the frames on screen, space-separated so it only changes when they do; none when too far out to read. */
+  readonly #framesInView = computed(() => {
+    const { x, y, zoom } = this.viewport();
+    const { width, height } = this.#size();
+    if (!width || zoom < FAR_ZOOM) return '';
+    const view: Rect = { x: -x / zoom, y: -y / zoom, w: width / zoom, h: height / zoom };
+    return this.board()
+      .frames()
+      .filter((f) => intersects(view, f))
+      .map((f) => f.id)
+      .sort()
+      .join(' ');
+  });
   /** Zoomed out this far, a note's words are too small to read, so notes are drawn as their colour alone. */
   protected readonly farView = computed(() => this.viewport().zoom < FAR_ZOOM);
   /** The notes drawn in full: all of them, or zoomed out, only the one being written in. */
@@ -1062,6 +1077,11 @@ export class Canvas {
       if (!surface) return;
       const { width, height } = surface.getBoundingClientRect();
       this.viewChange.emit({ cx: (width / 2 - x) / zoom, cy: (height / 2 - y) / zoom, zoom });
+    });
+
+    effect(() => {
+      const ids = this.#framesInView();
+      this.framesInView.emit(ids ? ids.split(' ') : []);
     });
 
     // Something that's gone – deleted by someone else, or by undo – can't stay selected or open here. Anything that can
