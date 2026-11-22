@@ -95,6 +95,9 @@ export interface Media {
 
 export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout'] as const;
 export type ShapeKind = (typeof SHAPES)[number];
+/** A shape's fill: solid, or a see-through tint (for overlapping circles such as a Venn diagram), as in corkboard-api's layout.ts. */
+export const SHAPE_FILLS = ['solid', 'tint'] as const;
+export type ShapeFill = (typeof SHAPE_FILLS)[number];
 /** Text label sizes, in px. */
 export const TEXT_SIZES = { sm: 14, md: 20, lg: 32, xl: 48 } as const;
 export type TextSize = keyof typeof TEXT_SIZES;
@@ -114,6 +117,7 @@ export interface ShapeItem extends Placed {
   kind: 'shape';
   shape: ShapeKind;
   color: NoteColor;
+  fill: ShapeFill;
   label: string;
 }
 /** Free text on the board, a heading or a label. */
@@ -237,7 +241,8 @@ export interface Layout {
   /** `rich`: a saved board's note as written (corkboard-api's boards/rich-text.ts), used instead of `text` when given. */
   notes?: { key?: string; text: string; rich?: readonly object[]; color?: string; x: number; y: number; w?: number; h?: number }[];
   texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number }[];
-  shapes?: { key?: string; shape: string; color?: string; label?: string; x: number; y: number; w: number; h: number }[];
+  /** Tinted shapes go under the notes; solid ones on top with the rest. */
+  shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; x: number; y: number; w: number; h: number }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
   views?: { key?: string; view: string; x: number; y: number }[];
   arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number }[];
@@ -494,6 +499,14 @@ export class BoardDoc {
           if ((FRAME_LOOKS as readonly string[]).includes(f.look ?? '')) n.set('look', f.look);
           if (f.look === 'slide') n.set('h', slideHeight(f.w));
         });
+      const shape = (s: NonNullable<Layout['shapes']>[number]) =>
+        add('shape', s.key, s, (n) => {
+          n.set('shape', (SHAPES as readonly string[]).includes(s.shape) ? s.shape : 'rect');
+          n.set('color', color(s.color, 'blue'));
+          n.set('label', s.label ?? '');
+          if (s.fill === 'tint') n.set('fill', 'tint');
+        });
+      for (const s of layout.shapes ?? []) if (s.fill === 'tint') shape(s);
       for (const note of layout.notes ?? [])
         add('note', note.key, { ...note, w: size(note.w, NOTE_SIZE.w), h: size(note.h, NOTE_SIZE.h) }, (n) => {
           n.set('color', color(note.color, 'yellow'));
@@ -510,12 +523,7 @@ export class BoardDoc {
           n.set('size', size);
         });
       }
-      for (const s of layout.shapes ?? [])
-        add('shape', s.key, s, (n) => {
-          n.set('shape', (SHAPES as readonly string[]).includes(s.shape) ? s.shape : 'rect');
-          n.set('color', color(s.color, 'blue'));
-          n.set('label', s.label ?? '');
-        });
+      for (const s of layout.shapes ?? []) if (s.fill !== 'tint') shape(s);
       for (const t of layout.tables ?? [])
         add('table', t.key, { x: t.x, y: t.y, ...tableBox(t) }, (n) => {
           const { rows, cols } = tableSize(t);
@@ -946,6 +954,19 @@ export class BoardDoc {
       for (const id of ids) {
         const node = this.#writable(id);
         if (node?.get('kind') === 'shape') node.set('shape', shape);
+      }
+    }, this);
+  }
+
+  /** Makes shapes see-through (a tint) or solid again. */
+  setShapeFill(ids: Iterable<string>, fill: ShapeFill): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#writable(id);
+        if (node?.get('kind') !== 'shape') continue;
+        if (fill === 'tint') node.set('fill', 'tint');
+        else node.delete('fill');
       }
     }, this);
   }
@@ -1473,7 +1494,7 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
   switch (node.get('kind')) {
     case 'shape': {
       const shape = node.get('shape') as ShapeKind;
-      return { ...box, kind: 'shape', shape: SHAPES.includes(shape) ? shape : 'rect', color: NOTE_COLORS.includes(color) ? color : 'blue', label: str(node.get('label')) };
+      return { ...box, kind: 'shape', shape: SHAPES.includes(shape) ? shape : 'rect', color: NOTE_COLORS.includes(color) ? color : 'blue', fill: node.get('fill') === 'tint' ? 'tint' : 'solid', label: str(node.get('label')) };
     }
     case 'text': {
       const size = node.get('size') as TextSize;

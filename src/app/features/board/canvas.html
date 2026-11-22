@@ -154,6 +154,7 @@
         [class.found]="isFound(item.id)"
         [class.found-current]="current() === item.id"
         [class.locked]="board().locked().has(item.id)"
+        [class.tint]="item.kind === 'shape' && item.fill === 'tint'"
         [attr.data-item-id]="item.id"
         [style.left.px]="item.x"
         [style.top.px]="item.y"
@@ -518,6 +519,10 @@
                 <app-icon [name]="shapeIcons[shape]" /><span class="app-menu-label">{{ shapeNames[shape] }}</span>
               </button>
             }
+            <hr />
+            <button type="button" class="app-menu-item" role="menuitemcheckbox" [attr.aria-checked]="shapesSeeThrough()" (click)="shapeOpen.set(false); board().setShapeFill(selectedShapes(), shapesSeeThrough() ? 'solid' : 'tint')">
+              <app-icon name="seeThrough" /><span class="app-menu-label">See-through</span>
+            </button>
           </div>
         </tc-menu-morph>
       }

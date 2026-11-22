@@ -55,6 +55,13 @@
   stroke: color-mix(in srgb, currentColor 15%, transparent);
   stroke-width: 1;
 }
+/* A see-through shape: overlapping ones (a Venn diagram) show where they meet, with a firmer edge to keep it visible. */
+.item-shape.tint .shape-fill path:not(.shape-detail) {
+  fill-opacity: 0.45;
+  stroke: color-mix(in srgb, currentColor 45%, transparent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
 .shape-label {
   position: absolute;
   inset: 12%;

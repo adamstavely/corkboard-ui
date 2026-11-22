@@ -20,6 +20,32 @@ describe('shapes, text, drawings, tables and link cards', () => {
     expect(item<ShapeItem>(id)).toMatchObject({ shape: 'ellipse', color: 'green', label: 'Yes', w: 40, h: 300 });
   });
 
+  it('makes shapes see-through and back, and lays see-through ones from a layout under its notes', () => {
+    const id = board.addShape(100, 100, 'ellipse', 'blue', '');
+    expect(item<ShapeItem>(id).fill).toBe('solid');
+    board.setShapeFill([id], 'tint');
+    expect(item<ShapeItem>(id).fill).toBe('tint');
+    board.setShapeFill([id], 'solid');
+    expect(item<ShapeItem>(id).fill).toBe('solid');
+
+    const [circle, note, star] = board.addLayout(
+      {
+        notes: [{ text: 'In both', x: 300, y: 100 }],
+        shapes: [
+          { shape: 'ellipse', fill: 'tint', x: 0, y: 0, w: 500, h: 500 },
+          { shape: 'star', x: 600, y: 0, w: 100, h: 100 },
+        ],
+      },
+      0,
+      0,
+    );
+    const z = (i: string) => [...board.notes(), ...board.items()].find((n) => n.id === i)!.z;
+    expect(item<ShapeItem>(circle).fill).toBe('tint');
+    expect(item<ShapeItem>(star).fill).toBe('solid');
+    expect(z(circle)).toBeLessThan(z(note));
+    expect(z(star)).toBeGreaterThan(z(note));
+  });
+
   it('adds text in a size, and changes it', () => {
     const id = board.addText(0, 0, 'Sprint goals', 'lg');
     board.setTextSize([id], 'xl');
