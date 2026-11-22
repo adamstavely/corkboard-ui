@@ -70,7 +70,7 @@ import { ChatFeed } from './chat';
 import { Canvas, layoutLocked } from './canvas';
 import { BoardShare } from './board-share';
 import { BoardComments } from './board-comments';
-import { imagePins, openCounts } from './comments';
+import { imagePins, openCounts, pinOf } from './comments';
 import { commentsControllerList } from '../../api/generated/fn/comments/comments-controller-list';
 import { atLeast, type Role } from '../../core/roles';
 import { colorFor, type PresenceUser } from './presence';
@@ -121,6 +121,8 @@ export class BoardPage {
 
   /** From the route. */
   readonly id = input.required<string>();
+  /** From the route's query (`?comment=<note id>`, a notification's link): open that note or frame's thread. */
+  readonly comment = input<string>();
 
   protected readonly meta = resource({
     params: () => this.id(),
@@ -866,6 +868,24 @@ export class BoardPage {
       onCleanup(this.#commands.offer(commands));
     });
 
+    // A notification's link: once the board has loaded, select the note or frame and open its thread, then drop the
+    // query so going back or reloading doesn't do it again.
+    effect(() => {
+      const nodeId = this.comment();
+      const board = this.board();
+      const canvas = this.canvas();
+      if (!nodeId || !board || !canvas || this.status() === 'connecting') return;
+      untracked(() => {
+        this.panel.set('comments');
+        const there = [...board.notes(), ...board.frames(), ...board.items(), ...board.media()].some((n) => n.id === nodeId);
+        // A pin's thread, or one about something since deleted, opens by itself.
+        if (there && !pinOf(nodeId)) canvas.show([nodeId]);
+        else this.openPin({ nodeId });
+        const url = this.#router.parseUrl(this.#router.url);
+        delete url.queryParams['comment'];
+        void this.#router.navigateByUrl(url, { replaceUrl: true });
+      });
+    });
     // Selecting something else on the board shows its comments instead of a pin's.
     effect(() => {
       this.selectionIds();

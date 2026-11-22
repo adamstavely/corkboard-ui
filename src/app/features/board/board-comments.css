@@ -108,3 +108,8 @@ ul {
   color: var(--tc-text-muted);
   font-size: var(--tc-font-size-sm);
 }
+.warn {
+  border-color: var(--tc-status-warning-border);
+  background: var(--tc-status-warning-bg);
+  color: var(--tc-status-warning-fg);
+}
