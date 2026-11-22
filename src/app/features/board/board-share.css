@@ -36,6 +36,9 @@
 }
 
 .link-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tc-space-3);
   padding: var(--tc-space-3) var(--tc-space-4);
   border: 1px solid var(--tc-border-subtle);
   border-radius: var(--tc-radius-lg);

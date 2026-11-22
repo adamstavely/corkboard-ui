@@ -22,8 +22,16 @@ export interface StoredTask {
   noteId?: string;
   /** ISO time. */
   created: string;
-  /** The issue it was sent to an issue tracker as (written by the API). */
-  external?: { kind: string; key: string; url: string };
+  /**
+   * When its title, status or assignee last changed here (ISO): if its issue changed too, the later change wins when
+   * the API syncs them.
+   */
+  updated?: string;
+  /**
+   * The issue it was sent to an issue tracker as (written by the API). `assignee` names who has the issue there when
+   * they aren't on this board.
+   */
+  external?: { kind: string; key: string; url: string; assignee?: string };
 }
 
 export const TASK_STATUSES: TaskStatus[] = [
@@ -35,6 +43,23 @@ export const TASK_STATUSES: TaskStatus[] = [
 export const ACTION_LABEL = 'action';
 
 const DAY = 86_400_000;
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+
+/** When a task was last compared with its issue: "Synced just now", "Synced 5 minutes ago", "Not synced yet". */
+export function syncedAgo(iso: string | null | undefined, now = Date.now()): string {
+  const at = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(at)) return 'Not synced yet';
+  const ago = Math.max(0, now - at);
+  if (ago < MINUTE) return 'Synced just now';
+  if (ago < HOUR) return `Synced ${rtf.format(-Math.round(ago / MINUTE), 'minute')}`;
+  if (ago < DAY) return `Synced ${rtf.format(-Math.round(ago / HOUR), 'hour')}`;
+  return `Synced ${rtf.format(-Math.round(ago / DAY), 'day')}`;
+}
+
+/** What each tracker is called, as the API's history says it ("Status changed to Done in Jira"). */
+export const TRACKER_NAMES: Record<string, string> = { github: 'GitHub', linear: 'Linear', jira: 'Jira' };
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const dayStart = (ms: number) => Math.floor(ms / DAY) * DAY;
 
@@ -57,9 +82,12 @@ export function toTask(t: StoredTask, now = Date.now()): Task {
   };
 }
 
-/** Back from the task board, keeping what it doesn't know about (the note it came from). */
+/** Back from the task board, keeping what it doesn't know about (the note it came from, the issue it was sent as). */
 export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now()): StoredTask {
   const status = (['todo', 'doing', 'done'] as const).find((s) => s === task.status) ?? 'todo';
+  // What's kept in step with its issue changed here now (or it's new), so this change is the one to beat.
+  const synced = !was || was.title !== task.title || was.status !== status || (was.assignee ?? undefined) !== (task.assignee || undefined);
+  const updated = synced ? new Date(now).toISOString() : was.updated;
   return {
     id: task.id,
     // The card's key may carry the issue's ("T-3 · ENG-12"); the board's own stays as it was.
@@ -74,6 +102,7 @@ export function fromTask(task: Task, was: StoredTask | undefined, now = Date.now
     ...(task.assignee ? { assignee: task.assignee } : {}),
     ...(task.dueIn !== undefined ? { due: isoDay(dayStart(now) + task.dueIn * DAY) } : {}),
     ...(was?.noteId ? { noteId: was.noteId } : {}),
+    ...(updated ? { updated } : {}),
     ...(was?.external ? { external: was.external } : {}),
   };
 }

@@ -23,6 +23,13 @@
   color: var(--tc-text-secondary, var(--tc-text-muted));
 }
 
+/* The kinds of diagram past the first two, opened under "More diagrams": two to a row, set in under it. */
+.app-menu .more-diagrams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-left: var(--tc-space-6, 28px);
+}
+
 /* Bottom right, against the board's edge: fit, zoom and the shortcuts. */
 .zoom-panel {
   position: absolute;

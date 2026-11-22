@@ -17,6 +17,7 @@ import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-
 import { templateCards } from './template-cards';
 import type { BoardTemplateDto } from '../../api/generated/models/board-template-dto';
 import { facilitationControllerSetAgenda } from '../../api/generated/fn/facilitation/facilitation-controller-set-agenda';
+import { policiesControllerOnBoard } from '../../api/generated/fn/policies/policies-controller-on-board';
 import { boardsControllerGet } from '../../api/generated/fn/boards/boards-controller-get';
 import { boardsControllerRemove } from '../../api/generated/fn/boards/boards-controller-remove';
 import { boardsControllerRename } from '../../api/generated/fn/boards/boards-controller-rename';
@@ -70,7 +71,7 @@ import { ChatFeed } from './chat';
 import { Canvas, layoutLocked } from './canvas';
 import { BoardShare } from './board-share';
 import { BoardComments } from './board-comments';
-import { imagePins, openCounts } from './comments';
+import { imagePins, openCounts, pinOf } from './comments';
 import { commentsControllerList } from '../../api/generated/fn/comments/comments-controller-list';
 import { atLeast, type Role } from '../../core/roles';
 import { colorFor, type PresenceUser } from './presence';
@@ -121,11 +122,22 @@ export class BoardPage {
 
   /** From the route. */
   readonly id = input.required<string>();
+  /** From the route's query (`?comment=<note id>`, a notification's link): open that note or frame's thread. */
+  readonly comment = input<string>();
 
   protected readonly meta = resource({
     params: () => this.id(),
     loader: ({ params: id }) => this.#api.invoke(boardsControllerGet, { id }),
   });
+
+  /** What the workspace's policies let you do here (share, links, exports, feedback), with the reason for what they don't. */
+  protected readonly policy = resource({
+    params: () => this.id(),
+    loader: ({ params: id }) => this.#api.invoke(policiesControllerOnBoard, { id }),
+  });
+  /** Exports happen in the browser, so the policy is kept here: they're off until it's known to allow them. */
+  protected readonly canExport = computed(() => this.policy.hasValue() && this.policy.value().exports.allowed);
+  protected readonly exportRefusal = computed(() => (this.policy.hasValue() ? this.policy.value().exports.reason : null));
 
   protected readonly board = signal<BoardDoc | undefined>(undefined);
   protected readonly connection = signal<BoardConnection | undefined>(undefined);
@@ -367,13 +379,13 @@ export class BoardPage {
 
   /** The board as a picture, with its images. */
   async #picture(board: BoardDoc): Promise<HTMLCanvasElement> {
-    return boardCanvas(board, await loadImages(board, this.files()?.urls() ?? new Map()));
+    return boardCanvas(board, await loadImages(board, this.files()?.urls() ?? new Map(), this.files()));
   }
 
   protected async exportPng(): Promise<void> {
     this.exportOpen.set(false);
     const board = this.board();
-    if (!board) return;
+    if (!board || !this.canExport()) return;
     (await this.#picture(board)).toBlob((blob) => {
       if (!blob) return;
       download(`${fileName(this.title())}.png`, blob);
@@ -384,7 +396,7 @@ export class BoardPage {
   protected exportMarkdown(): void {
     this.exportOpen.set(false);
     const board = this.board();
-    if (!board) return;
+    if (!board || !this.canExport()) return;
     download(`${fileName(this.title())}.md`, new Blob([boardMarkdown(board, this.title() || 'Board')], { type: 'text/markdown' }));
     toast.success('Markdown saved', { description: `${fileName(this.title())}.md` });
   }
@@ -393,7 +405,7 @@ export class BoardPage {
   protected async exportPdf(): Promise<void> {
     this.exportOpen.set(false);
     const board = this.board();
-    if (!board) return;
+    if (!board || !this.canExport()) return;
     const src = (await this.#picture(board)).toDataURL('image/png');
     const frame = document.createElement('iframe');
     frame.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
@@ -859,13 +871,35 @@ export class BoardPage {
         view('gantt', 'Timeline on the board'),
         view('summary', 'Open the summary'),
         view('activity', 'Open activity and versions'),
-        { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },
-        { id: 'markdown', label: 'Export as Markdown', run: () => this.exportMarkdown() },
+        ...(this.canExport()
+          ? [
+              { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },
+              { id: 'markdown', label: 'Export as Markdown', run: () => this.exportMarkdown() },
+            ]
+          : []),
         ...(edit ? [{ id: 'next', label: 'Start the next session', run: () => void this.nextSession() }] : []),
       ];
       onCleanup(this.#commands.offer(commands));
     });
 
+    // A notification's link: once the board has loaded, select the note or frame and open its thread, then drop the
+    // query so going back or reloading doesn't do it again.
+    effect(() => {
+      const nodeId = this.comment();
+      const board = this.board();
+      const canvas = this.canvas();
+      if (!nodeId || !board || !canvas || this.status() === 'connecting') return;
+      untracked(() => {
+        this.panel.set('comments');
+        const there = [...board.notes(), ...board.frames(), ...board.items(), ...board.media()].some((n) => n.id === nodeId);
+        // A pin's thread, or one about something since deleted, opens by itself.
+        if (there && !pinOf(nodeId)) canvas.show([nodeId]);
+        else this.openPin({ nodeId });
+        const url = this.#router.parseUrl(this.#router.url);
+        delete url.queryParams['comment'];
+        void this.#router.navigateByUrl(url, { replaceUrl: true });
+      });
+    });
     // Selecting something else on the board shows its comments instead of a pin's.
     effect(() => {
       this.selectionIds();

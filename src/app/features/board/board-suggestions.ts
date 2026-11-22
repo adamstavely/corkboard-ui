@@ -9,6 +9,7 @@ import { suggestionsControllerReject } from '../../api/generated/fn/suggestions/
 import type { BoardDoc } from './board-doc';
 import { BoardChanges } from './board-changes';
 import { Canvas } from './canvas';
+import type { DiagramImages } from './diagram';
 import { proposedBoard, suggestionDetails, suggestionReason, type Suggestion } from './suggestions';
 import { changesSince } from './versions';
 
@@ -183,7 +184,7 @@ export class BoardSuggestions {
       <div class="body">
         <div class="stage">
           @if (proposed(); as board) {
-            <app-canvas [board]="board" [readOnly]="true" readOnlyLabel="Suggested" [fileUrls]="fileUrls()" />
+            <app-canvas [board]="board" [readOnly]="true" readOnlyLabel="Suggested" [fileUrls]="fileUrls()" [diagramImages]="diagramImages()" />
           }
         </div>
         <aside class="changes" aria-labelledby="suggested-heading">
@@ -266,6 +267,7 @@ export class SuggestionPreview {
   readonly current = input.required<BoardDoc>();
   readonly canEdit = input(false);
   readonly fileUrls = input<ReadonlyMap<string, string>>(new Map());
+  readonly diagramImages = input<DiagramImages | undefined>(undefined);
   readonly closed = output<void>();
 
   private readonly canvas = viewChild(Canvas);

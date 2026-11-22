@@ -1,12 +1,13 @@
 import { signal } from '@angular/core';
 import type { BoardFileDto } from '../../api/generated/models/board-file-dto';
+import type { DiagramImages } from './diagram';
 
 /**
  * A board's files as the page shows them. The API wants the bearer token, which an <img> can't send, so each file is
  * fetched once and kept as an object URL; uploads go up with progress. On a shared page the share link's token is the
  * credential instead (see `FileCache.forLink`), and nothing goes up.
  */
-export class FileCache {
+export class FileCache implements DiagramImages {
   readonly #urls = signal<ReadonlyMap<string, string>>(new Map());
   /** Object URLs of the files fetched so far, by file id. */
   readonly urls = this.#urls.asReadonly();
@@ -16,11 +17,12 @@ export class FileCache {
     private readonly boardId: string,
     private readonly token: () => string,
     private readonly link?: string,
+    private readonly pass?: string,
   ) {}
 
-  /** The files of the board a share link opens, fetched with the link. */
-  static forLink(boardId: string, linkToken: string): FileCache {
-    return new FileCache(boardId, () => '', linkToken);
+  /** The files of the board a share link opens, fetched with the link (and proof of its password, if it has one). */
+  static forLink(boardId: string, linkToken: string, pass?: string): FileCache {
+    return new FileCache(boardId, () => '', linkToken, pass);
   }
 
   #path(fileId = '') {
@@ -39,7 +41,7 @@ export class FileCache {
     if (have) return Promise.resolve(have);
     let loading = this.#loading.get(id);
     if (!loading) {
-      loading = fetch(this.#path(id), this.link ? {} : { headers: { Authorization: `Bearer ${this.token()}` } })
+      loading = fetch(this.#path(id), this.link ? (this.pass ? { headers: { 'X-Link-Pass': this.pass } } : {}) : { headers: { Authorization: `Bearer ${this.token()}` } })
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => {
           if (!blob) return undefined;
@@ -52,6 +54,34 @@ export class FileCache {
       this.#loading.set(id, loading);
     }
     return loading;
+  }
+
+  /** A file on the board as it is, for a diagram to put inside itself. */
+  async boardFile(id: string): Promise<Blob | undefined> {
+    const url = await this.urlOf(id);
+    return url ? fetch(url).then((res) => res.blob()) : undefined;
+  }
+
+  readonly #web = new Map<string, Promise<Blob | undefined>>();
+
+  /**
+   * A picture from the web for a diagram, fetched once through the API (which never fetches from a private address); on
+   * a shared page, only pictures the board's diagrams show.
+   */
+  webImage(url: string): Promise<Blob | undefined> {
+    let got = this.#web.get(url);
+    if (!got) {
+      const path = this.link ? `/api/shared/${encodeURIComponent(this.link)}/diagram-image` : '/api/diagram-image';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (!this.link) headers['Authorization'] = `Bearer ${this.token()}`;
+      got = fetch(path, { method: 'POST', headers, body: JSON.stringify({ url }) })
+        .then((res) => (res.ok ? res.blob() : undefined))
+        .catch(() => undefined);
+      // A miss is asked again next time; a picture is kept.
+      void got.then((blob) => !blob && this.#web.delete(url));
+      this.#web.set(url, got);
+    }
+    return got;
   }
 
   /**

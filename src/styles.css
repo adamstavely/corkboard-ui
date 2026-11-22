@@ -267,9 +267,22 @@ body {
 [data-ui='mmo'] > .app-menu .app-menu-item.danger {
   color: var(--tc-status-danger-fg);
 }
+/* Why a menu's items are turned off, above them. */
+.app-menu .app-menu-note {
+  max-width: 260px;
+  margin: 4px 8px;
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-xs, 12px);
+}
 .app-menu hr {
   width: 100%;
   margin: 4px 0;
   border: 0;
   border-top: 1px solid var(--tc-border-subtle);
+}
+
+/* Mentions in comment threads, painted over Trench Coat's text with the CSS Custom Highlight API (see mentions.ts). */
+::highlight(comment-mention) {
+  background-color: var(--tc-accent-subtle);
+  color: var(--tc-accent-text);
 }
