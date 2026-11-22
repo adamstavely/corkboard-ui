@@ -9,7 +9,7 @@ import { suggestionsControllerReject } from '../../api/generated/fn/suggestions/
 import type { BoardDoc } from './board-doc';
 import { BoardChanges } from './board-changes';
 import { Canvas } from './canvas';
-import { proposedBoard, suggestionDetails, type Suggestion } from './suggestions';
+import { proposedBoard, suggestionDetails, suggestionReason, type Suggestion } from './suggestions';
 import { changesSince } from './versions';
 
 const failure = (err: unknown, fallback: string) => {
@@ -37,7 +37,7 @@ async function decide(api: Api, boardId: string, s: Suggestion, accept: boolean)
   template: `
     <aside class="panel" aria-label="Suggestions">
       <div class="head">
-        <span class="note">{{ canEdit() ? "The model's changes, waiting for an updater to make them or turn them down." : 'Updaters and owners decide on these.' }}</span>
+        <span class="note">{{ canEdit() ? "Changes from the model and from people's agents, waiting for an updater to make them or turn them down." : 'Updaters and owners decide on these.' }}</span>
         <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
       </div>
       @for (s of list(); track s.id) {
@@ -45,7 +45,7 @@ async function decide(api: Api, boardId: string, s: Suggestion, accept: boolean)
           @if (canEdit()) {
             <tc-approval-card
               [heading]="s.action"
-              [description]="s.forName + ' asked: “' + s.asked + '”'"
+              [description]="reason(s)"
               [details]="details(s)"
               [consequences]="consequences"
               approveLabel="Accept"
@@ -60,7 +60,7 @@ async function decide(api: Api, boardId: string, s: Suggestion, accept: boolean)
           } @else {
             <div class="card">
               <strong>{{ s.action }}</strong>
-              <span>{{ s.forName }} asked: “{{ s.asked }}”</span>
+              <span>{{ reason(s) }}</span>
             </div>
           }
           <tc-button size="sm" variant="ghost" label="See it on the board" (click)="preview.emit(s)"></tc-button>
@@ -137,6 +137,7 @@ export class BoardSuggestions {
   readonly preview = output<Suggestion>();
 
   protected readonly details = suggestionDetails;
+  protected readonly reason = suggestionReason;
   protected readonly consequences = {
     approve: 'The changes are made on the board for everyone. You can undo them from History.',
     deny: 'Nothing on the board changes.',
@@ -171,7 +172,7 @@ export class BoardSuggestions {
       <div class="bar">
         <div class="what">
           <strong>{{ suggestion().action }}</strong>
-          <span>{{ suggestion().model }} for {{ suggestion().forName }} · a preview, not made yet</span>
+          <span>{{ suggestion().model }} for {{ suggestion().forName }}{{ suggestion().agent ? ' (an agent)' : '' }} · a preview, not made yet</span>
         </div>
         @if (canEdit()) {
           <tc-button size="sm" label="Accept" [loading]="busy() === 'accept'" [disabled]="!!busy()" (click)="decide(true)"></tc-button>
@@ -187,7 +188,7 @@ export class BoardSuggestions {
         </div>
         <aside class="changes" aria-labelledby="suggested-heading">
           <h2 id="suggested-heading">What it would change</h2>
-          <p class="muted">{{ suggestion().forName }} asked: “{{ suggestion().asked }}”</p>
+          <p class="muted">{{ reason(suggestion()) }}</p>
           @if (changes(); as c) {
             <app-board-changes [changes]="c" />
           }
@@ -260,6 +261,7 @@ export class SuggestionPreview {
 
   readonly boardId = input.required<string>();
   readonly suggestion = input.required<Suggestion>();
+  protected readonly reason = suggestionReason;
   /** The board as it is now, which the suggestion applies to. */
   readonly current = input.required<BoardDoc>();
   readonly canEdit = input(false);

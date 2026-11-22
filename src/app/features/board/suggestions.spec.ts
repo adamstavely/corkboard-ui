@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
-import { proposedBoard, suggestionDetails, SuggestionsFeed, type Suggestion } from './suggestions';
+import { proposedBoard, suggestionDetails, suggestionReason, SuggestionsFeed, type Suggestion } from './suggestions';
 import { changesSince } from './versions';
 
 const base: Omit<Suggestion, 'update'> = {
@@ -48,6 +48,13 @@ describe('suggestions', () => {
       { label: 'New frame', value: '“Speed”' },
       { label: 'Changes', value: '1 existing item' },
     ]);
+  });
+
+  it("names an agent's suggestion for the person whose token it used", () => {
+    const fromAgent = { ...base, model: 'Cursor', agent: true, asked: 'Sort the retro', update: '' };
+    expect(suggestionDetails(fromAgent)[0]).toEqual({ label: 'Agent', value: 'Cursor for Ada' });
+    expect(suggestionReason(fromAgent)).toBe('Cursor for Ada: “Sort the retro”');
+    expect(suggestionReason({ ...base, update: '' })).toBe('Ada asked: “Add ideas”');
   });
 
   it('follows the suggestions in the board document, oldest first', () => {

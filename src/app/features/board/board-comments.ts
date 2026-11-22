@@ -61,7 +61,7 @@ export class BoardComments {
       .sort((a, b) => Number(!!a.resolvedAt) - Number(!!b.resolvedAt))
       .map((t) => {
         const last = t.comments.at(-1);
-        return { id: t.id, nodeId: t.nodeId, label: nodeLabel(board, t.nodeId), resolved: !!t.resolvedAt, count: t.comments.length, last: last ? `${last.author.name}: ${last.body}` : '' };
+        return { id: t.id, nodeId: t.nodeId, label: nodeLabel(board, t.nodeId), resolved: !!t.resolvedAt, count: t.comments.length, last: last ? `${last.author.name}${last.via ? ` via ${last.via}` : ''}: ${last.body}` : '' };
       });
   });
   protected readonly resolvedCount = computed(() => this.threads().filter((t) => t.resolvedAt).length);

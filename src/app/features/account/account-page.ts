@@ -12,11 +12,12 @@ import { passkeysControllerRemove } from '../../api/generated/fn/auth/passkeys-c
 import type { PasskeyDto } from '../../api/generated/models/passkey-dto';
 import { Auth } from '../../core/auth';
 import { addPasskey, passkeyProblem } from '../../core/passkeys';
+import { AccessTokens } from './access-tokens';
 
-/** Your settings: passkeys (add one on this device or another, remove ones you no longer use) and how the assistant works for you. */
+/** Your settings: passkeys (add one on this device or another, remove ones you no longer use), how the assistant works for you, and access tokens for agents. */
 @Component({
   selector: 'app-account-page',
-  imports: [Button, DatePipe, Skeleton, Switch],
+  imports: [AccessTokens, Button, DatePipe, Skeleton, Switch],
   template: `
     <div class="page">
       <h1>Settings</h1>
@@ -68,6 +69,9 @@ import { addPasskey, passkeyProblem } from '../../core/passkeys';
           (tc-value-change)="$event.preventDefault(); setAsksFirst($event.detail.value)"
         ></tc-switch>
       }
+
+      <h2>Access tokens</h2>
+      <app-access-tokens />
     </div>
   `,
   styles: `
