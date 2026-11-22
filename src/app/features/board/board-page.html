@@ -346,6 +346,8 @@
             (parkingLot)="canvas()?.goToParkingLot()"
             (setEstimate)="setTaskEstimate($event.taskId, $event.estimate)"
             (chartVotes)="chartVotes($event)"
+            [canRecap]="canComment() && !!models.modelId()"
+            (writeRecap)="askRecap()"
           />
         }
         @if (chatOpen() && meta.hasValue() && meUser(); as me) {
@@ -364,6 +366,10 @@
             [isOwner]="isWorkspaceOwner()"
             [tasks]="tasks()"
             [boardTitle]="title()"
+            [recapWanted]="recapWanted()"
+            (recapTaken)="recapWanted.set(false)"
+            [sendRefusal]="exportRefusal()"
+            (place)="placeRecap($event)"
             (typingChange)="connection()?.presence?.setTyping($event)"
             (closed)="chatOpen.set(false)"
             (show)="canvas()?.show($event)"

@@ -13,9 +13,12 @@ import { Session } from '../../core/session';
 import { chatControllerSend } from '../../api/generated/fn/chat/chat-controller-send';
 import { boardsControllerMembers } from '../../api/generated/fn/boards/boards-controller-members';
 import { recapControllerRecap } from '../../api/generated/fn/summary/recap-controller-recap';
+import { integrationsControllerExport } from '../../api/generated/fn/integrations/integrations-controller-export';
+import { integrationsControllerList } from '../../api/generated/fn/integrations/integrations-controller-list';
+import type { SessionRecapDto } from '../../api/generated/models/session-recap-dto';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { download, fileName } from './export';
-import { recapMarkdown, recapTasks } from './recap';
+import { recapMarkdown, recapTasks, recapTasksLine } from './recap';
 import type { TaskFeed } from './tasks';
 import { modelChoice } from './model-choice';
 import { MODEL_AUTHOR, scopeLine, threadItems, threadPeople, type ChatMessage } from './chat';
@@ -93,7 +96,14 @@ export class BoardChat {
   /** The board's tasks, for a recap's actions; and its title, for the recap's file. */
   readonly tasks = input<TaskFeed | undefined>(undefined);
   readonly boardTitle = input('');
+  /** Asked from elsewhere on the page (the end of a facilitated session) to write the recap; it says when it's taken it. */
+  readonly recapWanted = input(false);
+  readonly recapTaken = output<void>();
+  /** Why the workspace's policy stops tasks going to an issue tracker; null when it doesn't. */
+  readonly sendRefusal = input<string | null>(null);
   readonly closed = output<void>();
+  /** Put the recap on the board, as a frame beside what's there. */
+  readonly place = output<SessionRecapDto>();
   /** Whether this person is writing a message, for everyone else's typing dots. */
   readonly typingChange = output<boolean>();
   /** Show these notes on the board: the ones the last answer is about. */
@@ -175,7 +185,30 @@ export class BoardChat {
     toast.success('Recap saved', { description: name });
   }
 
-  protected addRecapTasks(): void {
+  readonly #recapOnRequest = effect(() => {
+    // Once the models are known, so it goes to one.
+    if (!this.recapWanted() || !this.models.hasValue()) return;
+    untracked(() => {
+      this.recapTaken.emit();
+      void this.recap();
+    });
+  });
+
+  /** The workspace's issue tracker the recap's tasks also go to, when it has one and its policy lets them. */
+  readonly #trackers = resource({
+    params: () => this.orgId(),
+    loader: ({ params: orgId }) => this.#api.invoke(integrationsControllerList, { orgId }),
+  });
+  protected readonly tracker = computed(() => (this.sendRefusal() || !this.#trackers.hasValue() ? null : (this.#trackers.value()[0] ?? null)));
+  /** Whether the tasks go to the tracker too; on unless they untick it. */
+  protected readonly toTracker = signal(true);
+  protected readonly recapTasksHint = computed(() => {
+    const r = this.latestRecap();
+    const tracker = this.tracker();
+    return r ? recapTasksLine(r.actions.length, tracker && this.toTracker() ? tracker.label : null) : '';
+  });
+
+  protected async addRecapTasks(): Promise<void> {
     const r = this.latestRecap();
     const feed = this.tasks();
     if (!r || !feed || this.tasked().has(r.at)) return;
@@ -183,6 +216,16 @@ export class BoardChat {
     const added = feed.add(recapTasks(r, people));
     this.tasked.update((s) => new Set(s).add(r.at));
     toast.success(`Added ${added.length} task${added.length === 1 ? '' : 's'}`, { description: added.map((t) => t.key).join(', ') });
+    const tracker = this.tracker();
+    if (!tracker || !this.toTracker() || !added.length) return;
+    try {
+      const sent = await this.#api.invoke(integrationsControllerExport, { id: this.boardId(), body: { integrationId: tracker.id, taskIds: added.map((t) => t.id) } });
+      if (sent.exported.length) toast.success(`Sent ${sent.exported.length} to ${tracker.label}`, { description: sent.exported.map((e) => `${e.taskKey} → ${e.issueKey}`).join(' · ') });
+      if (sent.failed.length) toast.error(`${sent.failed.length} task${sent.failed.length === 1 ? '' : 's'} weren't sent to ${tracker.label}`, { description: `${sent.failed[0].reason} Send them from Tasks.` });
+    } catch (err) {
+      const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+      toast.error(`The tasks weren't sent to ${tracker.label}`, { description: `${typeof message === 'string' ? message : 'Try again'}: send them from Tasks.` });
+    }
   }
 
   #typingTimer: ReturnType<typeof setTimeout> | undefined;

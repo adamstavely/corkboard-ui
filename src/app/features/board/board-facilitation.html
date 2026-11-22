@@ -493,6 +493,13 @@
           <p class="hint">Plan the session a step at a time. Each step starts its timer and brings everyone to its frame.</p>
           <div class="row"><tc-button size="sm" variant="secondary" label="Plan an agenda" (click)="editAgenda()"></tc-button></div>
         }
+        @if (finished() && !step() && !drafting()) {
+          <div class="row finished" role="group" aria-label="Session finished">
+            <app-icon name="done" />
+            <span class="grow">Session finished.</span>
+            <tc-button size="sm" variant="primary" label="Write the recap" (click)="recap()"></tc-button>
+          </div>
+        }
         @if (step() && !drafting()) {
           <div class="row" role="group" aria-label="Tools for this step">
             <tc-button size="sm" variant="ghost" label="Hidden writing" (click)="openTool('writing')"></tc-button>

@@ -36,17 +36,22 @@
   }
 
   @if (latestRecap(); as r) {
-    <div class="answer-actions" role="group" aria-label="Latest recap">
+    <div class="answer-actions recap-actions" role="group" aria-label="Latest recap">
       <span class="recap-label">Recap: {{ r.title }}</span>
       <tc-button size="sm" variant="ghost" label="Save as Markdown" (click)="saveRecap()"></tc-button>
+      @if (canEdit()) {
+        <tc-button size="sm" variant="ghost" label="Put on the board" (click)="place.emit(r)"></tc-button>
+      }
       @if (canEdit() && tasks() && r.actions.length) {
-        <tc-button
-          size="sm"
-          variant="secondary"
-          [label]="tasked().has(r.at) ? 'Added to tasks' : 'Add ' + r.actions.length + ' action' + (r.actions.length === 1 ? '' : 's') + ' to tasks'"
-          [disabled]="tasked().has(r.at)"
-          (click)="addRecapTasks()"
-        ></tc-button>
+        <tc-button size="sm" variant="secondary" [label]="tasked().has(r.at) ? 'Made into tasks' : 'Make these tasks'" [disabled]="tasked().has(r.at)" (click)="addRecapTasks()"></tc-button>
+        @if (!tasked().has(r.at)) {
+          <p class="recap-hint">
+            {{ recapTasksHint() }}
+            @if (tracker(); as t) {
+              <label class="check"><input type="checkbox" [checked]="toTracker()" (change)="toTracker.set($any($event.target).checked)" /> Send to {{ t.label }}</label>
+            }
+          </p>
+        }
       }
     </div>
   }
