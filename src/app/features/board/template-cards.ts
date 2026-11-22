@@ -24,8 +24,10 @@ function preview(t: BoardTemplateDto): TemplateResult {
   const l = t.layout;
   const boxes = [
     ...(l.frames ?? []).map((f) => ({ ...f, kind: 'frame' as const })),
+    // See-through shapes lie under the notes, as on the board.
+    ...(l.shapes ?? []).filter((s) => s.fill === 'tint').map((s) => ({ ...s, kind: 'shape' as const })),
     ...(l.notes ?? []).map((n) => ({ ...n, ...NOTE_SIZE, kind: 'note' as const })),
-    ...(l.shapes ?? []).map((s) => ({ ...s, kind: 'shape' as const })),
+    ...(l.shapes ?? []).filter((s) => s.fill !== 'tint').map((s) => ({ ...s, kind: 'shape' as const })),
     ...(l.texts ?? []).map((x) => ({ x: x.x, y: x.y, w: x.w ?? 240, h: 32, kind: 'text' as const })),
     ...(l.tables ?? []).map((x) => {
       const cols = Math.max(x.cols ?? 1, ...x.cells.map((r) => r.length), 1);
@@ -47,7 +49,8 @@ function preview(t: BoardTemplateDto): TemplateResult {
             stroke="var(--tc-border-default)" stroke-width=${stroke} stroke-dasharray=${b.border === 'dashed' ? `${stroke * 4} ${stroke * 3}` : 'none'} />`;
         case 'shape':
           return b.shape === 'ellipse'
-            ? svg`<ellipse cx=${b.x + b.w / 2} cy=${b.y + b.h / 2} rx=${b.w / 2} ry=${b.h / 2} fill=${fillOf(b.color, 'var(--note-blue)')} />`
+            ? svg`<ellipse cx=${b.x + b.w / 2} cy=${b.y + b.h / 2} rx=${b.w / 2} ry=${b.h / 2} fill=${fillOf(b.color, 'var(--note-blue)')}
+                fill-opacity=${b.fill === 'tint' ? 0.45 : 1} stroke=${b.fill === 'tint' ? 'var(--tc-text-muted)' : 'none'} stroke-width=${stroke} />`
             : b.shape === 'triangle'
               ? svg`<polygon points="${b.x + b.w / 2},${b.y} ${b.x + b.w},${b.y + b.h} ${b.x},${b.y + b.h}" fill=${fillOf(b.color, 'var(--note-blue)')} />`
               : b.shape === 'diamond'

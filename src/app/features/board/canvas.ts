@@ -441,6 +441,11 @@ export class Canvas {
   /** The shape or text being written in, or the table cell. */
   protected readonly itemEditing = signal<{ id: string; cell?: string } | null>(null);
   protected readonly selectedShapes = computed(() => this.board().items().filter((i) => i.kind === 'shape' && this.selection().has(i.id)).map((i) => i.id));
+  /** Whether every selected shape is see-through, so the menu's tick shows and choosing it makes them solid again. */
+  protected readonly shapesSeeThrough = computed(() => {
+    const picked = this.board().items().filter((i) => i.kind === 'shape' && this.selection().has(i.id));
+    return picked.length > 0 && picked.every((i) => i.kind === 'shape' && i.fill === 'tint');
+  });
   /** The one diagram selected, by itself, to edit its text. */
   protected readonly oneDiagram = computed(() => {
     const [id, ...more] = this.selection();
