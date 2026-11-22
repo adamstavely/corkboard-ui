@@ -1,3 +1,5 @@
+import { facilitationControllerSeen } from '../../api/generated/fn/facilitation/facilitation-controller-seen';
+import { FrameLooks } from './participation';
 import { savedTemplatesControllerList } from '../../api/generated/fn/boards/saved-templates-controller-list';
 import { savedTemplatesControllerRemove } from '../../api/generated/fn/boards/saved-templates-controller-remove';
 import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
@@ -311,6 +313,23 @@ export class BoardPage {
     this.pinTarget.set(target);
     this.panel.set('comments');
   }
+  /** The frames this person looks at, counted for the facilitator's participation view: never which ones, by whom, to anyone else. */
+  #frameLooks: FrameLooks | undefined;
+  readonly #looks = effect((onCleanup) => {
+    const id = this.id();
+    if (!this.meUser()) return;
+    const looks = new FrameLooks((frameIds) => this.#api.invoke(facilitationControllerSeen, { id, body: { frameIds } }));
+    this.#frameLooks = looks;
+    onCleanup(() => {
+      looks.destroy();
+      this.#frameLooks = undefined;
+    });
+  });
+
+  protected onFramesInView(frameIds: readonly string[]): void {
+    this.#frameLooks?.inView(frameIds);
+  }
+
   protected readonly meUser = computed(() => {
     const me = this.#me();
     return me ? { id: me.id, name: me.name } : undefined;

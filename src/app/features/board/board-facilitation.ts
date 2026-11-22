@@ -3,6 +3,7 @@ import { Component, type ElementRef, computed, effect, inject, input, output, si
 import { Icon, type IconName } from '../../shared/icon';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { Select } from '@adamstavely/trenchcoat/angular/select';
+import { DataTable } from '@adamstavely/trenchcoat/angular/data-table';
 import { Api } from '../../api/generated/api';
 import { facilitationControllerSetTimer } from '../../api/generated/fn/facilitation/facilitation-controller-set-timer';
 import { facilitationControllerSetVoting } from '../../api/generated/fn/facilitation/facilitation-controller-set-voting';
@@ -28,6 +29,9 @@ import { pokerControllerEstimate } from '../../api/generated/fn/facilitation/pok
 import { pokerControllerMine } from '../../api/generated/fn/facilitation/poker-controller-mine';
 import { pokerControllerReveal } from '../../api/generated/fn/facilitation/poker-controller-reveal';
 import type { PokerEstimateDto } from '../../api/generated/models/poker-estimate-dto';
+import { facilitationControllerParticipation } from '../../api/generated/fn/facilitation/facilitation-controller-participation';
+import type { ParticipationDto } from '../../api/generated/models/participation-dto';
+import { FRAME_COLUMNS, frameRows, PEOPLE_COLUMNS, peopleRows, sessionLine, summaryLines, TONES, unseenLine } from './participation';
 import { pokerControllerStart } from '../../api/generated/fn/facilitation/poker-controller-start';
 import { serverNow } from '../../core/server-clock';
 import { activityLabel, formatRemaining, pokerSummary, pollTally, POKER_DECKS, ranking, type Poker, type PokerDeck, type StepActivity, type Agenda, type Poll, type Breakouts, type Facilitator, type Timer, type Voting, type Writing } from './facilitation';
@@ -65,7 +69,7 @@ function activityFrom(s: DraftStep): StepActivity | null | string {
 }
 const VOTE_OPTIONS = [1, 2, 3, 5, 8].map((n) => ({ value: String(n), label: `${n} vote${n === 1 ? '' : 's'} each` }));
 /** The tools in the facilitator's dock, each opening its setup over it; the room (lead, private mode, parking lot) comes last. */
-type DockTool = 'timer' | 'vote' | 'poll' | 'poker' | 'writing' | 'breakouts' | 'room';
+type DockTool = 'timer' | 'vote' | 'poll' | 'poker' | 'writing' | 'breakouts' | 'participation' | 'room';
 const TOOLS: { id: Exclude<DockTool, 'room'>; label: string; icon: IconName }[] = [
   { id: 'timer', label: 'Timer', icon: 'timer' },
   { id: 'vote', label: 'Dot voting', icon: 'vote' },
@@ -73,7 +77,11 @@ const TOOLS: { id: Exclude<DockTool, 'room'>; label: string; icon: IconName }[] 
   { id: 'poker', label: 'Planning poker', icon: 'poker' },
   { id: 'writing', label: 'Hidden writing', icon: 'hidden' },
   { id: 'breakouts', label: 'Breakouts', icon: 'users' },
+  { id: 'participation', label: 'Participation', icon: 'participation' },
 ];
+
+/** The participation view is brought up to date this often while it's open. */
+const PARTICIPATION_MS = 20_000;
 
 /** "Time's up" stays this long after the timer runs out. */
 const TIMES_UP_MS = 60_000;
@@ -86,7 +94,7 @@ const TIMES_UP_MS = 60_000;
  */
 @Component({
   selector: 'app-board-facilitation',
-  imports: [Button, Select, Icon],
+  imports: [Button, Select, DataTable, Icon],
   templateUrl: './board-facilitation.html',
   styleUrl: './board-facilitation.css',
 })
@@ -167,6 +175,7 @@ export class BoardFacilitation {
     poker: !!this.poker() && !this.poker()!.revealed,
     writing: this.writing().open,
     breakouts: this.breakouts().open,
+    participation: false,
     room: this.privacy().on || this.facilitating(),
   }));
 
@@ -189,6 +198,32 @@ export class BoardFacilitation {
     const tool = this.tool();
     this.tool.set(null);
     if (tool) document.querySelector<HTMLElement>(`[data-dock-tool="${tool}"]`)?.focus();
+  }
+
+  // ── Participation: who has taken part, and which frames nobody has looked at. Only for those who run the session. ──
+
+  protected readonly participation = signal<ParticipationDto | null>(null);
+  protected readonly participationProblem = signal('');
+  protected readonly peopleColumns = PEOPLE_COLUMNS;
+  protected readonly frameColumns = FRAME_COLUMNS;
+  protected readonly tones = TONES;
+  protected readonly peopleRows = computed(() => (this.participation() ? peopleRows(this.participation()!) : []));
+  protected readonly frameRows = computed(() => (this.participation() ? frameRows(this.participation()!) : []));
+  protected readonly summary = computed(() => (this.participation() ? summaryLines(this.participation()!) : []));
+  protected readonly unseen = computed(() => (this.participation() ? unseenLine(this.participation()!) : null));
+  protected readonly sessionLine = sessionLine;
+
+  async #loadParticipation(): Promise<void> {
+    try {
+      this.participation.set(await this.#api.invoke(facilitationControllerParticipation, { id: this.boardId() }));
+      this.participationProblem.set('');
+    } catch {
+      this.participationProblem.set("Couldn't load who has taken part. It'll try again shortly.");
+    }
+  }
+
+  protected refreshParticipation(): void {
+    void this.#loadParticipation();
   }
 
   protected readonly timerMinutes = TIMER_MINUTES;
@@ -217,6 +252,13 @@ export class BoardFacilitation {
       const round = this.poker()?.round;
       this.myEstimate.set(null);
       if (round && untracked(this.canVote)) void this.#loadMyEstimate(round);
+    });
+    // While the participation view is open, it's kept up to date.
+    effect((onCleanup) => {
+      if (this.tool() !== 'participation' || !this.canRun() || !this.controlsOpen()) return;
+      untracked(() => void this.#loadParticipation());
+      const every = setInterval(() => void this.#loadParticipation(), PARTICIPATION_MS);
+      onCleanup(() => clearInterval(every));
     });
     effect((onCleanup) => {
       if (this.timer().endsAt === null) return;

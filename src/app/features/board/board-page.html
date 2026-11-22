@@ -218,6 +218,7 @@
           [votesLeft]="votesLeft()"
           (vote)="onVote($event.noteId, $event.add)"
           (viewChange)="onView($event)"
+          (framesInView)="onFramesInView($event)"
           [reactions]="reactions()"
           [canReact]="canComment()"
           (react)="onReact($event.nodeId, $event.emoji, $event.on)"

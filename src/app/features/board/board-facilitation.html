@@ -201,7 +201,7 @@
 @if (controlsOpen() && canRun()) {
   <!-- One tool's setup at a time, over the dock: what it is and how to start it, or how it's going. -->
   @if (tool(); as t) {
-    <div #pop class="dock-pop" role="dialog" tabindex="-1" [attr.aria-labelledby]="'pop-' + t" (keydown.escape)="closeTool()">
+    <div #pop class="dock-pop" [class.wide]="t === 'participation'" role="dialog" tabindex="-1" [attr.aria-labelledby]="'pop-' + t" (keydown.escape)="closeTool()">
       <div class="head">
         <h3 [id]="'pop-' + t"><app-icon [name]="toolIcon(t)" /> {{ toolLabel(t) }}</h3>
         <button type="button" class="icon-btn" aria-label="Close" data-tip="Close" (click)="closeTool()"><app-icon name="close" /></button>
@@ -303,6 +303,34 @@
           } @else {
             <p class="hint">Add two or more frames to split people into groups.</p>
           }
+        }
+        @case ('participation') {
+          <p class="hint private-note"><app-icon name="hidden" /> For the facilitator only: participants never see this.</p>
+          @if (participation(); as p) {
+            <p class="hint">{{ sessionLine(p) }}.</p>
+            @for (line of summary(); track $index) {
+              <p class="summary-line">{{ line }}</p>
+            }
+            @if (peopleRows().length) {
+              <tc-data-table heading="People, quietest first" [columns]="peopleColumns" [rows]="peopleRows()" [tagTones]="tones" readonly></tc-data-table>
+            }
+            @if (frameRows().length) {
+              @if (unseen(); as u) {
+                <p class="summary-line"><app-icon name="eye" /> {{ u }}</p>
+              }
+              <tc-data-table heading="Frames" [columns]="frameColumns" [rows]="frameRows()" [tagTones]="tones" readonly></tc-data-table>
+            }
+            <p class="hint">
+              A frame counts as looked at once it's been on someone's screen for a few seconds. Notes count while they're still on the board. Anonymous notes and feedback participants are only
+              counted, never named.
+            </p>
+          } @else if (!participationProblem()) {
+            <p class="hint">Loading…</p>
+          }
+          @if (participationProblem()) {
+            <p class="problem" role="alert">{{ participationProblem() }}</p>
+          }
+          <div class="row"><tc-button size="sm" variant="ghost" label="Refresh" (click)="refreshParticipation()"></tc-button></div>
         }
         @case ('room') {
           <h4><app-icon name="facilitator" /> Lead the session</h4>
