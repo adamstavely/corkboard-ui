@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
-import { actionItemNotes, fromTask, ownerAndText, TaskFeed, toTask, type StoredTask } from './tasks';
+import { actionItemNotes, fromTask, ownerAndText, syncedAgo, TaskFeed, toTask, type StoredTask } from './tasks';
 
 /** A note's text the way Tiptap stores it, with `**x**` lines bold. */
 function fragmentOf(board: BoardDoc, id: string, lines: string[]): void {
@@ -135,5 +135,22 @@ describe('tasks', () => {
     const back = fromTask({ ...shown, title: 'Write the runbook' }, stored);
     expect(back).toMatchObject({ key: 'T-3', title: 'Write the runbook', external: stored.external });
     expect(fromTask({ ...shown, key: 'T-9 · X-1' }, undefined).key).toBe('T-9');
+  });
+
+  it('stamps a change to what is synced with its issue, and keeps the stamp for other changes', () => {
+    const stored: StoredTask = { id: 'a', key: 'T-1', title: 'Runbook', status: 'todo', priority: 0, labels: [], created: '2026-11-13T10:00:00Z', updated: '2026-11-13T11:00:00.000Z' };
+    const now = Date.parse('2026-11-14T09:00:00Z');
+    const shown = toTask(stored, now);
+    expect(fromTask({ ...shown, status: 'doing' }, stored, now).updated).toBe('2026-11-14T09:00:00.000Z');
+    expect(fromTask({ ...shown, assignee: 'u1' }, stored, now).updated).toBe('2026-11-14T09:00:00.000Z');
+    expect(fromTask({ ...shown, priority: 3 }, stored, now).updated).toBe('2026-11-13T11:00:00.000Z');
+  });
+
+  it('says when a linked task was last synced', () => {
+    const now = Date.parse('2026-11-14T09:00:00Z');
+    expect(syncedAgo(null, now)).toBe('Not synced yet');
+    expect(syncedAgo('2026-11-14T08:59:30Z', now)).toBe('Synced just now');
+    expect(syncedAgo('2026-11-14T08:55:00Z', now)).toMatch(/^Synced 5 minutes ago$/);
+    expect(syncedAgo('2026-11-14T06:00:00Z', now)).toMatch(/^Synced 3 hours ago$/);
   });
 });

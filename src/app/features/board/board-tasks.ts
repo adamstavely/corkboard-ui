@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, output, resource, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, input, output, resource, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { TaskBoard } from '@adamstavely/trenchcoat/angular/task-board';
 import type { TaskBoardTasksChange, TaskLabel } from '@adamstavely/trenchcoat/task-board';
@@ -7,10 +7,12 @@ import { Api } from '../../api/generated/api';
 import { boardsControllerMembers } from '../../api/generated/fn/boards/boards-controller-members';
 import { integrationsControllerExport } from '../../api/generated/fn/integrations/integrations-controller-export';
 import { integrationsControllerList } from '../../api/generated/fn/integrations/integrations-controller-list';
+import { integrationsControllerSyncNow } from '../../api/generated/fn/integrations/integrations-controller-sync-now';
+import { integrationsControllerSyncStatus } from '../../api/generated/fn/integrations/integrations-controller-sync-status';
 import type { BoardDoc } from './board-doc';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { personNamed } from './recap';
-import { ACTION_LABEL, actionItemNotes, fromTask, ownerAndText, TASK_STATUSES, toTask, type TaskFeed } from './tasks';
+import { ACTION_LABEL, actionItemNotes, fromTask, ownerAndText, syncedAgo, TASK_STATUSES, toTask, TRACKER_NAMES, type TaskFeed } from './tasks';
 import { Icon } from '../../shared/icon';
 
 const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'var(--tc-chart-1)' }];
@@ -44,12 +46,28 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
         }
       </div>
       @if (linked().length) {
-        <p class="linked">
-          Sent:
-          @for (t of linked(); track t.id) {
-            <a [href]="t.url" target="_blank" rel="noopener noreferrer">{{ t.key }} <app-icon name="arrowRight" /> {{ t.issue }}</a>
+        <div class="sync">
+          <ul class="linked" aria-label="Tasks sent to issue trackers">
+            @for (t of linked(); track t.id) {
+              <li>
+                <a [href]="t.url" target="_blank" rel="noopener noreferrer">{{ t.key }} <app-icon name="arrowRight" /> {{ t.issue }}</a>
+                <span class="when">{{ t.synced }}</span>
+                @if (t.trackerAssignee) {
+                  <span class="who">Assigned to {{ t.trackerAssignee }} in {{ t.tracker }}</span>
+                }
+              </li>
+            }
+          </ul>
+          @if (canEdit()) {
+            <tc-button size="sm" variant="secondary" label="Sync now" [loading]="syncing()" (click)="syncNow()"></tc-button>
           }
-        </p>
+        </div>
+        @for (s of failing(); track s.integrationId) {
+          <p class="sync-error" role="status">
+            <app-icon name="cloudOff" />
+            <span><strong>{{ s.label }}</strong> isn't syncing: {{ s.error }}{{ s.retry }}</span>
+          </p>
+        }
       }
       @if (canEdit() && held().length) {
         <div class="held" role="status">
@@ -116,16 +134,37 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
       font: inherit;
       font-size: var(--tc-font-size-sm);
     }
+    .sync {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--tc-space-2);
+    }
     .linked {
       display: flex;
+      flex: 1;
       flex-wrap: wrap;
-      gap: var(--tc-space-2);
+      gap: var(--tc-space-1) var(--tc-space-4);
       margin: 0;
+      padding: 0;
+      list-style: none;
       color: var(--tc-text-muted);
       font-size: var(--tc-font-size-sm);
     }
+    .linked li {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--tc-space-1);
+    }
     .linked a {
       color: var(--tc-accent-text);
+    }
+    .sync-error {
+      display: flex;
+      align-items: center;
+      gap: var(--tc-space-2);
+      margin: 0;
+      color: var(--tc-status-danger-fg);
+      font-size: var(--tc-font-size-sm);
     }
     .held {
       display: flex;
@@ -179,12 +218,72 @@ export class BoardTasks {
   protected readonly sending = signal(false);
   /** Open tasks not sent anywhere yet. */
   protected readonly unsent = computed(() => this.feed().tasks().filter((t) => t.status !== 'done' && !t.external).length);
-  protected readonly linked = computed(() =>
-    this.feed()
+  // ── Keeping sent tasks in step with their issues (the API syncs title, status and assignee both ways) ──
+
+  /** Ticks every half minute, so "Synced 2 minutes ago" stays true. */
+  readonly #now = signal(Date.now());
+  readonly #linkedCount = computed(() => this.feed().tasks().filter((t) => t.external).length);
+  readonly #sync = resource({
+    params: () => (this.#linkedCount() ? { id: this.boardId(), linked: this.#linkedCount() } : undefined),
+    loader: ({ params }) => this.#api.invoke(integrationsControllerSyncStatus, { id: params.id }),
+  });
+  protected readonly syncing = signal(false);
+
+  constructor() {
+    const tick = setInterval(() => {
+      this.#now.set(Date.now());
+      // The API syncs on its own every couple of minutes: catch up with it now and then.
+      if (this.#now() % 120_000 < 30_000 && this.#sync.hasValue()) this.#sync.reload();
+    }, 30_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(tick));
+  }
+
+  protected readonly linked = computed(() => {
+    const synced = new Map((this.#sync.hasValue() ? this.#sync.value().tasks : []).map((t) => [t.taskId, t.syncedAt]));
+    const now = this.#now();
+    return this.feed()
       .tasks()
       .filter((t) => t.external && /^https:\/\//.test(t.external.url))
-      .map((t) => ({ id: t.id, key: t.key, issue: t.external!.key, url: t.external!.url })),
+      .map((t) => ({
+        id: t.id,
+        key: t.key,
+        issue: t.external!.key,
+        url: t.external!.url,
+        synced: syncedAgo(synced.get(t.id), now),
+        tracker: TRACKER_NAMES[t.external!.kind] ?? t.external!.kind,
+        // Someone the issue is assigned to in the tracker who isn't on this board.
+        trackerAssignee: t.assignee ? undefined : t.external!.assignee,
+      }));
+  });
+
+  /** Trackers that are failing to sync, and when they'll be tried again. */
+  protected readonly failing = computed(() =>
+    (this.#sync.hasValue() ? this.#sync.value().trackers : [])
+      .filter((s) => s.error)
+      .map((s) => ({
+        integrationId: s.integrationId,
+        label: s.label,
+        error: s.error!.replace(/\.$/, ''),
+        retry: s.retryAt ? `. Trying again at ${new Date(s.retryAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}.` : '.',
+      })),
   );
+
+  protected async syncNow(): Promise<void> {
+    this.syncing.set(true);
+    try {
+      const r = await this.#api.invoke(integrationsControllerSyncNow, { id: this.boardId() });
+      this.#sync.set(r);
+      this.#now.set(Date.now());
+      const down = r.trackers.filter((s) => s.error);
+      if (down.length) toast.error(`${down[0].label} isn't syncing`, { description: down[0].error ?? undefined });
+      else toast.success('Synced with the issue trackers');
+    } catch (err) {
+      const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+      toast.error("The tasks couldn't be synced", { description: typeof message === 'string' ? message : 'Try again.' });
+    } finally {
+      this.syncing.set(false);
+    }
+  }
 
   protected pick(id: string): void {
     this.#picked.set(id);
