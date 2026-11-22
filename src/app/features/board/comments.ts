@@ -3,6 +3,7 @@ import * as Y from 'yjs';
 import type { CommentThreadDto } from '../../api/generated/models/comment-thread-dto';
 import { trackText, type BoardDoc } from './board-doc';
 import { describeThing } from './describe';
+import { plainMentions } from './mentions';
 
 /** Plain text of a note, for naming it: its lines run together. */
 export function plainText(fragment: Y.XmlFragment): string {
@@ -82,6 +83,7 @@ export function messagesOf(thread: CommentThreadDto | undefined, meId: string | 
     id: c.id,
     author: { name: c.author.id === meId ? `${c.author.name} (you)` : c.author.name },
     createdAt: new Date(c.createdAt),
-    text: c.body,
+    // Picked mentions read as "@Name"; they're highlighted where the thread shows (see paintMentions).
+    text: plainMentions(c.body),
   }));
 }

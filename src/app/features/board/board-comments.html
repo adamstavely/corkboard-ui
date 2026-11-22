@@ -21,6 +21,14 @@
         [onReply]="onReply"
         (tc-messages-change)="onMessages($event)"
       ></tc-comment-thread>
+      @if (canComment()) {
+        <tc-mention-picker [target]="replyField()" [triggers]="triggers()" placement="above" (tc-pick)="onPick($event)"></tc-mention-picker>
+        <div role="status">
+          @if (unreachable(); as unreachable) {
+            <p class="note warn">{{ unreachable }}</p>
+          }
+        </div>
+      }
     } @else {
       <p class="note">No comments on this yet.</p>
     }
