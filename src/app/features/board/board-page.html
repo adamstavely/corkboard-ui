@@ -298,11 +298,21 @@
             (closed)="previewSuggestion(null)"
           />
         }
+        @if (replaying()) {
+          <app-board-replay
+            [boardId]="id()"
+            [privateMode]="privateMode()"
+            [fileUrls]="files()?.urls() ?? emptyUrls"
+            [diagramImages]="files()"
+            (closed)="replaying.set(false)"
+          />
+        }
         @if (previewing(); as v) {
           <app-version-preview
             [boardId]="id()"
             [version]="v"
             [current]="board()!"
+            [privateMode]="privateMode()"
             [canEdit]="canEdit()"
             [fileUrls]="files()?.urls() ?? emptyUrls"
           [diagramImages]="files()"
@@ -428,7 +438,7 @@
           />
         }
         @if (panel() === 'activity') {
-          <app-board-activity [boardId]="id()" [canEdit]="canEdit()" [refresh]="versionsChanged()" (preview)="previewing.set($event)" (closed)="panel.set(null)" />
+          <app-board-activity [boardId]="id()" [canEdit]="canEdit()" [refresh]="versionsChanged()" (preview)="previewing.set($event)" (replay)="replay()" (closed)="panel.set(null)" />
         }
         @if (away(); as a) {
           <div class="away">

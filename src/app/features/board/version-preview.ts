@@ -37,7 +37,7 @@ const when = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'nume
       <div class="body">
         <div class="stage">
           @if (saved(); as board) {
-            <app-canvas [board]="board" [readOnly]="true" readOnlyLabel="Saved version" [fileUrls]="fileUrls()" [diagramImages]="diagramImages()" />
+            <app-canvas [board]="board" [readOnly]="true" readOnlyLabel="Saved version" [privateMode]="namesHidden()" [fileUrls]="fileUrls()" [diagramImages]="diagramImages()" />
           } @else if (problem()) {
             <p class="problem" role="alert">{{ problem() }}</p>
           } @else {
@@ -128,6 +128,8 @@ export class VersionPreview {
   /** The board as it is now, to compare with. */
   readonly current = input.required<BoardDoc>();
   readonly canEdit = input(false);
+  /** The board is in private mode now: names stay hidden here too. */
+  readonly privateMode = input(false);
   readonly fileUrls = input<ReadonlyMap<string, string>>(new Map());
   readonly diagramImages = input<DiagramImages | undefined>(undefined);
   readonly closed = output<void>();
@@ -144,6 +146,8 @@ export class VersionPreview {
     const saved = this.saved();
     return saved ? changesSince(saved, this.current()) : null;
   });
+  /** Names stay hidden while the board is in private mode, or when the version was saved in it. */
+  protected readonly namesHidden = computed(() => this.privateMode() || this.saved()?.doc.getMap('privacy').get('on') === true);
   protected readonly nothing = computed(() => !!this.changes() && unchanged(this.changes()!));
 
   constructor() {

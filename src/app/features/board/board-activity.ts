@@ -37,6 +37,7 @@ const problem = (err: unknown, fallback: string) => {
       <section class="versions" aria-labelledby="versions-heading">
         <div class="versions-head">
           <h2 id="versions-heading">Versions</h2>
+          <tc-button size="sm" variant="secondary" label="Replay" [attr.aria-label]="'Replay how the board grew'" (click)="replay.emit()"></tc-button>
           @if (canEdit()) {
             <tc-button size="sm" variant="secondary" label="Save a version" [loading]="saving()" (click)="save()"></tc-button>
           }
@@ -134,6 +135,8 @@ export class BoardActivity {
   readonly closed = output<void>();
   /** A version to look at before restoring it. */
   readonly preview = output<BoardVersionDto>();
+  /** Step through how the board grew. */
+  readonly replay = output<void>();
 
   readonly #activity = resource({
     params: () => ({ id: this.boardId(), refresh: this.refresh() }),

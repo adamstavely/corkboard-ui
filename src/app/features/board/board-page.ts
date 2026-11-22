@@ -31,6 +31,7 @@ import { facilitationControllerJoinBreakout } from '../../api/generated/fn/facil
 import { facilitationControllerBringEveryone } from '../../api/generated/fn/facilitation/facilitation-controller-bring-everyone';
 import { boardsControllerNext } from '../../api/generated/fn/boards/boards-controller-next';
 import { VersionPreview } from './version-preview';
+import { BoardReplay } from './board-replay';
 import { BoardOutline } from './board-outline';
 import { WritingTray } from './writing-tray';
 import type { BoardVersionDto } from '../../api/generated/models/board-version-dto';
@@ -111,7 +112,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardSaveTemplate, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardSaveTemplate, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardReplay, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -260,6 +261,8 @@ export class BoardPage {
   protected readonly emptyUrls: ReadonlyMap<string, string> = new Map();
   /** A saved version shown in place of the board, read-only, until they go back (or restore it). */
   protected readonly previewing = signal<BoardVersionDto | null>(null);
+  /** Replaying how the board grew, read-only, in place of the board, until they go back. */
+  protected readonly replaying = signal(false);
   /** Goes up when a version is restored from the preview, so the versions list reloads. */
   protected readonly versionsChanged = signal(0);
   /** The image being asked about. */
@@ -892,6 +895,7 @@ export class BoardPage {
         view('gantt', 'Timeline on the board'),
         view('summary', 'Open the summary'),
         view('activity', 'Open activity and versions'),
+        { id: 'replay', label: 'Replay how the board grew', run: () => this.replay() },
         ...(this.canExport()
           ? [
               { id: 'png', label: 'Export as an image (PNG)', run: () => void this.exportPng() },
@@ -1113,6 +1117,13 @@ export class BoardPage {
       this.title.set(this.meta.hasValue() ? this.meta.value().title : '');
       (e.target as HTMLInputElement).blur();
     }
+  }
+
+  /** Replay, in place of whatever was open over the board. */
+  protected replay(): void {
+    this.panel.set(null);
+    this.previewing.set(null);
+    this.replaying.set(true);
   }
 
   protected back(): void {
