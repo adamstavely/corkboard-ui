@@ -63,12 +63,12 @@ export const feedbackUrl = (token: string) => `${location.origin}/feedback/${tok
           @if (canManage()) {
             <div class="row"><tc-button size="sm" variant="ghost" label="Close to feedback" (click)="close()"></tc-button></div>
           }
-        } @else if (canManage()) {
+        } @else if (!openRefusal()) {
           <p class="hint">Make a link anyone signed in to Corkboard can use to give feedback on this board, from any workspace. The team always sees who wrote what.</p>
           <tc-select label="What participants see of each other" [options]="options" [value]="choice()" (tc-value-change)="choice.set($any($event.detail.value))"></tc-select>
           <div class="row"><tc-button size="sm" variant="secondary" label="Open for feedback" (click)="open()"></tc-button></div>
         } @else {
-          <p class="hint">This board isn't open for feedback. Its owners or the facilitator can open it.</p>
+          <p class="hint">{{ openRefusal() }}</p>
         }
       }
       @if (problem()) {
@@ -167,6 +167,8 @@ export class BoardFeedback {
   readonly boardId = input.required<string>();
   /** Owners and the facilitator: open, change and close the link, and block people. */
   readonly canManage = input(false);
+  /** Why the workspace's policy stops you opening the board for feedback; null when you can. */
+  readonly openRefusal = input<string | null>(null);
 
   protected readonly state = resource({ params: () => this.boardId(), loader: ({ params: id }) => this.#api.invoke(feedbackControllerGet, { id }) });
   protected readonly participants = computed(() => (this.state.hasValue() ? this.state.value().participants : []));
