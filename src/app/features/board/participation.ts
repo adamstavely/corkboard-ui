@@ -98,22 +98,26 @@ export const TONES: Record<string, TagTone> = {
   [SEEN]: 'gray',
 };
 
+// Counts get set widths (wide enough for a header and its sort control) so names have the rest: with equal widths the
+// panel cut "Grace Hopper" short.
+const COUNT = '5rem';
+
 export const PEOPLE_COLUMNS: DataColumn[] = [
   { key: 'name', label: 'Name', type: 'title' },
-  { key: 'status', label: 'Status', type: 'tag' },
-  { key: 'here', label: 'Here', type: 'text' },
-  { key: 'notes', label: 'Notes', type: 'number' },
-  { key: 'votes', label: 'Votes', type: 'number' },
-  { key: 'comments', label: 'Comments', type: 'number' },
-  { key: 'chat', label: 'Chat', type: 'number' },
+  { key: 'status', label: 'Status', type: 'tag', width: '9rem' },
+  { key: 'here', label: 'Here', type: 'text', width: '6rem' },
+  { key: 'notes', label: 'Notes', type: 'number', width: COUNT },
+  { key: 'votes', label: 'Votes', type: 'number', width: COUNT },
+  { key: 'comments', label: 'Comments', type: 'number', width: '7rem' },
+  { key: 'chat', label: 'Chat', type: 'number', width: COUNT },
 ];
 
 export const FRAME_COLUMNS: DataColumn[] = [
   { key: 'title', label: 'Frame', type: 'title' },
-  { key: 'status', label: 'Status', type: 'tag' },
-  { key: 'viewers', label: 'Looked at by', type: 'number' },
-  { key: 'contributors', label: 'Added to by', type: 'number' },
-  { key: 'notes', label: 'New notes', type: 'number' },
+  { key: 'status', label: 'Status', type: 'tag', width: '11rem' },
+  { key: 'viewers', label: 'Looked at by', type: 'number', width: '8rem' },
+  { key: 'contributors', label: 'Added to by', type: 'number', width: '8rem' },
+  { key: 'notes', label: 'New notes', type: 'number', width: '7rem' },
 ];
 
 /** The team, quietest first, as the API sorted them. Nobody in private mode. */
