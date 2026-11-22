@@ -7,15 +7,35 @@ import { Api } from '../../api/generated/api';
 import { integrationsControllerCreate } from '../../api/generated/fn/integrations/integrations-controller-create';
 import { integrationsControllerList } from '../../api/generated/fn/integrations/integrations-controller-list';
 import { integrationsControllerRemove } from '../../api/generated/fn/integrations/integrations-controller-remove';
+import { integrationsControllerSetUpWebhook } from '../../api/generated/fn/integrations/integrations-controller-set-up-webhook';
+import { ApiConfiguration } from '../../api/generated/api-configuration';
 import type { IntegrationDto } from '../../api/generated/models/integration-dto';
 import { Session } from '../../core/session';
 
 type Kind = IntegrationDto['kind'];
 
-const KINDS: { id: Kind; name: string; token: string; help: string }[] = [
-  { id: 'github', name: 'GitHub Issues', token: 'Fine-grained token with Issues: read and write', help: 'Issues go to one repository.' },
-  { id: 'linear', name: 'Linear', token: 'Personal API key', help: "Issues go to one team; its id is in the team's settings." },
-  { id: 'jira', name: 'Jira', token: 'API token for the account below', help: 'Issues go to one project on your Jira Cloud site, as Tasks.' },
+const KINDS: { id: Kind; name: string; token: string; help: string; webhook: string }[] = [
+  {
+    id: 'github',
+    name: 'GitHub Issues',
+    token: 'Fine-grained token with Issues: read and write',
+    help: 'Issues go to one repository.',
+    webhook: 'In the repository: Settings › Webhooks › Add webhook. Content type application/json, the "Issues" event.',
+  },
+  {
+    id: 'linear',
+    name: 'Linear',
+    token: 'Personal API key',
+    help: "Issues go to one team; its id is in the team's settings.",
+    webhook: 'In Linear: Settings › API › Webhooks › New webhook, for Issues. Paste the secret as its signing secret.',
+  },
+  {
+    id: 'jira',
+    name: 'Jira',
+    token: 'API token for the account below',
+    help: 'Issues go to one project on your Jira Cloud site, as Tasks.',
+    webhook: 'In Jira: Settings › System › WebHooks › Create a WebHook, for issue updates, with the secret.',
+  },
 ];
 
 /** The workspace's issue trackers: board tasks can be sent to them. Owners connect and remove; everyone sees them. */
@@ -26,7 +46,10 @@ const KINDS: { id: Kind; name: string; token: string; help: string }[] = [
     <div class="page">
       <h1>Integrations</h1>
       @if (session.org(); as org) {
-        <p class="lead">Issue trackers people in <strong>{{ org.name }}</strong> can send board tasks to. Each task keeps a link to its issue.</p>
+        <p class="lead">
+          Issue trackers people in <strong>{{ org.name }}</strong> can send board tasks to. Each task keeps a link to its issue, and their titles, statuses and assignees
+          stay in step both ways, checked every couple of minutes.
+        </p>
       }
       @if (list.isLoading() && !list.hasValue()) {
         <tc-skeleton height="120" radius="12"></tc-skeleton>
@@ -36,9 +59,27 @@ const KINDS: { id: Kind; name: string; token: string; help: string }[] = [
             @for (i of list.value(); track i.id) {
               <li>
                 <span class="name">{{ i.label }}</span>
-                <span class="meta">{{ kindName(i.kind) }} · {{ i.target }}</span>
+                <span class="meta">{{ kindName(i.kind) }} · {{ i.target }}{{ i.webhook ? ' · Webhook set up' : '' }}</span>
                 @if (isOwner()) {
-                  <tc-button size="sm" variant="ghost" label="Remove" [attr.aria-label]="'Remove ' + i.label" (click)="remove(i)"></tc-button>
+                  <span class="row-actions">
+                    <tc-button
+                      size="sm"
+                      variant="ghost"
+                      [label]="i.webhook ? 'New webhook secret' : 'Set up webhook'"
+                      [attr.aria-label]="(i.webhook ? 'New webhook secret for ' : 'Set up a webhook for ') + i.label"
+                      (click)="setUpWebhook(i)"
+                    ></tc-button>
+                    <tc-button size="sm" variant="ghost" label="Remove" [attr.aria-label]="'Remove ' + i.label" (click)="remove(i)"></tc-button>
+                  </span>
+                }
+                @if (hook(); as h) {
+                  @if (h.id === i.id) {
+                    <div class="hook" role="status">
+                      <p class="muted">Changes in {{ kindName(i.kind) }} reach the board sooner with a webhook. {{ h.how }} This secret is shown once.</p>
+                      <label><span>Payload URL</span><input readonly [value]="h.url" (focus)="$any($event.target).select()" /></label>
+                      <label><span>Secret</span><input readonly [value]="h.secret" (focus)="$any($event.target).select()" /></label>
+                    </div>
+                  }
                 }
               </li>
             }
@@ -127,10 +168,18 @@ const KINDS: { id: Kind; name: string; token: string; help: string }[] = [
       color: var(--tc-text-muted);
       font-size: var(--tc-font-size-sm);
     }
-    .list tc-button {
+    .row-actions {
+      display: flex;
       grid-row: 1 / span 2;
       grid-column: 2;
       align-self: center;
+    }
+    .hook {
+      display: flex;
+      grid-column: 1 / span 2;
+      flex-direction: column;
+      gap: var(--tc-space-2);
+      margin-top: var(--tc-space-3);
     }
     .add {
       display: flex;
@@ -218,6 +267,23 @@ export class IntegrationsPage {
       this.problem.set(Array.isArray(message) ? String(message[0]) : typeof message === 'string' ? message : "It couldn't be connected. Try again.");
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  readonly #root = inject(ApiConfiguration).rootUrl;
+  /** The webhook just set up: where the tracker sends it and the secret, shown this once. */
+  protected readonly hook = signal<{ id: string; url: string; secret: string; how: string } | null>(null);
+
+  protected async setUpWebhook(i: IntegrationDto): Promise<void> {
+    const orgId = this.session.org()?.id;
+    if (!orgId) return;
+    try {
+      const made = await this.#api.invoke(integrationsControllerSetUpWebhook, { orgId, id: i.id });
+      const root = new URL(this.#root, location.origin).href.replace(/\/$/, '');
+      this.hook.set({ id: i.id, url: `${root}${made.path}`, secret: made.secret, how: KINDS.find((k) => k.id === i.kind)?.webhook ?? '' });
+      this.list.reload();
+    } catch {
+      toast.error("The webhook couldn't be set up", { description: 'Try again.' });
     }
   }
 
