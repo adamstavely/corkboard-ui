@@ -74,6 +74,7 @@ export class FileCache implements DiagramImages {
       const path = this.link ? `/api/shared/${encodeURIComponent(this.link)}/diagram-image` : '/api/diagram-image';
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (!this.link) headers['Authorization'] = `Bearer ${this.token()}`;
+      else if (this.pass) headers['X-Link-Pass'] = this.pass;
       got = fetch(path, { method: 'POST', headers, body: JSON.stringify({ url }) })
         .then((res) => (res.ok ? res.blob() : undefined))
         .catch(() => undefined);

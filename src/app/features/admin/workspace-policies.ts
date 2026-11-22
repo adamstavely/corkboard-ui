@@ -65,6 +65,13 @@ export const days = (value: unknown): number | null => {
             [disabled]="busy()"
             (tc-value-change)="set('linkMaxDays', days($event.detail.value))"
           ></tc-number-field>
+          <tc-switch
+            label="Boards can be embedded in other tools"
+            description="Notion, Confluence and the like show a board live and read-only through a view-only link. Off: embeds stop showing."
+            [value]="draft().embeds"
+            [disabled]="busy()"
+            (tc-value-change)="set('embeds', $event.detail.value)"
+          ></tc-switch>
           <tc-select label="Who can open a board for outside feedback" [options]="managing" [value]="draft().feedback" [disabled]="busy()" (tc-value-change)="set('feedback', $event.detail.value)"></tc-select>
         </fieldset>
         <fieldset>
@@ -148,6 +155,7 @@ export class WorkspacePolicies {
     exports: 'everyone',
     feedback: 'board_owners',
     retentionDays: null,
+    embeds: true,
   });
   protected readonly busy = signal(false);
   protected readonly problem = signal<string | null>(null);

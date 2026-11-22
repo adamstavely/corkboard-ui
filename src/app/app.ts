@@ -12,7 +12,7 @@ import { AccountNav } from './shell/account-nav';
 import { logoElement } from './shared/logo';
 
 /** A board fills the window, with its own floating panels in place of the top bar. */
-const onBoard = (url: string) => /^\/boards\/[^/?#]+/.test(url);
+const onBoard = (url: string) => /^\/(boards|embed)\/[^/?#]+/.test(url);
 
 @Component({
   selector: 'app-root',
@@ -33,7 +33,7 @@ export class App {
     { initialValue: onBoard(this.#router.url) },
   );
 
-  /** The picker shows before anyone is someone, so it gets no header; nor does a board. */
+  /** The picker shows before anyone is someone, so it gets no header; nor does a board, or one embedded elsewhere. */
   protected readonly showHeader = computed(() => this.auth.signedIn() && !this.#onBoard());
 
   /** Corkboard's mark, for the header brand. */

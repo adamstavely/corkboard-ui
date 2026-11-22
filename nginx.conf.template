@@ -1,7 +1,19 @@
 # Rendered by the nginx image's envsubst step (API_UPSTREAM comes from the environment).
+
+# The scheme people reached us on, behind a proxy that ends TLS or not: for embed pages' oEmbed link.
+map $http_x_forwarded_proto $public_scheme {
+  default $http_x_forwarded_proto;
+  '' $scheme;
+}
+
 server {
   listen 8080;
   root /usr/share/nginx/html;
+
+  # No other site may show Corkboard in a frame (clickjacking); embed pages, below, are the one exception. A location
+  # with add_header of its own doesn't inherit these, so the app's location repeats them.
+  add_header Content-Security-Policy "frame-ancestors 'none'" always;
+  add_header X-Frame-Options "DENY" always;
 
   # The API, WebSocket upgrades included (real-time sync arrives on the same path).
   location /api/ {
@@ -32,9 +44,21 @@ server {
     try_files $uri =404;
   }
 
+  # A board embedded in another tool (Notion, Confluence): the app's page, which any site may frame. Its HTML carries the
+  # oEmbed discovery link, for consumers that read the page without running it.
+  location ~ "^/embed/(?<embed_token>[A-Za-z0-9_-]{16,})/?$" {
+    add_header Cache-Control "no-cache";
+    add_header Content-Security-Policy "frame-ancestors *" always;
+    sub_filter_once on;
+    sub_filter '</head>' '<link rel="alternate" type="application/json+oembed" href="$public_scheme://$http_host/api/oembed?url=$public_scheme%3A%2F%2F$http_host%2Fembed%2F$embed_token&amp;format=json" title="Corkboard board"></head>';
+    rewrite ^ /index.html break;
+  }
+
   # Everything else is the single-page app; index.html is never cached so deploys show up at once.
   location / {
     add_header Cache-Control "no-cache";
+    add_header Content-Security-Policy "frame-ancestors 'none'" always;
+    add_header X-Frame-Options "DENY" always;
     try_files $uri /index.html;
   }
 }

@@ -55,5 +55,27 @@
   } @else if (linksRefusal(); as why) {
     <p class="note">{{ why }}</p>
   }
+  <section class="embed" aria-labelledby="embed-heading">
+    <h2 id="embed-heading"><app-icon name="embed" /> Embed in Notion or Confluence</h2>
+    @if (embedRefusal(); as why) {
+      <p class="hint">{{ why }}</p>
+    } @else if (embed(); as e) {
+      <p class="hint">
+        Paste the address into Notion's /embed block or Confluence's iframe macro, or the code where a page takes HTML. It shows the board live and read-only. Turning off the
+        "Embed" link above stops it.
+      </p>
+      <div class="row">
+        <input class="url" readonly aria-label="Embed address" [value]="e.url" (focus)="$any($event.target).select()" />
+        <tc-button size="sm" variant="secondary" label="Copy" (click)="copy(e.url, 'Embed address copied')"></tc-button>
+      </div>
+      <div class="row">
+        <input class="url" readonly aria-label="Iframe code" [value]="e.iframe" (focus)="$any($event.target).select()" />
+        <tc-button size="sm" variant="secondary" label="Copy" (click)="copy(e.iframe, 'Iframe code copied')"></tc-button>
+      </div>
+    } @else {
+      <p class="hint">Show this board live and read-only inside another tool. Corkboard makes a view-only link without a password for it, or uses the one it made before.</p>
+      <div class="row"><tc-button size="sm" variant="secondary" label="Get embed code" [loading]="embedding()" (click)="makeEmbed()"></tc-button></div>
+    }
+  </section>
   <app-board-feedback [boardId]="boardId()" [canManage]="canManageFeedback()" [openRefusal]="feedbackRefusal()" />
 </aside>
