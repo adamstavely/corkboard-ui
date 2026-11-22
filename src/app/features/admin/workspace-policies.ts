@@ -38,22 +38,22 @@ export const days = (value: unknown): number | null => {
   template: `
     @if (state.hasValue()) {
       <form class="policies" aria-label="Workspace policies" (submit)="$event.preventDefault(); save()">
-        <fieldset>
+        <fieldset [disabled]="busy()">
           <legend>Sharing</legend>
-          <tc-select label="Who can share a board with people" [options]="managing" [value]="draft().shareWithPeople" [disabled]="busy()" (tc-value-change)="set('shareWithPeople', $event.detail.value)"></tc-select>
-          <tc-select label="Who can make share links" [options]="managing" [value]="draft().shareLinks" [disabled]="busy()" (tc-value-change)="set('shareLinks', $event.detail.value)"></tc-select>
+          <tc-select label="Who can share a board with people" [options]="managing" [value]="draft().shareWithPeople" (tc-value-change)="set('shareWithPeople', $event.detail.value)"></tc-select>
+          <tc-select label="Who can make share links" [options]="managing" [value]="draft().shareLinks" (tc-value-change)="set('shareLinks', $event.detail.value)"></tc-select>
           <tc-switch
             label="Share links can let guests edit"
             description="Off: links only let people view. Editable links already made open read-only."
             [value]="draft().editableLinks"
-            [disabled]="busy()"
+           
             (tc-value-change)="set('editableLinks', $event.detail.value)"
           ></tc-switch>
           <tc-switch
             label="Share links need a password"
             description="Guests type it before the board opens. Links made without one stop working."
             [value]="draft().linkPassword"
-            [disabled]="busy()"
+           
             (tc-value-change)="set('linkPassword', $event.detail.value)"
           ></tc-switch>
           <tc-number-field
@@ -62,25 +62,25 @@ export const days = (value: unknown): number | null => {
             [min]="1"
             [max]="365"
             [value]="draft().linkMaxDays"
-            [disabled]="busy()"
+           
             (tc-value-change)="set('linkMaxDays', days($event.detail.value))"
           ></tc-number-field>
           <tc-switch
             label="Boards can be embedded in other tools"
             description="Notion, Confluence and the like show a board live and read-only through a view-only link. Off: embeds stop showing."
             [value]="draft().embeds"
-            [disabled]="busy()"
+           
             (tc-value-change)="set('embeds', $event.detail.value)"
           ></tc-switch>
-          <tc-select label="Who can open a board for outside feedback" [options]="managing" [value]="draft().feedback" [disabled]="busy()" (tc-value-change)="set('feedback', $event.detail.value)"></tc-select>
+          <tc-select label="Who can open a board for outside feedback" [options]="managing" [value]="draft().feedback" (tc-value-change)="set('feedback', $event.detail.value)"></tc-select>
         </fieldset>
-        <fieldset>
+        <fieldset [disabled]="busy()">
           <legend>Exports and history</legend>
           <tc-select
             label="Who can export (image, PDF, Markdown, CSV, tasks to trackers)"
             [options]="who"
             [value]="draft().exports"
-            [disabled]="busy()"
+           
             (tc-value-change)="set('exports', $event.detail.value)"
           ></tc-select>
           <tc-number-field
@@ -89,7 +89,7 @@ export const days = (value: unknown): number | null => {
             [min]="1"
             [max]="3650"
             [value]="draft().retentionDays"
-            [disabled]="busy()"
+           
             (tc-value-change)="set('retentionDays', days($event.detail.value))"
           ></tc-number-field>
         </fieldset>

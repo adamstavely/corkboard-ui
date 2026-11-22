@@ -76,13 +76,18 @@ async function decide(api: Api, boardId: string, s: Suggestion, accept: boolean)
       position: absolute;
       top: calc(var(--tc-space-3) + 52px);
       right: var(--tc-space-4);
-      bottom: calc(var(--tc-space-4) + 56px);
+      max-height: calc(100% - var(--tc-space-4) - 120px);
       z-index: 3;
       display: flex;
       flex-direction: column;
       gap: var(--tc-space-3);
       width: min(480px, calc(100% - 2 * var(--tc-space-4)));
       overflow: auto;
+      padding: var(--tc-space-3);
+      border: 1px solid var(--tc-border-subtle);
+      border-radius: var(--tc-radius-lg);
+      background: var(--tc-surface-raised);
+      box-shadow: 0 6px 24px rgb(0 0 0 / 0.1);
     }
     .head {
       display: flex;

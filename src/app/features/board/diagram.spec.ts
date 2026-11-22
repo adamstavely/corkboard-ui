@@ -47,7 +47,7 @@ describe('diagrams', () => {
     expect(diagramTitle('flowchart TD')).toBe('flowchart');
     expect(diagramTitle(DIAGRAM_STARTERS.gantt)).toBe('gantt chart “Launch plan”');
     expect(diagramTitle(DIAGRAM_STARTERS.pie)).toBe('pie chart “Where the time goes”');
-    expect(diagramTitle(DIAGRAM_STARTERS.mindmap)).toBe('mind map from “Launch”');
+    expect(diagramTitle(DIAGRAM_STARTERS.mindmap)).toBe('mind map diagram from “Launch”');
     expect(diagramTitle(DIAGRAM_STARTERS.state)).toBe('state diagram');
     expect(diagramTitle('---\ntitle: Onboarding\n---\nflowchart TD\n  a[Start] --> b')).toBe('flowchart “Onboarding”');
   });
