@@ -6,7 +6,7 @@ import { DiagramView } from './diagram-view';
 import { ChartView } from './chart-view';
 import { PdfPages } from './pdf-pages';
 import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
-import { DIAGRAM_STARTERS, diagramTitle, type DiagramKind } from './diagram';
+import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -198,6 +198,8 @@ export class Canvas {
   readonly react = output<{ nodeId: string; emoji: string; on: boolean }>();
   /** Object URLs of the board's files (see FileCache), by file id. */
   readonly fileUrls = input<ReadonlyMap<string, string>>(new Map());
+  /** Where diagrams get their pictures: the board's files and the web, through the API (see FileCache). */
+  readonly diagramImages = input<DiagramImages | undefined>(undefined);
   /** Files dropped on the board, and where (board coordinates). */
   readonly filesDropped = output<{ files: File[]; at: Point }>();
   /** Open the add-files panel, ask about an image, or open a file. */
@@ -827,9 +829,14 @@ export class Canvas {
     this.editChart.emit(id);
   }
 
-  /** Puts a starter flowchart or sequence diagram in the middle of the view, selected, and opens its text. */
+  /** The kinds of diagram past the first two, shown in the Create menu on asking. */
+  protected readonly moreDiagrams = DIAGRAM_MENU.slice(2);
+  protected readonly moreDiagramsOpen = signal(false);
+
+  /** Puts a starter diagram of a kind in the middle of the view, selected, and opens its text. */
   protected addDiagram(kind: DiagramKind): void {
     this.createOpen.set(false);
+    this.moreDiagramsOpen.set(false);
     const at = this.#viewCentre();
     const id = this.board().addDiagram(at.x, at.y, DIAGRAM_STARTERS[kind]);
     this.selection.set(new Set([id]));

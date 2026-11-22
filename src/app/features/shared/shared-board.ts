@@ -50,6 +50,7 @@ import { colorFor } from '../board/presence';
             [capabilities]="guest"
             readOnlyLabel="View only"
             [fileUrls]="files()?.urls() ?? emptyUrls"
+            [diagramImages]="files()"
             (openFile)="open($event)"
           />
         } @else {

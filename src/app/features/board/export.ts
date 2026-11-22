@@ -1,4 +1,4 @@
-import { renderDiagram, svgUrl } from './diagram';
+import { diagramLinks, renderDiagram, svgUrl, type DiagramImages } from './diagram';
 import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { shapeDetail, shapePath } from './items';
@@ -89,7 +89,12 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
   const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' && i.source.trim() ? [i.source.trim()] : []));
   if (diagrams.length) {
     out.push('## Diagrams', '');
-    for (const d of diagrams) out.push('```mermaid', d, '```', '');
+    for (const d of diagrams) {
+      out.push('```mermaid', d, '```', '');
+      // A diagram's links, to follow from the page: the block above is only text.
+      const links = diagramLinks(d);
+      if (links.length) out.push(...links.map((l) => `- [${l.label.replace(/[[\]]/g, '')}](${l.url.replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)})`), '');
+    }
   }
   return `${out.join('\n').trimEnd()}\n`;
 }
@@ -188,8 +193,8 @@ export function dashPattern(style: ArrowStyle): number[] {
   return [];
 }
 
-/** The board's images, loaded from their object URLs, to draw; ones that fail are left out. */
-export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, string>): Promise<Map<string, HTMLImageElement>> {
+/** The board's images, loaded from their object URLs, to draw (diagrams with their pictures); ones that fail are left out. */
+export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, string>, diagramImages?: DiagramImages): Promise<Map<string, HTMLImageElement>> {
   const loaded = new Map<string, HTMLImageElement>();
   const image = (key: string, src: string) =>
     new Promise<void>((resolve) => {
@@ -205,7 +210,7 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
   await Promise.all(
     board.items().map(async (item) => {
       if (item.kind === 'diagram') {
-        const drawn = await renderDiagram(item.source);
+        const drawn = await renderDiagram(item.source, diagramImages);
         if ('svg' in drawn) await image(item.id, svgUrl(drawn.svg));
       } else if (item.kind === 'chart' && item.rows.length) {
         try {

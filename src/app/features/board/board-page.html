@@ -222,6 +222,7 @@
           [canReact]="canComment()"
           (react)="onReact($event.nodeId, $event.emoji, $event.on)"
           [fileUrls]="files()?.urls() ?? emptyUrls"
+          [diagramImages]="files()"
           (filesDropped)="onDropped($event.files, $event.at)"
           (addFiles)="togglePanel('files')"
           (boardTemplates)="pickingTemplate.set(true)"
@@ -293,6 +294,7 @@
             [current]="board()!"
             [canEdit]="canEdit()"
             [fileUrls]="files()?.urls() ?? emptyUrls"
+          [diagramImages]="files()"
             (closed)="previewSuggestion(null)"
           />
         }
@@ -303,6 +305,7 @@
             [current]="board()!"
             [canEdit]="canEdit()"
             [fileUrls]="files()?.urls() ?? emptyUrls"
+          [diagramImages]="files()"
             (closed)="previewing.set(null)"
             (restored)="previewing.set(null); versionsChanged.set(versionsChanged() + 1)"
           />
@@ -448,7 +451,7 @@
           </div>
         }
         @if (panel() === 'diagram' && diagramId() && board()) {
-          <app-board-diagram [board]="board()!" [diagramId]="diagramId()!" (closed)="panel.set(null)" />
+          <app-board-diagram [board]="board()!" [diagramId]="diagramId()!" [images]="files()" (closed)="panel.set(null)" />
         }
         @if (panel() === 'chart' && chartId() && board()) {
           <app-board-chart [board]="board()!" [chartId]="chartId()!" (closed)="panel.set(null)" />
