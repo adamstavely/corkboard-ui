@@ -367,7 +367,7 @@ export class BoardPage {
 
   /** The board as a picture, with its images. */
   async #picture(board: BoardDoc): Promise<HTMLCanvasElement> {
-    return boardCanvas(board, await loadImages(board, this.files()?.urls() ?? new Map()));
+    return boardCanvas(board, await loadImages(board, this.files()?.urls() ?? new Map(), this.files()));
   }
 
   protected async exportPng(): Promise<void> {

@@ -9,6 +9,7 @@ import type { BoardVersionDto } from '../../api/generated/models/board-version-d
 import { Auth } from '../../core/auth';
 import { BoardDoc } from './board-doc';
 import { Canvas } from './canvas';
+import type { DiagramImages } from './diagram';
 import { changesSince, unchanged } from './versions';
 import { BoardChanges } from './board-changes';
 
@@ -36,7 +37,7 @@ const when = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'nume
       <div class="body">
         <div class="stage">
           @if (saved(); as board) {
-            <app-canvas [board]="board" [readOnly]="true" readOnlyLabel="Saved version" [fileUrls]="fileUrls()" />
+            <app-canvas [board]="board" [readOnly]="true" readOnlyLabel="Saved version" [fileUrls]="fileUrls()" [diagramImages]="diagramImages()" />
           } @else if (problem()) {
             <p class="problem" role="alert">{{ problem() }}</p>
           } @else {
@@ -128,6 +129,7 @@ export class VersionPreview {
   readonly current = input.required<BoardDoc>();
   readonly canEdit = input(false);
   readonly fileUrls = input<ReadonlyMap<string, string>>(new Map());
+  readonly diagramImages = input<DiagramImages | undefined>(undefined);
   readonly closed = output<void>();
   readonly restored = output<void>();
 

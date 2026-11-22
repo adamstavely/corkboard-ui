@@ -1,7 +1,8 @@
 import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
+import { Select } from '@adamstavely/trenchcoat/angular/select';
 import type { BoardDoc } from './board-doc';
-import { MAX_DIAGRAM_CHARS } from './diagram';
+import { diagramKind, MAX_DIAGRAM_CHARS, type DiagramImages } from './diagram';
 import { DiagramView } from './diagram-view';
 
 /**
@@ -10,7 +11,7 @@ import { DiagramView } from './diagram-view';
  */
 @Component({
   selector: 'app-board-diagram',
-  imports: [Button, DiagramView],
+  imports: [Button, Select, DiagramView],
   template: `
     <aside class="panel" aria-labelledby="diagram-heading">
       <div class="head">
@@ -28,12 +29,32 @@ import { DiagramView } from './diagram-view';
         (keydown.meta.enter)="save()"
         (keydown.control.enter)="save()"
       ></textarea>
-      <p id="diagram-help" class="help">
-        Flowchart: <code>A[Idea] --&gt; B{{ '{' }}Decide{{ '}' }}</code>. Sequence: <code>Ada-&gt;&gt;Grace: Ask</code>.
-        <a href="https://mermaid.js.org/syntax/flowchart.html" target="_blank" rel="noopener noreferrer">Mermaid's guide</a>
-      </p>
+      <div id="diagram-help" class="help">
+        <p>
+          Start with the kind: <code>flowchart TD</code>, <code>sequenceDiagram</code>, <code>stateDiagram-v2</code>, <code>classDiagram</code>, <code>erDiagram</code>, <code>gantt</code>,
+          <code>pie</code>, <code>journey</code>, <code>timeline</code>, <code>mindmap</code>… Flowchart: <code>A[Idea] --&gt; B{{ '{' }}Decide{{ '}' }}</code
+          >.
+        </p>
+        <p>Link a node to a page: <code>click A href "https://example.com"</code>. It opens in a new tab from the board.</p>
+        <p>
+          Show a picture in a flowchart (https, or a picture on the board, picked below):
+          <code>P@{{ '{' }} img: "https://example.com/logo.png", label: "Logo", w: 60, h: 60 {{ '}' }}</code
+          >.
+          <a href="https://mermaid.js.org/intro/" target="_blank" rel="noopener noreferrer">Mermaid's guide</a>
+        </p>
+      </div>
+      @if (pictures().length && isFlowchart()) {
+        <tc-select
+          label="Add a picture from the board"
+          [labelVisible]="false"
+          placeholder="Add a picture from the board…"
+          [options]="pictures()"
+          [value]="picked()"
+          (tc-value-change)="addPicture($any($event.detail.value))"
+        ></tc-select>
+      }
       <div class="preview" aria-label="Preview">
-        <app-diagram-view [source]="shown()" label="Preview of the diagram" />
+        <app-diagram-view [source]="shown()" [images]="images()" label="Preview of the diagram" />
       </div>
       @if (theirs()) {
         <p class="notice" role="status">
@@ -99,6 +120,9 @@ import { DiagramView } from './diagram-view';
       margin: 0;
       font-size: var(--tc-font-size-sm);
     }
+    .help p {
+      margin: 0 0 var(--tc-space-1);
+    }
     .help {
       margin: 0;
       color: var(--tc-text-muted);
@@ -117,6 +141,8 @@ import { DiagramView } from './diagram-view';
 export class BoardDiagram {
   readonly board = input.required<BoardDoc>();
   readonly diagramId = input.required<string>();
+  /** Where the preview gets its pictures (see FileCache). */
+  readonly images = input<DiagramImages | undefined>(undefined);
   readonly closed = output<void>();
 
   /** The diagram as it is on the board. */
@@ -137,6 +163,15 @@ export class BoardDiagram {
     const base = this.#base();
     return saved !== null && base !== null && saved.trim() !== base.trim() && this.changed();
   });
+  /** The pictures on the board, to put in a flowchart by name rather than by id. */
+  protected readonly pictures = computed(() =>
+    this.board()
+      .media()
+      .filter((m) => m.kind === 'image')
+      .map((m) => ({ value: m.fileId, label: m.name })),
+  );
+  protected readonly isFlowchart = computed(() => diagramKind(this.draft()) === 'flowchart');
+  protected readonly picked = signal('');
   #wait?: ReturnType<typeof setTimeout>;
   #openedId: string | null = null;
 
@@ -175,6 +210,20 @@ export class BoardDiagram {
     this.draft.set(text);
     clearTimeout(this.#wait);
     this.#wait = setTimeout(() => this.shown.set(text), 300);
+  }
+
+  /** Adds a node showing a picture on the board to the end of the flowchart, named by the picture. */
+  protected addPicture(fileId: string): void {
+    const picture = this.pictures().find((p) => p.value === fileId);
+    if (!picture) return;
+    const draft = this.draft().replace(/\s+$/, '');
+    let n = 1;
+    while (new RegExp(`\\bpicture${n}\\b`).test(draft)) n++;
+    const label = picture.label.replace(/\.\w+$/, '').replace(/["{}]/g, '');
+    this.type(`${draft}\n  picture${n}@{ img: "corkboard-file:${fileId}", label: "${label}", pos: "t", w: 60, h: 60 }`);
+    // The menu goes back to asking, ready for another.
+    this.picked.set(fileId);
+    setTimeout(() => this.picked.set(''));
   }
 
   protected save(): void {

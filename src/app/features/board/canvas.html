@@ -161,7 +161,7 @@
         [style.height.px]="item.h"
         [style.z-index]="board().stack().get(item.id)"
         [attr.aria-label]="itemLabel(item)"
-        [attr.role]="item.kind === 'view' || item.kind === 'app' || item.kind === 'chart' ? 'region' : 'img'"
+        [attr.role]="item.kind === 'view' || item.kind === 'app' || item.kind === 'chart' ? 'region' : item.kind === 'diagram' ? 'figure' : 'img'"
       >
         @switch (item.kind) {
           @case ('view') {
@@ -193,7 +193,7 @@
             </div>
           }
           @case ('diagram') {
-            <app-diagram-view [source]="item.source" [label]="itemLabel(item)" />
+            <app-diagram-view [source]="item.source" [label]="itemLabel(item)" [images]="diagramImages()" [links]="tool() === 'select' && !spaceHeld()" />
           }
           @case ('chart') {
             <app-chart-view [kind]="item.chart" [title]="item.title" [rows]="item.rows" [boxHeight]="item.h" />
@@ -764,6 +764,23 @@
             @if (can('diagrams')) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Written as text</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
+              <button
+                type="button"
+                class="app-menu-item"
+                role="menuitem"
+                aria-controls="more-diagrams"
+                [attr.aria-expanded]="moreDiagramsOpen()"
+                (click)="moreDiagramsOpen.set(!moreDiagramsOpen())"
+              >
+                <app-icon name="diagram" /><span class="app-menu-label">More diagrams</span><span class="app-menu-hint">State, class, Gantt, pie…</span><app-icon [name]="moreDiagramsOpen() ? 'up' : 'chevron'" />
+              </button>
+              @if (moreDiagramsOpen()) {
+                <div id="more-diagrams" class="more-diagrams" role="group" aria-label="More diagrams">
+                  @for (d of moreDiagrams; track d.kind) {
+                    <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram(d.kind)"><span class="app-menu-label">{{ d.name }}</span></button>
+                  }
+                </div>
+              }
             }
             @if (can('charts')) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="addChart()"><app-icon name="chart" /><span class="app-menu-label">Chart</span><span class="app-menu-hint">Bar, line or pie</span></button>
