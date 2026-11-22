@@ -67,12 +67,12 @@ const KINDS = {
     ),
   },
   timeline: {
-    name: 'Timeline',
+    name: 'Timeline diagram',
     test: /^timeline(?=[\s;]|$)/,
     starter: ['timeline', '  title Roadmap', '  2026 Q1 : Plan : Hire', '  2026 Q2 : Build', '  2026 Q3 : Launch'].join('\n'),
   },
   mindmap: {
-    name: 'Mind map',
+    name: 'Mind map diagram',
     test: /^mindmap(?=[\s;]|$)/,
     starter: ['mindmap', '  root((Launch))', '    Marketing', '      Blog post', '    Product', '      Docs', '      Training'].join('\n'),
   },
@@ -103,7 +103,7 @@ const KINDS = {
     starter: ['gitGraph', '  commit', '  branch feature', '  checkout feature', '  commit', '  checkout main', '  merge feature'].join('\n'),
   },
   kanban: {
-    name: 'Kanban',
+    name: 'Kanban diagram',
     test: /^kanban(?=[\s;]|$)/,
     starter: ['kanban', '  todo[To do]', '    t1[Write the brief]', '  doing[Doing]', '    t2[Draw the flow]', '  done[Done]', '    t3[Kick-off]'].join('\n'),
   },
