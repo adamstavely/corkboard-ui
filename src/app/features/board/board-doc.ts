@@ -68,6 +68,10 @@ export interface Part {
   auto?: boolean;
   /** On a step: the key of the lane it's in, kept as lanes are dragged about. */
   lane?: string;
+  /** On a sub-process step: the flowchart that shows its own steps (that diagram's id). */
+  sub?: string;
+  /** On a flowchart that is a sub-process: the flowchart it belongs to (that diagram's id). */
+  parent?: string;
 }
 
 /** A titled area of the board. It holds the notes whose centres are inside it: they move when it does. */
@@ -1707,6 +1711,8 @@ export function partOf(value: unknown): Part | null {
     ...(p['dir'] === 'LR' || p['dir'] === 'TB' ? { dir: p['dir'] } : {}),
     ...(p['auto'] === false ? { auto: false } : {}),
     ...(typeof p['lane'] === 'string' && p['lane'].length <= 200 ? { lane: p['lane'] } : {}),
+    ...(typeof p['sub'] === 'string' && p['sub'].length <= 64 ? { sub: p['sub'] } : {}),
+    ...(typeof p['parent'] === 'string' && p['parent'].length <= 64 ? { parent: p['parent'] } : {}),
   };
 }
 const partField = (node: Y.Map<unknown>): { part?: Part } => {

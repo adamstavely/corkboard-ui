@@ -9,7 +9,7 @@ import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
 import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
 import { FLOWCHART_STARTER, flowchartLayout, isFlowchartText } from './diagrams/flowchart';
 import { diagramFrame, flowchartMermaid, tidyFlowchart } from './diagrams/flow-board';
-import { addLane, addRemark, autoTidies, autoTidy, diagramOf, nameStep, setAutoTidy, settleSteps } from './diagrams/flow-edit';
+import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -62,6 +62,8 @@ const PLACING: ReadonlySet<Tool> = new Set<Tool>(['note', 'text', 'rect', 'ellip
 const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: 'rect', o: 'ellipse', f: 'frame', p: 'pen', l: 'connect', c: 'comment' };
 /** A drag smaller than this, on screen, is a click: the thing gets its usual size. */
 const DRAG_MIN = 8;
+/** The highest a bar over the selection goes on screen: just under the board's header. */
+const BAR_TOP = 64;
 
 const SHAPE_NAMES: Record<ShapeKind, string> = {
   rect: 'Rectangle',
@@ -562,7 +564,8 @@ export class Canvas {
     const canArrange = !this.readOnly() && chosen.length > 1;
     const canAsk = notes > 0 && this.canReact();
     if (!canArrange && !canAsk && this.readOnly()) return null;
-    return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(8, r.y * zoom + y - 56), count: chosen.length, notes };
+    // Never under the board's header: a selection filling the screen (a diagram brought into view) keeps its bar in sight.
+    return { left: (r.x + r.w / 2) * zoom + x, top: Math.max(BAR_TOP, r.y * zoom + y - 56), count: chosen.length, notes };
   });
 
   protected readonly layerOpen = signal(false);
@@ -900,10 +903,12 @@ export class Canvas {
     const ids = board.addLayout(result.layout, at.x, at.y);
     const diagram = ids.find((id) => diagramFrame(board, id));
     if (!diagram) return null;
+    const subs = placeChildren(board, diagram, result.children);
     this.selection.set(new Set([diagram]));
     const steps = result.layout.shapes?.length ?? 0;
+    const more = subs.length ? `, and ${subs.length} sub-process${subs.length === 1 ? '' : 'es'} under it` : '';
     // After the selection's own announcement, which would otherwise replace this one.
-    setTimeout(() => this.announcement.set([`Added a flowchart with ${steps} step${steps === 1 ? '' : 's'}`, ...result.notices].join('. ')));
+    setTimeout(() => this.announcement.set([`Added a flowchart with ${steps} step${steps === 1 ? '' : 's'}${more}`, ...result.notices].join('. ')));
     return diagram;
   }
 
@@ -959,6 +964,70 @@ export class Canvas {
       this.#edit(id);
     }
   }
+
+  /** The steps selected, when there are at least two and all in one flowchart: they can become a sub-process. */
+  protected readonly stepsToCollapse = computed(() => {
+    const steps = this.board().items().filter((i) => this.selection().has(i.id) && i.part?.role === 'step');
+    return steps.length >= 2 && steps.length === this.selection().size && steps.every((s) => s.part!.of === steps[0].part!.of) ? steps.map((s) => s.id) : null;
+  });
+
+  /** Moves the selected steps into a sub-process of their own, and names it. */
+  protected collapseSteps(): void {
+    const ids = this.stepsToCollapse();
+    const child = ids && collapseToSubprocess(this.board(), ids);
+    if (!child) return;
+    this.announcement.set('Moved the steps into a sub-process, under the flowchart');
+    this.show([child], false);
+    this.#rename(child);
+  }
+
+  /** Opens the selected step's sub-process: brings its flowchart into view. */
+  protected openSubprocess(): void {
+    const sub = this.oneStep()?.part?.sub;
+    if (sub && diagramFrame(this.board(), sub)) this.show([sub]);
+  }
+
+  /** Puts the selected step's sub-process back in its place. */
+  protected expandStep(): void {
+    const step = this.oneStep();
+    if (step && expandSubprocess(this.board(), step.id)) this.announcement.set('Put the sub-process back in the flowchart');
+  }
+
+  /** Back from a sub-process to the flowchart it belongs to, its step selected. */
+  protected backToParent(): void {
+    const frame = this.oneFlowchart();
+    const parent = frame?.part?.parent;
+    if (!frame || !parent || !diagramFrame(this.board(), parent)) return;
+    const step = this.board().items().find((i) => i.part?.of === parent && i.part.sub === frame.id);
+    this.show([step?.id ?? parent]);
+  }
+
+  /** The selected flowchart's own flowchart, if it's a sub-process, for the Back button's name. */
+  protected readonly parentOf = (frame: { part?: { parent?: string } }) => (frame.part?.parent ? diagramFrame(this.board(), frame.part.parent) : null);
+  protected readonly subOf = (step: { part?: { sub?: string } }) => (step.part?.sub ? diagramFrame(this.board(), step.part.sub) : null);
+
+  /**
+   * Lane names that stay in view: while a lane runs on across the screen but its name has scrolled off (left of the
+   * screen in a left-to-right flowchart, above it in a top-to-bottom one), its name floats at the edge, in screen space.
+   */
+  protected readonly floatingLanes = computed(() => {
+    const { x, y, zoom } = this.viewport();
+    const board = this.board();
+    const lanes = board.frames().filter((f) => f.part?.role === 'lane');
+    if (!lanes.length) return [];
+    const { width, height } = this.#size();
+    return lanes.flatMap((lane) => {
+      const tb = diagramFrame(board, lane.part!.of)?.part?.dir === 'TB';
+      const left = lane.x * zoom + x;
+      const top = lane.y * zoom + y;
+      const right = left + lane.w * zoom;
+      const bottom = top + lane.h * zoom;
+      if (right < 0 || left > width || bottom < 0 || top > height) return [];
+      if (!tb && left < 0 && right > 160 && top + 8 > 0 && top + 8 < height) return [{ id: lane.id, title: lane.title || 'Lane', left: 72, top: top + 8 }];
+      if (tb && top < 56 && bottom > 160 && left + 8 > 0 && left + 8 < width) return [{ id: lane.id, title: lane.title || 'Lane', left: left + 8, top: 64 }];
+      return [];
+    });
+  });
 
   /** Starts an arrow from the selected step: the next click picks where it goes. */
   protected connectFromStep(): void {
@@ -1932,7 +2001,7 @@ export class Canvas {
     const { x, y, zoom } = this.viewport();
     return {
       left: line.mid.x * zoom + x,
-      top: Math.max(8, Math.min(line.start.y, line.end.y, line.mid.y - 12) * zoom + y - 56),
+      top: Math.max(BAR_TOP, Math.min(line.start.y, line.end.y, line.mid.y - 12) * zoom + y - 56),
       style: line.style,
       label: line.label,
     };
