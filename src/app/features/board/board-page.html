@@ -74,6 +74,9 @@
               <button type="button" class="app-menu-item" role="menuitem" title="A new board with the same frames, carrying over the tasks and action items still open" (click)="viewsOpen.set(false); nextSession()">
                 <span class="app-menu-label">{{ startingNext() ? 'Starting the next session…' : 'Start the next session' }}</span>
               </button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="viewsOpen.set(false); panel.set('look')">
+                <span class="app-menu-label">Diagram look</span><span class="app-menu-hint">Colours, font, corners</span>
+              </button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="viewsOpen.set(false); panel.set('save-template')">
                 <span class="app-menu-label">Save as template</span><span class="app-menu-hint">For the workspace</span>
               </button>
@@ -472,6 +475,9 @@
         }
         @if (panel() === 'chart' && chartId() && board()) {
           <app-board-chart [board]="board()!" [chartId]="chartId()!" (closed)="panel.set(null)" />
+        }
+        @if (panel() === 'look' && board(); as b) {
+          <app-board-look [board]="b" (closed)="panel.set(null)" />
         }
         @if (panel() === 'save-template' && meta.hasValue()) {
           <app-board-save-template [boardId]="id()" [boardTitle]="meta.value().title" (saved)="savedTemplates.reload()" (closed)="panel.set(null)" />

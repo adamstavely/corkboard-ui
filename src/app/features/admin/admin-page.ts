@@ -17,6 +17,7 @@ import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { WorkspacePolicies } from './workspace-policies';
 import { WorkspaceLogos } from './workspace-logos';
+import { WorkspaceLook } from './workspace-look';
 
 const BOARD_COLUMNS: DataColumn[] = [
   { key: 'title', label: 'Board', type: 'title' },
@@ -48,7 +49,7 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
  */
 @Component({
   selector: 'app-admin-page',
-  imports: [Button, DataTable, Skeleton, WorkspacePolicies, WorkspaceLogos],
+  imports: [Button, DataTable, Skeleton, WorkspacePolicies, WorkspaceLogos, WorkspaceLook],
   template: `
     <div class="page">
       <h1>Workspace admin</h1>
@@ -112,6 +113,12 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
         </p>
         @if (session.org(); as org) {
           <app-workspace-logos [orgId]="org.id" />
+        }
+
+        <h2>Diagram look</h2>
+        <p class="muted">The colours, font and corners of diagrams on this workspace's boards. Text on every fill is checked for contrast.</p>
+        @if (session.org(); as org) {
+          <app-workspace-look [orgId]="org.id" />
         }
 
         <h2>Data</h2>

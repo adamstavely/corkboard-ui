@@ -2,6 +2,7 @@ import { computed, signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
 import { MAX_DIAGRAM_CHARS } from './diagram';
 import { CHART_KINDS, cleanRows, type ChartKind, type ChartRow } from './chart';
+import { boardLook, type BoardLook, type DiagramTheme } from './diagrams/diagram-theme';
 import { cleanSequence, sequenceSize, type SequenceModel } from './diagrams/sequence';
 import { hiddenByFolds, mindChildren, mindLayout, mindLinkOf, type MindLink } from './mindmap';
 
@@ -517,8 +518,23 @@ export class BoardDoc {
   /** Goes up whenever a note's text changes; `trackText` depends on it. */
   readonly textRevision = this.#textRevision.asReadonly();
 
+  /** The board's look for its diagrams: the workspace's, Trench Coat's, or its own (in the doc's look map). */
+  readonly #lookMap = this.doc.getMap<unknown>('look');
+  readonly #look = signal<BoardLook>({ kind: 'workspace' });
+  readonly look = this.#look.asReadonly();
+
+  /** Sets the board's look for its diagrams; everyone on the board sees it change. */
+  setLook(look: { kind: 'workspace' } | { kind: 'trenchcoat' } | { kind: 'own'; theme: DiagramTheme }): void {
+    this.doc.transact(() => {
+      if (look.kind === 'workspace') this.#lookMap.delete('theme');
+      else this.#lookMap.set('theme', look.kind === 'trenchcoat' ? 'trenchcoat' : look.theme);
+    }, this);
+  }
+
   constructor() {
     textRevisions.set(this.doc, this.textRevision);
+    this.#look.set(boardLook(this.#lookMap.get('theme')));
+    this.#lookMap.observe(() => this.#look.set(boardLook(this.#lookMap.get('theme'))));
     this.#nodes.observeDeep((events) => {
       if (events.some((e) => !(e.target instanceof Y.Map))) this.#textRevision.update((n) => n + 1);
       // Typing inside a note changes only its fragment; the lists need rebuilding when nodes or their properties do,

@@ -12,6 +12,7 @@
   [class.pen]="pen()"
   [class.placing]="placing() || tool() === 'connect' || tool() === 'comment'"
   [class.pinning]="pinning()"
+  [style]="diagramLook()"
   [style.background-size.px]="gridSize()"
   [style.background-position]="viewport().x + 'px ' + viewport().y + 'px'"
   (pointerdown)="onPointerDown($event)"
@@ -31,7 +32,7 @@
         [attr.data-fill]="frame.fill"
         [attr.data-border]="frame.border"
         [attr.data-look]="frame.look"
-        [style.--frame-tint]="frame.fill === 'clear' || frame.fill === 'solid' ? null : 'var(--note-' + frame.fill + ')'"
+        [style.--frame-tint]="frame.fill === 'clear' || frame.fill === 'solid' ? null : frame.part ? diagramFill(frame.fill) : 'var(--note-' + frame.fill + ')'"
         [class.selected]="selection().has(frame.id)"
         [style.left.px]="frame.x"
         [style.top.px]="frame.y"
@@ -158,6 +159,7 @@
         [class.actor]="item.kind === 'shape' && item.shape === 'actor'"
         [class.person]="item.kind === 'shape' && item.shape === 'person'"
         [class.subfunction]="item.part?.type === 'subfunction'"
+        [class.in-diagram]="!!item.part"
         [class.unrelated]="unrelatedTables().has(item.id)"
         [attr.data-item-id]="item.id"
         [style.left.px]="item.x"
@@ -202,7 +204,7 @@
           }
           @case ('entity') {
             @if (itemEditing()?.id !== item.id) {
-              <div class="entity" [style.--entity-fill]="'var(--note-' + item.color + ')'">
+              <div class="entity" [style.--entity-fill]="diagramFill(item.color)">
                 <div class="entity-name" [style.height.px]="erdRowSizes().head">{{ item.name }}</div>
                 @for (row of entityRows(item); track $index) {
                   <div class="entity-row" [style.height.px]="erdRowSizes().row">
@@ -235,7 +237,7 @@
           }
           @case ('shape') {
             <svg class="shape-fill" [attr.viewBox]="'0 0 ' + item.w + ' ' + item.h" preserveAspectRatio="none" aria-hidden="true">
-              <path [attr.d]="shapePath(item.shape, item.w, item.h)" [style.fill]="'var(--note-' + item.color + ')'" />
+              <path [attr.d]="shapePath(item.shape, item.w, item.h, item.part ? diagramRadius() : 16)" [style.fill]="item.part ? diagramFill(item.color) : 'var(--note-' + item.color + ')'" />
               @if (shapeDetail(item.shape, item.w, item.h); as detail) {
                 <path class="shape-detail" [attr.d]="detail" />
               }

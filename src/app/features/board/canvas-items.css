@@ -470,3 +470,11 @@
   text-align: start;
   white-space: pre;
 }
+/* A diagram's things take its look (see diagrams/diagram-theme.ts): the text on its fills, its font, its corners. */
+.item.in-diagram {
+  color: var(--diagram-ink, inherit);
+  font-family: var(--diagram-font, inherit);
+}
+.item.in-diagram .entity {
+  border-radius: var(--diagram-radius, var(--tc-radius-sm));
+}

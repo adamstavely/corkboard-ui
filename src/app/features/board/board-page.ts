@@ -15,6 +15,9 @@ import { boardCanvas, boardMarkdown, download, fileName, loadImages } from './ex
 import { Api } from '../../api/generated/api';
 import { logosControllerList } from '../../api/generated/fn/logos/logos-controller-list';
 import { useWorkspaceLogos } from './diagrams/shape-icons';
+import { useWorkspaceLook } from './diagrams/workspace-look';
+import { BoardLook } from './board-look';
+import { themesControllerGet } from '../../api/generated/fn/themes/themes-controller-get';
 import { summaryControllerCatchUp } from '../../api/generated/fn/summary/summary-controller-catch-up';
 import type { CatchUpDto } from '../../api/generated/models/catch-up-dto';
 import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-controller-templates';
@@ -116,7 +119,7 @@ const PLACED_VIEWS = { matrix: 'matrix', tasks: 'kanban', gantt: 'timeline' } as
 
 @Component({
   selector: 'app-board-page',
-  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardSaveTemplate, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardReplay, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo],
+  imports: [Button, Canvas, BoardChat, BoardDiagram, BoardChart, BoardSaveTemplate, BoardFacilitation, BoardMatrix, BoardTasks, BoardGantt, BoardSummary, BoardHistory, BoardClusters, BoardFiles, ImageAsk, BoardActivity, VersionPreview, BoardReplay, BoardApp, BoardSuggestions, SuggestionPreview, BoardOutline, WritingTray, AwaySummary, BoardShare, BoardComments, Dialog, Skeleton, StackSpread, MenuMorph, Icon, BoardSearch, AccountNav, BoardStart, AiSidePane, Logo, BoardLook],
   templateUrl: './board-page.html',
   styleUrl: './board-page.css',
 })
@@ -256,7 +259,7 @@ export class BoardPage {
     return this.#session.orgs().find((o) => o.id === orgId)?.role === 'owner';
   });
   /** The panel docked at the upper right, if any: they take turns. */
-  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | 'chart' | 'save-template' | null>(null);
+  protected readonly panel = signal<'share' | 'comments' | 'summary' | 'history' | 'suggestions' | 'clusters' | 'files' | 'ask-image' | 'activity' | 'outline' | 'diagram' | 'chart' | 'save-template' | 'look' | null>(null);
   /** The diagram whose text is open beside the board. */
   protected readonly diagramId = signal<string | null>(null);
   /** The chart whose numbers are open beside the board. */
@@ -864,6 +867,11 @@ export class BoardPage {
     effect(() => {
       const orgId = this.meta.hasValue() ? this.meta.value().orgId : '';
       if (orgId) useWorkspaceLogos(() => this.#api.invoke(logosControllerList, { orgId }));
+    });
+    // The workspace's look for diagrams (a board may choose its own instead).
+    effect(() => {
+      const orgId = this.meta.hasValue() ? this.meta.value().orgId : '';
+      if (orgId) untracked(() => useWorkspaceLook(() => this.#api.invoke(themesControllerGet, { orgId })));
     });
     // A new suggestion made for you (from Ask AI or the chat) opens the suggestions, so you can decide on it.
     effect(() => {
