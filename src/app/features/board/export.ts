@@ -4,6 +4,7 @@ import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, typ
 import { routeDiagramArrows } from './diagrams/routing';
 import { routeUsecase } from './diagrams/usecase';
 import { routeC4 } from './diagrams/c4';
+import { erdDisplay, erdRows, routeErd, visibleColumns } from './diagrams/erd';
 import { loadDevicon, shapeIcon, shapeIconSrc } from './diagrams/shape-icons';
 import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
@@ -164,7 +165,7 @@ export function arrowLines(board: BoardDoc): ArrowPath[] {
   const boxes = new Map<string, Box>([...shownNotes(board), ...shown(board.frames()), ...shown(board.items()), ...board.media()].map((n) => [n.id, n]));
   // Arrows inside an editable diagram are routed by its kind's engine, all together.
   const c4 = routeC4Arrows(board);
-  const routed = new Map([...routeDiagramArrows(board.frames(), board.items(), board.connectors()), ...routeUsecaseArrows(board), ...c4.routes]);
+  const routed = new Map([...routeDiagramArrows(board.frames(), board.items(), board.connectors()), ...routeUsecaseArrows(board), ...c4.routes, ...routeErdArrows(board)]);
   return board.connectors().flatMap((c) => {
     if (c4.merged.has(c.id)) return [];
     const style0: ArrowStyle = { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end };
@@ -225,6 +226,12 @@ function routeC4Arrows(board: BoardDoc) {
     for (const id of r.merged) merged.add(id);
   }
   return { routes, merged };
+}
+
+/** The relationships of every ER diagram on the board, curved by the diagram skill's engine. */
+function routeErdArrows(board: BoardDoc) {
+  const diagrams = board.frames().filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && f.part.type === 'erd');
+  return diagrams.flatMap((d) => [...routeErd(board, d)].filter(([id]) => board.connectors().some((c) => c.id === id && c.route === 'curve')));
 }
 
 /** The curved arrows of every use case diagram on the board, routed by the diagram skill's engine. */
@@ -548,7 +555,7 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   const stack = board.stack();
   const content = [
     ...board.media().map((m) => ({ id: m.id, draw: () => drawMedia(ctx, m, images.get(m.fileId), colours) })),
-    ...board.items().map((item) => ({ id: item.id, draw: () => drawItem(ctx, item, colours, images.get(item.id)) })),
+    ...board.items().map((item) => ({ id: item.id, draw: () => drawItem(ctx, item, colours, images.get(item.id), board) })),
     ...shownNotes(board).map((n) => ({ id: n.id, draw: () => drawNote(ctx, n, colours) })),
   ];
   for (const c of content.sort((a, b) => (stack.get(a.id) ?? 0) - (stack.get(b.id) ?? 0))) c.draw();
@@ -575,7 +582,7 @@ function drawNote(ctx: CanvasRenderingContext2D, n: Note, c: { text: string; fon
 }
 
 /** A shape, text, pen stroke, table or link card as it is on the board. */
-function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: string; border: string; text: string; muted: string; font: string }, image?: HTMLImageElement): void {
+function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: string; border: string; text: string; muted: string; font: string }, image?: HTMLImageElement, board?: BoardDoc): void {
   ctx.save();
   ctx.translate(item.x, item.y);
   const centred = (line: string, size: number, weight = 500) => {
@@ -654,6 +661,40 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
             ctx.fillText(cell, col * cw + 6, r * ch + ch / 2, cw - 12);
           }
         }
+      }
+      break;
+    }
+    case 'entity': {
+      // A database table: its name on a strip of its colour, then its columns, as on the board.
+      const rows = erdRows();
+      const display = item.part && board ? erdDisplay(board, item.part.of) : { showTypes: true };
+      const shown = visibleColumns(item.columns, display.detail);
+      ctx.fillStyle = color(`--note-${item.color}`, '#cfe3ff');
+      ctx.fillRect(0, 0, item.w, rows.head);
+      ctx.strokeStyle = c.border;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0, 0, item.w, item.h);
+      ctx.fillStyle = c.text;
+      ctx.font = `600 15px ${c.font}`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.name, 12, rows.head / 2, item.w - 24);
+      shown.cols.forEach(({ col }, i) => {
+        const y = rows.head + i * rows.row + rows.row / 2;
+        ctx.font = `400 13px ${c.font}`;
+        ctx.fillStyle = c.text;
+        const keys = [col.pk ? 'PK' : '', col.fk ? 'FK' : '', col.unique ? 'UK' : ''].filter(Boolean).join(' ');
+        ctx.fillText(`${keys ? keys + '  ' : ''}${col.name}${col.nullable ? '?' : ''}`, 12, y, item.w * 0.6);
+        if (display.showTypes) {
+          ctx.textAlign = 'right';
+          ctx.fillStyle = c.muted;
+          ctx.fillText(col.type, item.w - 12, y, item.w * 0.35);
+          ctx.textAlign = 'left';
+        }
+      });
+      if (shown.more) {
+        ctx.fillStyle = c.muted;
+        ctx.fillText(`+ ${shown.more} more`, 12, rows.head + shown.cols.length * rows.row + rows.more / 2);
       }
       break;
     }
