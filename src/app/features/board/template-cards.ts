@@ -4,7 +4,8 @@ import '@adamstavely/trenchcoat/preview-card';
 import type { BoardTemplateDto } from '../../api/generated/models/board-template-dto';
 import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
 import { iconMarkup } from '../../shared/icon';
-import { NOTE_SIZE, VIEW_SIZE, type BoardView } from './board-doc';
+import { NOTE_SIZE, SHAPES, VIEW_SIZE, type BoardView, type ShapeKind } from './board-doc';
+import { shapePath } from './items';
 
 /** The template picker's groups, in order. */
 export const TEMPLATE_CATEGORIES = [
@@ -41,21 +42,28 @@ function preview(t: BoardTemplateDto): TemplateResult {
   const keyed = new Map(boxes.filter((b) => 'key' in b && b.key).map((b) => [(b as { key: string }).key, b]));
   const centre = (b: { x: number; y: number; w: number; h: number }) => [b.x + b.w / 2, b.y + b.h / 2];
   const stroke = Math.max(w, h) / 200;
-  return html`<svg class="cb-template-drawing" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-    ${boxes.map((b) => {
+  // Arrows run under what they join (from centre to centre; right-angled ones across, along and across).
+  const arrows = (l.arrows ?? []).map((a) => {
+    const from = keyed.get(a.from);
+    const to = keyed.get(a.to);
+    if (!from || !to) return null;
+    const [x1, y1] = centre(from);
+    const [x2, y2] = centre(to);
+    const d = a.route === 'elbow' ? `M ${x1} ${y1} H ${(x1 + x2) / 2} V ${y2} H ${x2}` : `M ${x1} ${y1} L ${x2} ${y2}`;
+    return svg`<path d=${d} fill="none" stroke="var(--tc-text-muted)" stroke-width=${stroke * 1.5} />`;
+  });
+  const frames = boxes.filter((b) => b.kind === 'frame');
+  const rest = boxes.filter((b) => b.kind !== 'frame');
+  const draw = (b: (typeof boxes)[number]) => {
       switch (b.kind) {
         case 'frame':
+          // A lane is a light wash, as on the board, so the steps in it show.
           return svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 4} fill=${fillOf(b.fill, 'var(--tc-surface-raised)')}
-            stroke="var(--tc-border-default)" stroke-width=${stroke} stroke-dasharray=${b.border === 'dashed' ? `${stroke * 4} ${stroke * 3}` : 'none'} />`;
+            fill-opacity=${b.look === 'lane' ? 0.35 : 1} stroke="var(--tc-border-default)" stroke-width=${stroke} stroke-dasharray=${b.border === 'dashed' ? `${stroke * 4} ${stroke * 3}` : 'none'} />`;
         case 'shape':
-          return b.shape === 'ellipse'
-            ? svg`<ellipse cx=${b.x + b.w / 2} cy=${b.y + b.h / 2} rx=${b.w / 2} ry=${b.h / 2} fill=${fillOf(b.color, 'var(--note-blue)')}
-                fill-opacity=${b.fill === 'tint' ? 0.45 : 1} stroke=${b.fill === 'tint' ? 'var(--tc-text-muted)' : 'none'} stroke-width=${stroke} />`
-            : b.shape === 'triangle'
-              ? svg`<polygon points="${b.x + b.w / 2},${b.y} ${b.x + b.w},${b.y + b.h} ${b.x},${b.y + b.h}" fill=${fillOf(b.color, 'var(--note-blue)')} />`
-              : b.shape === 'diamond'
-                ? svg`<polygon points="${b.x + b.w / 2},${b.y} ${b.x + b.w},${b.y + b.h / 2} ${b.x + b.w / 2},${b.y + b.h} ${b.x},${b.y + b.h / 2}" fill=${fillOf(b.color, 'var(--note-blue)')} />`
-                : svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 3} fill=${fillOf(b.color, 'var(--note-blue)')} />`;
+          // The board's own outline for the shape, so flowchart steps show as their kinds.
+          return svg`<path transform="translate(${b.x} ${b.y})" d=${shapePath((SHAPES as readonly string[]).includes(b.shape) ? (b.shape as ShapeKind) : 'rect', b.w, b.h)}
+            fill=${fillOf(b.color, 'var(--note-blue)')} fill-opacity=${b.fill === 'tint' ? 0.45 : 1} stroke=${b.fill === 'tint' ? 'var(--tc-text-muted)' : 'none'} stroke-width=${stroke} />`;
         case 'note':
           return svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 2} fill=${fillOf(b.color, 'var(--note-yellow)')} />`;
         case 'text':
@@ -67,15 +75,9 @@ function preview(t: BoardTemplateDto): TemplateResult {
         default:
           return svg`<rect x=${b.x} y=${b.y} width=${b.w} height=${b.h} rx=${stroke * 2} fill="var(--tc-surface-raised)" stroke="var(--tc-border-default)" stroke-width=${stroke} />`;
       }
-    })}
-    ${(l.arrows ?? []).map((a) => {
-      const from = keyed.get(a.from);
-      const to = keyed.get(a.to);
-      if (!from || !to) return null;
-      const [x1, y1] = centre(from);
-      const [x2, y2] = centre(to);
-      return svg`<line x1=${x1} y1=${y1} x2=${x2} y2=${y2} stroke="var(--tc-text-muted)" stroke-width=${stroke * 1.5} />`;
-    })}
+  };
+  return html`<svg class="cb-template-drawing" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    ${frames.map(draw)}${arrows}${rest.map(draw)}
   </svg>`;
 }
 
