@@ -6,7 +6,9 @@ import { DiagramView } from './diagram-view';
 import { ChartView } from './chart-view';
 import { PdfPages } from './pdf-pages';
 import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
-import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
+import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
+import { FLOWCHART_STARTER, flowchartLayout, isFlowchartText } from './diagrams/flowchart';
+import { diagramFrame, flowchartMermaid, tidyFlowchart } from './diagrams/flow-board';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -71,6 +73,11 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   cylinder: 'Cylinder',
   cloud: 'Cloud',
   callout: 'Speech bubble',
+  pill: 'Start or end',
+  parallelogram: 'Data',
+  document: 'Document',
+  delay: 'Delay',
+  subprocess: 'Sub-process',
 };
 const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
   { id: 'sm', label: 'S', name: 'Small' },
@@ -284,6 +291,11 @@ export class Canvas {
     cylinder: 'cylinder',
     cloud: 'cloud',
     callout: 'callout',
+    pill: 'pill',
+    parallelogram: 'data',
+    document: 'doc',
+    delay: 'delay',
+    subprocess: 'subprocess',
   };
   /** The colour of the first selected note or shape, for the selection bar's swatch. */
   protected readonly barColour = computed<NoteColor>(() => {
@@ -456,6 +468,18 @@ export class Canvas {
   protected readonly oneDiagram = computed(() => {
     const [id, ...more] = this.selection();
     return !more.length && this.board().items().some((i) => i.id === id && i.kind === 'diagram') ? id : null;
+  });
+  /** The one Mermaid picture selected, when it's a flowchart that can become an editable one. */
+  protected readonly oneTextFlowchart = computed(() => {
+    const [id, ...more] = this.selection();
+    const item = more.length ? null : this.board().items().find((i) => i.id === id);
+    return item?.kind === 'diagram' && diagramKind(item.source) === 'flowchart' ? item.id : null;
+  });
+  /** The one editable diagram selected (its outer frame), for its bar: lay it out again, turn it, copy it as text. */
+  protected readonly oneFlowchart = computed(() => {
+    const [id, ...more] = this.selection();
+    const frame = more.length || !id ? null : diagramFrame(this.board(), id);
+    return frame?.part?.type === 'flowchart' ? frame : null;
   });
   /** The one chart selected, by itself, to edit its numbers. */
   protected readonly oneChart = computed(() => {
@@ -796,7 +820,7 @@ export class Canvas {
   /** Moves what's selected by the arrow keys; frames carry what's in them, as when dragged. */
   #nudge(dx: number, dy: number): void {
     const frames = this.board().withInnerFrames(this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id));
-    const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
+    const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames), ...this.board().diagramMembers(frames)]);
     this.board().move(ids, dx, dy);
     const [first] = this.selection();
     if (first) this.#reveal(first);
@@ -847,6 +871,69 @@ export class Canvas {
   protected readonly moreDiagramsOpen = signal(false);
 
   /** Puts a starter diagram of a kind in the middle of the view, selected, and opens its text. */
+  /** Adds an editable flowchart (lanes and steps to drag and write in) in the middle of the view. */
+  protected addFlowchart(): void {
+    this.createOpen.set(false);
+    this.#placeFlowchart(FLOWCHART_STARTER, this.#viewCentre());
+  }
+
+  /**
+   * Lays a flowchart written in Mermaid out on the board, centred on a point, and selects the diagram; says why not
+   * when the text can't be read. Returns the diagram's id.
+   */
+  #placeFlowchart(source: string, at: Point): string | null {
+    const result = flowchartLayout(source);
+    if ('error' in result) {
+      this.announcement.set(`That flowchart couldn't be read: ${result.error}`);
+      return null;
+    }
+    const board = this.board();
+    const ids = board.addLayout(result.layout, at.x, at.y);
+    const diagram = ids.find((id) => diagramFrame(board, id));
+    if (!diagram) return null;
+    this.selection.set(new Set([diagram]));
+    const steps = result.layout.shapes?.length ?? 0;
+    // After the selection's own announcement, which would otherwise replace this one.
+    setTimeout(() => this.announcement.set([`Added a flowchart with ${steps} step${steps === 1 ? '' : 's'}`, ...result.notices].join('. ')));
+    return diagram;
+  }
+
+  /** Turns the selected Mermaid flowchart picture into an editable flowchart in its place. */
+  protected makeEditable(): void {
+    const id = this.oneTextFlowchart();
+    const item = this.board().items().find((i) => i.id === id);
+    if (!item || item.kind !== 'diagram') return;
+    if (this.#placeFlowchart(item.source, { x: item.x + item.w / 2, y: item.y + item.h / 2 })) this.board().remove([item.id]);
+  }
+
+  /** Lays the selected diagram out again, optionally turning it to run the other way. */
+  protected tidyDiagram(dir?: 'LR' | 'TB'): void {
+    const frame = this.oneFlowchart();
+    if (frame && tidyFlowchart(this.board(), frame.id, dir)) this.announcement.set(dir ? `The flowchart now runs ${dir === 'TB' ? 'top to bottom' : 'left to right'}` : 'Tidied the flowchart');
+  }
+
+  /** Copies the selected diagram as Mermaid text, to paste into docs or back onto a board. */
+  protected async copyDiagramText(): Promise<void> {
+    const frame = this.oneFlowchart();
+    const text = frame && flowchartMermaid(this.board(), frame.id);
+    if (!text) return;
+    // The copy command first, while the click still counts as the person's: some browsers refuse the async clipboard.
+    let copied = false;
+    const put = (e: ClipboardEvent) => {
+      e.clipboardData?.setData('text/plain', text);
+      e.preventDefault();
+      copied = true;
+    };
+    document.addEventListener('copy', put, { once: true });
+    try {
+      document.execCommand('copy');
+    } finally {
+      document.removeEventListener('copy', put);
+    }
+    if (!copied) copied = await navigator.clipboard.writeText(text).then(() => true, () => false);
+    this.announcement.set(copied ? 'Copied the flowchart as Mermaid' : "The flowchart couldn't be copied: the browser didn't allow it");
+  }
+
   protected addDiagram(kind: DiagramKind): void {
     this.createOpen.set(false);
     this.moreDiagramsOpen.set(false);
@@ -1264,7 +1351,7 @@ export class Canvas {
       }
       // Frames carry the frames and notes inside them.
       const frames = this.board().withInnerFrames(this.board().frames().filter((f) => this.selection().has(f.id)).map((f) => f.id));
-      const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames)]);
+      const ids = new Set([...this.selection(), ...frames, ...this.board().notesIn(frames), ...this.board().diagramMembers(frames)]);
       // Without edit rights, or with anything locked, a click selects but nothing moves.
       if (this.readOnly() || [...ids].some((x) => this.board().locked().has(x))) return;
       this.board().undo.stopCapturing();
@@ -1846,9 +1933,16 @@ export class Canvas {
   /** ⌘/Ctrl V: what was copied on the board, beside the originals if they're in view, else in the middle of the view. */
   @HostListener('document:paste', ['$event'])
   onPaste(e: ClipboardEvent): void {
-    if (!clipboard || this.readOnly() || isEditable(e.target)) return;
-    // Something else was copied since (here or in another app): leave that paste alone.
+    if (this.readOnly() || isEditable(e.target)) return;
     const pasted = (e.clipboardData?.getData('text/plain') ?? '').replace(/\r\n/g, '\n');
+    // A flowchart written in Mermaid, from anywhere, becomes an editable flowchart.
+    if (this.can('diagrams') && pasted !== clipboard?.text && isFlowchartText(pasted)) {
+      e.preventDefault();
+      this.#placeFlowchart(pasted, this.#viewCentre());
+      return;
+    }
+    if (!clipboard) return;
+    // Something else was copied since (here or in another app): leave that paste alone.
     if (clipboard.text !== null ? pasted !== clipboard.text : pasted !== '') return;
     e.preventDefault();
     const { clip } = clipboard;

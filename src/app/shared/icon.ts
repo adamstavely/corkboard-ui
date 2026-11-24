@@ -101,6 +101,11 @@ import {
   Cylinder,
   ExternalLink,
   ArrowLeftRight,
+  RectangleHorizontal,
+  FileInput,
+  Hourglass,
+  Columns3,
+  Waypoints,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -208,6 +213,11 @@ export const ICONS = {
   external: ExternalLink,
   embed: CodeXml,
   swap: ArrowLeftRight,
+  pill: RectangleHorizontal,
+  data: FileInput,
+  delay: Hourglass,
+  subprocess: Columns3,
+  flowchart: Waypoints,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

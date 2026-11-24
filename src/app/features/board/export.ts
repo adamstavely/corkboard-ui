@@ -1,6 +1,7 @@
 import { diagramLinks, renderDiagram, svgUrl, type DiagramImages } from './diagram';
 import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
+import { routeDiagramArrows } from './diagrams/routing';
 import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -156,12 +157,16 @@ export interface ArrowPath {
 export function arrowLines(board: BoardDoc): ArrowPath[] {
   // Arrows into a folded branch go with it.
   const boxes = new Map<string, Box>([...shownNotes(board), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
+  // Right-angled arrows inside an editable diagram are routed round its steps, all together.
+  const routed = routeDiagramArrows(board.frames(), board.items(), board.connectors());
   return board.connectors().flatMap((c) => {
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
     if (!a || !b) return [];
     const style: ArrowStyle = { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end };
     const { label } = c;
+    const r = routed.get(c.id);
+    if (r) return [{ id: c.id, ...r, label, style }];
     if (c.route === 'straight') {
       const start = edgePoint(a, centre(b));
       const end = edgePoint(b, centre(a));

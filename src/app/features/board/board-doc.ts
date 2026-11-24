@@ -40,6 +40,30 @@ export interface Note {
   effort?: number;
   /** Its place in a mind map, when it's in one. */
   mind?: MindLink;
+  /** In an editable diagram: a note on its steps. */
+  part?: Part;
+}
+
+/** The roles a thing can play in an editable diagram: the diagram itself (its outer frame), a lane, a step, a note. */
+export const PART_ROLES = ['diagram', 'lane', 'step', 'note'] as const;
+export type PartRole = (typeof PART_ROLES)[number];
+/** The kinds of editable diagram. */
+export const DIAGRAM_TYPES = ['flowchart'] as const;
+export type DiagramType = (typeof DIAGRAM_TYPES)[number];
+
+/**
+ * A thing's place in an editable diagram: the diagram (its outer frame's id), its role, and its id in the diagram's text
+ * (a Mermaid id), so the diagram can be laid out again and written back as text. The diagram's own frame says what
+ * kind of diagram it is and which way it runs; a step says what kind of step it is (start, decision, …).
+ */
+export interface Part {
+  of: string;
+  role: PartRole;
+  key: string;
+  /** On the diagram: its kind (flowchart). On a step: its kind in that diagram (task, decision, start…). */
+  type?: string;
+  /** On the diagram: the way it runs, left to right or top to bottom. */
+  dir?: 'LR' | 'TB';
 }
 
 /** A titled area of the board. It holds the notes whose centres are inside it: they move when it does. */
@@ -57,6 +81,8 @@ export interface Frame {
   look: FrameLook;
   /** On a timeline's outer frame: when its first column starts and how long each lasts, for the Gantt view. */
   schedule?: { start: string; every: 'week' | '2weeks' | 'month' | 'quarter' };
+  /** In an editable diagram: the diagram itself, or one of its lanes. */
+  part?: Part;
 }
 
 /** A frame's fill: clear (the board shows through, as frames always have), solid, or a tint of a note colour. */
@@ -93,7 +119,7 @@ export interface Media {
   z: number;
 }
 
-export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout'] as const;
+export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess'] as const;
 export type ShapeKind = (typeof SHAPES)[number];
 /** A shape's fill: solid, or a see-through tint (for overlapping circles such as a Venn diagram), as in corkboard-api's layout.ts. */
 export const SHAPE_FILLS = ['solid', 'tint'] as const;
@@ -111,6 +137,8 @@ interface Placed {
   w: number;
   h: number;
   z: number;
+  /** In an editable diagram: a step. */
+  part?: Part;
 }
 /** What ⌘/Ctrl C took (BoardDoc.copyOut): copies in a document of their own, where they were, and the board they came from. */
 export interface Clip {
@@ -244,16 +272,18 @@ export const FILE_CARD = { w: 240, h: 72 } as const;
  * arrows joined by key. Choices arrive as strings and are checked as they're placed.
  */
 export interface Layout {
-  frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string; look?: string }[];
+  frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string; look?: string; part?: LayoutPart }[];
   /** `rich`: a saved board's note as written (corkboard-api's boards/rich-text.ts), used instead of `text` when given. */
-  notes?: { key?: string; text: string; rich?: readonly object[]; color?: string; x: number; y: number; w?: number; h?: number }[];
+  notes?: { key?: string; text: string; rich?: readonly object[]; color?: string; x: number; y: number; w?: number; h?: number; part?: LayoutPart }[];
   texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number }[];
   /** Tinted shapes go under the notes; solid ones on top with the rest. */
-  shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; x: number; y: number; w: number; h: number }[];
+  shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; x: number; y: number; w: number; h: number; part?: LayoutPart }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
   views?: { key?: string; view: string; x: number; y: number }[];
   arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number; start?: string; end?: string; label?: string }[];
 }
+/** A thing's part in the layout's diagram (one per layout): the diagram, which gets an id when placed, is the frame with role 'diagram'. */
+export type LayoutPart = Omit<Part, 'of'>;
 type LayoutTable = NonNullable<Layout['tables']>[number];
 const tableSize = (t: LayoutTable) => ({
   rows: Math.min(50, Math.max(t.rows ?? 1, t.cells.length, 1)),
@@ -495,11 +525,18 @@ export class BoardDoc {
     const ids: string[] = [];
     const byKey = new Map<string, string>();
     const color = (c: string | undefined, fallback: NoteColor) => ((NOTE_COLORS as readonly string[]).includes(c ?? '') ? (c as NoteColor) : fallback);
+    // A diagram in the layout: its parts all name its outer frame, whose id is chosen here.
+    const diagramId = crypto.randomUUID();
+    const hasDiagram = (layout.frames ?? []).some((f) => f.part?.role === 'diagram');
+    const setPart = (node: Y.Map<unknown>, part: LayoutPart | undefined) => {
+      const read = hasDiagram && part ? partOf({ ...part, of: diagramId }) : null;
+      if (read) node.set('part', read);
+    };
     this.undo.stopCapturing();
     this.doc.transact(() => {
       let z = this.#topZ();
-      const add = (kind: string, key: string | undefined, box: { x: number; y: number; w: number; h: number }, set: (node: Y.Map<unknown>) => void) => {
-        const id = crypto.randomUUID();
+      const add = (kind: string, key: string | undefined, box: { x: number; y: number; w: number; h: number }, set: (node: Y.Map<unknown>) => void, part?: LayoutPart) => {
+        const id = part?.role === 'diagram' && hasDiagram && !this.#nodes.has(diagramId) ? diagramId : crypto.randomUUID();
         const node = new Y.Map<unknown>();
         node.set('kind', kind);
         node.set('x', Math.round(ox + box.x));
@@ -509,6 +546,7 @@ export class BoardDoc {
         node.set('z', ++z);
         this.#nodes.set(id, node);
         set(node);
+        setPart(node, part);
         ids.push(id);
         if (key) byKey.set(key, id);
       };
@@ -519,14 +557,14 @@ export class BoardDoc {
           if ((FRAME_BORDERS as readonly string[]).includes(f.border ?? '')) n.set('border', f.border);
           if ((FRAME_LOOKS as readonly string[]).includes(f.look ?? '')) n.set('look', f.look);
           if (f.look === 'slide') n.set('h', slideHeight(f.w));
-        });
+        }, f.part);
       const shape = (s: NonNullable<Layout['shapes']>[number]) =>
         add('shape', s.key, s, (n) => {
           n.set('shape', (SHAPES as readonly string[]).includes(s.shape) ? s.shape : 'rect');
           n.set('color', color(s.color, 'blue'));
           n.set('label', s.label ?? '');
           if (s.fill === 'tint') n.set('fill', 'tint');
-        });
+        }, s.part);
       for (const s of layout.shapes ?? []) if (s.fill === 'tint') shape(s);
       for (const note of layout.notes ?? [])
         add('note', note.key, { ...note, w: size(note.w, NOTE_SIZE.w), h: size(note.h, NOTE_SIZE.h) }, (n) => {
@@ -536,7 +574,7 @@ export class BoardDoc {
           n.set('text', fragment);
           const rich = note.rich && richNodes(note.rich);
           fragment.insert(0, rich?.length ? rich : paragraphsOf(note.text));
-        });
+        }, note.part);
       for (const t of layout.texts ?? []) {
         const size = textSize(t.size);
         add('text', t.key, { x: t.x, y: t.y, w: t.w ?? 240, h: TEXT_SIZES[size] * 1.6 }, (n) => {
@@ -1125,6 +1163,15 @@ export class BoardDoc {
         else if ([...minds.values()].some((m) => m.parent === id)) copy.set('mind', { ...link, root: copies.get(id)!, parent: null, order: 0 });
         else copy.delete('mind');
       }
+      // Copies of a diagram's parts belong to the copy of the diagram; a part copied without its diagram is a plain thing.
+      for (const id of wanted) {
+        const part = partOf(source.get(id)!.get('part'));
+        if (!part) continue;
+        const copy = this.#nodes.get(copies.get(id)!)!;
+        const diagram = copies.get(part.of);
+        if (diagram) copy.set('part', { ...part, of: diagram });
+        else copy.delete('part');
+      }
       // Gathered first: when copying within this board, the new arrows go into the map being read.
       for (const node of [...source.values()]) {
         if (node.get('kind') !== 'connector') continue;
@@ -1166,6 +1213,43 @@ export class BoardDoc {
       return typeof o === 'number' ? o : Number.MAX_SAFE_INTEGER;
     };
     return [...this.frames()].sort((a, b) => order(a) - order(b) || Math.round(a.y / 40) - Math.round(b.y / 40) || a.x - b.x);
+  }
+
+  /**
+   * Moves and resizes things in one step (one undo), as laying a diagram out again does; a size of 0 keeps the size.
+   * Parts can change at the same time (a diagram turning to run the other way).
+   */
+  placeBoxes(boxes: ReadonlyMap<string, { x: number; y: number; w: number; h: number }>, parts?: ReadonlyMap<string, Part>): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const [id, b] of boxes) {
+        const node = this.#writable(id);
+        if (!node) continue;
+        const next: Record<string, number> = { x: Math.round(b.x), y: Math.round(b.y) };
+        if (b.w > 0 && b.h > 0) Object.assign(next, { w: Math.round(b.w), h: Math.round(b.h) });
+        for (const [key, value] of Object.entries(next)) if (node.get(key) !== value) node.set(key, value);
+      }
+      for (const [id, part] of parts ?? []) {
+        const node = this.#writable(id);
+        const read = partOf(part);
+        if (node && read) node.set('part', read);
+      }
+    }, this);
+  }
+
+  /**
+   * What moves with these frames because it's part of their diagram: everything in a diagram moves with its outer
+   * frame, and a lane's steps move with the lane (notes in frames already move with them; see notesIn).
+   */
+  diagramMembers(frameIds: Iterable<string>): string[] {
+    const chosen = this.frames().filter((f) => [...frameIds].includes(f.id) && f.part);
+    if (!chosen.length) return [];
+    const diagrams = new Set(chosen.filter((f) => f.part!.role === 'diagram' && f.part!.of === f.id).map((f) => f.id));
+    const lanes = chosen.filter((f) => f.part!.role === 'lane');
+    const things: { id: string; part?: Part; x: number; y: number; w: number; h: number }[] = [...this.frames(), ...this.items(), ...this.notes()];
+    return things
+      .filter((t) => t.part && (diagrams.has(t.part.of) || (t.part.role === 'step' && lanes.some((l) => l.part!.of === t.part!.of && inFrame(t, l)))))
+      .map((t) => t.id);
   }
 
   /** Moves things to these places in one step (one undo), as aligning and tidying do. */
@@ -1505,6 +1589,7 @@ export class BoardDoc {
         title: typeof title === 'string' ? title : '',
         ...frameStyleOf(node),
           ...scheduleOf(node),
+          ...partField(node),
         },
       };
     }
@@ -1534,6 +1619,7 @@ export class BoardDoc {
       tags: tagsOf(node),
       ...(mindLinkOf(node.get('mind')) ? { mind: mindLinkOf(node.get('mind')) } : {}),
         ...scores(node),
+        ...partField(node),
       },
     };
   }
@@ -1586,8 +1672,26 @@ export const MAX_SIZE = 100_000;
 export const MAX_TABLE = 100;
 
 /** A shape, text, drawing, table or link card as the canvas draws it; null if its node is malformed. */
+/** A part in an editable diagram, as stored: anything malformed is read as none. */
+export function partOf(value: unknown): Part | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Record<string, unknown>;
+  if (typeof p['of'] !== 'string' || !p['of'] || typeof p['key'] !== 'string' || p['key'].length > 200 || !(PART_ROLES as readonly unknown[]).includes(p['role'])) return null;
+  return {
+    of: p['of'],
+    role: p['role'] as PartRole,
+    key: p['key'],
+    ...(typeof p['type'] === 'string' && p['type'].length <= 40 ? { type: p['type'] } : {}),
+    ...(p['dir'] === 'LR' || p['dir'] === 'TB' ? { dir: p['dir'] } : {}),
+  };
+}
+const partField = (node: Y.Map<unknown>): { part?: Part } => {
+  const part = partOf(node.get('part'));
+  return part ? { part } : {};
+};
+
 function itemOf(id: string, node: Y.Map<unknown>): Item | null {
-  const box = { id, x: pos(node.get('x')), y: pos(node.get('y')), w: size(node.get('w'), 200), h: size(node.get('h'), 120), z: num(node.get('z')) };
+  const box = { id, x: pos(node.get('x')), y: pos(node.get('y')), w: size(node.get('w'), 200), h: size(node.get('h'), 120), z: num(node.get('z')), ...partField(node) };
   const color = node.get('color') as NoteColor;
   switch (node.get('kind')) {
     case 'shape': {

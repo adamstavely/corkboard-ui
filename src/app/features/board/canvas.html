@@ -630,6 +630,18 @@
       }
       @if (!readOnly() && can('diagrams') && oneDiagram(); as d) {
         <button type="button" class="icon-btn" aria-label="Edit diagram" data-tip="Edit diagram" (click)="editDiagram.emit(d)"><app-icon name="diagram" /></button>
+        @if (oneTextFlowchart()) {
+          <button type="button" class="icon-btn" aria-label="Make editable: lanes and steps you can drag" data-tip="Make editable" (click)="makeEditable()"><app-icon name="flowchart" /></button>
+        }
+      }
+      @if (!readOnly() && can('diagrams') && oneFlowchart(); as f) {
+        <button type="button" class="icon-btn" aria-label="Tidy: lay the flowchart out again" data-tip="Tidy" (click)="tidyDiagram()"><app-icon name="arrange" /></button>
+        @if (f.part?.dir === 'TB') {
+          <button type="button" class="icon-btn" aria-label="Run left to right" data-tip="Run left to right" (click)="tidyDiagram('LR')"><app-icon name="arrowRight" /></button>
+        } @else {
+          <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="backward" /></button>
+        }
+        <button type="button" class="icon-btn" aria-label="Copy as Mermaid text" data-tip="Copy as Mermaid" (click)="copyDiagramText()"><app-icon name="code" /></button>
       }
       @if (!readOnly() && can('charts') && oneChart(); as c) {
         <button type="button" class="icon-btn" aria-label="Edit chart" data-tip="Edit chart" (click)="editChart.emit(c)"><app-icon name="chart" /></button>
@@ -784,7 +796,8 @@
           <div data-menu class="app-menu" aria-label="Create">
             <button type="button" class="app-menu-item" role="menuitem" (click)="startMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Mind map</span><span class="app-menu-hint">Tab adds a branch</span></button>
             @if (can('diagrams')) {
-              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Written as text</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addFlowchart()"><app-icon name="flowchart" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Lanes and steps to drag</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart as text</span><span class="app-menu-hint">Written in Mermaid</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
               <button
                 type="button"

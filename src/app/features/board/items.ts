@@ -43,6 +43,26 @@ export function shapePath(shape: ShapeKind, w: number, h: number): string {
       const rr = Math.min(12, w / 4, body / 4);
       return `M ${rr} 0 H ${w - rr} Q ${w} 0 ${w} ${rr} V ${body - rr} Q ${w} ${body} ${w - rr} ${body} H ${w * 0.38} L ${w * 0.18} ${h} L ${w * 0.22} ${body} H ${rr} Q 0 ${body} 0 ${body - rr} V ${rr} Q 0 0 ${rr} 0 Z`;
     }
+    case 'pill': {
+      // A start or end: a box with fully rounded ends.
+      const r = Math.min(h / 2, w / 2);
+      return `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w - r} ${h} H ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
+    }
+    case 'parallelogram': {
+      // Data in or out: slanted sides.
+      const slant = Math.min(w * 0.15, h * 0.5);
+      return `M ${slant} 0 H ${w} L ${w - slant} ${h} H 0 Z`;
+    }
+    case 'document': {
+      // A page with a wavy foot.
+      const p = (x: number, y: number) => `${round(x * w)} ${round(y * h)}`;
+      return `M 0 0 H ${w} V ${round(0.88 * h)} C ${p(0.83, 0.76)} ${p(0.67, 0.76)} ${p(0.5, 0.88)} C ${p(0.33, 1)} ${p(0.17, 1)} ${p(0, 0.88)} Z`;
+    }
+    case 'delay': {
+      // A wait: flat on the left, a half round on the right.
+      const r = Math.min(h / 2, w / 2);
+      return `M 0 0 H ${w - r} A ${r} ${h / 2} 0 0 1 ${w - r} ${h} H 0 Z`;
+    }
     default: {
       const r = Math.min(12, w / 4, h / 4);
       return `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`;
@@ -54,6 +74,11 @@ const round = (n: number) => Math.round(n * 10) / 10;
 
 /** A line drawn over a shape's fill, where its outline alone doesn't show its form: a cylinder's top rim. */
 export function shapeDetail(shape: ShapeKind, w: number, h: number): string | null {
+  // A sub-process: a box with a second line down each side.
+  if (shape === 'subprocess') {
+    const side = Math.min(14, w / 8);
+    return `M ${side} 0 V ${h} M ${w - side} 0 V ${h}`;
+  }
   if (shape !== 'cylinder') return null;
   const ry = Math.min(h * 0.15, w / 4);
   return `M 0 ${ry} A ${w / 2} ${ry} 0 0 0 ${w} ${ry}`;
