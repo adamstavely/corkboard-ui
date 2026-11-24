@@ -312,20 +312,34 @@
     }
     @if (arrows().length) {
       <svg class="arrows" aria-hidden="true">
-        <defs>
-          @for (w of arrowWeights; track w) {
-            <marker [attr.id]="'arrowhead-' + w" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" [attr.markerWidth]="8 + w * 2" [attr.markerHeight]="8 + w * 2" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" />
-            </marker>
-          }
-        </defs>
         @for (arrow of arrows(); track arrow.id) {
           <g class="arrow" [class.selected]="selection().has(arrow.id)" [attr.data-connector-id]="arrow.id">
             <path class="arrow-hit" [attr.d]="arrow.d" />
-            <path class="arrow-line" [attr.d]="arrow.d" [attr.stroke-width]="arrow.weight" [attr.stroke-dasharray]="arrow.dashes" [attr.marker-end]="'url(#arrowhead-' + arrow.weight + ')'" />
+            <path class="arrow-line" [attr.d]="arrow.d" [attr.stroke-width]="arrow.weight" [attr.stroke-dasharray]="arrow.dashes" />
+            @for (part of arrow.heads; track $index) {
+              <path class="arrow-head" [class]="'arrow-head fill-' + part.fill" [attr.d]="part.d" [attr.stroke-width]="arrow.headWeight" />
+            }
           </g>
         }
       </svg>
+      <!-- Words on arrows: a pill over the middle of the line, written in place. -->
+      @for (arrow of arrows(); track arrow.id) {
+        @if (labelling() === arrow.id) {
+          <input
+            #labelInput
+            class="arrow-label-input"
+            aria-label="Arrow label"
+            [attr.maxlength]="maxArrowLabel"
+            [style.left.px]="arrow.mid.x"
+            [style.top.px]="arrow.mid.y"
+            [value]="arrow.label"
+            (keydown)="onLabelKey(arrow.id, $event)"
+            (blur)="finishLabel(arrow.id, labelInput, true)"
+          />
+        } @else if (arrow.label) {
+          <div class="arrow-label" [class.selected]="selection().has(arrow.id)" [attr.data-connector-id]="arrow.id" [style.left.px]="arrow.mid.x" [style.top.px]="arrow.mid.y">{{ arrow.label }}</div>
+        }
+      }
     }
     <!-- Zoomed out past reading, notes are drawn as their colour alone: thousands of them stay quick to pan. -->
     @for (note of farNotes(); track note.id) {
@@ -750,7 +764,10 @@
     [style.top.px]="bar.top"
     [value]="bar.style"
     [removable]="true"
+    [labelled]="bar.label !== ''"
     (changed)="restyleArrows($event)"
+    (labelArrow)="labelSelectedArrow()"
+    (reversed)="board().reverseArrows(selectedArrows())"
     (removed)="deleteSelection()"
   />
 }

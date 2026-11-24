@@ -21,7 +21,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, ARROW_WEIGHTS, DEFAULT_ARROW, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Clip, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, DEFAULT_ARROW, MAX_ARROW_LABEL, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Clip, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -29,7 +29,7 @@ import type { ImagePin } from './comments';
 import { NoteView } from './note';
 import type { Presence } from './presence';
 import type { NoteVotes } from './facilitation';
-import { arrowLines, boardBounds, boardBoxes, dashPattern } from './export';
+import { arrowHeads, arrowLines, boardBounds, boardBoxes, dashPattern } from './export';
 import { ArrowStyleBar } from './arrow-style';
 import { PenStyleBar } from './pen-style';
 import { playableKind, safeUrl, shapeDetail, shapePath } from './items';
@@ -1081,6 +1081,13 @@ export class Canvas {
         input.select();
       }
     });
+    effect(() => {
+      const input = this.labelInput()?.nativeElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    });
     effect(() => this.presence()?.setEditing(this.editing()));
     effect(() => {
       const { x, y, zoom } = this.viewport();
@@ -1207,7 +1214,7 @@ export class Canvas {
     if (itemId && itemId === this.itemEditing()?.id) return;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
-    if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
+    if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.arrow-label-input') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
     // An arrow is picked by clicking its line; it never drags.
     const connectorId = target.closest<SVGElement>('[data-connector-id]')?.dataset['connectorId'];
     if (connectorId && e.button === 0) {
@@ -1364,7 +1371,13 @@ export class Canvas {
   }
 
   protected onDoubleClick(e: MouseEvent): void {
-    if ((e.target as HTMLElement).closest('.view-body')) return;
+    if ((e.target as HTMLElement).closest('.view-body, .arrow-label-input')) return;
+    // An arrow opens its words to write.
+    const arrowId = (e.target as Element).closest<HTMLElement | SVGElement>('[data-connector-id]')?.dataset['connectorId'];
+    if (arrowId) {
+      this.#labelArrow(arrowId);
+      return;
+    }
     // A link card opens its page, for anyone; a shape, text or cell opens to write in.
     const itemEl = (e.target as HTMLElement).closest<HTMLElement>('[data-item-id]');
     if (itemEl) {
@@ -1547,6 +1560,7 @@ export class Canvas {
       const [id] = this.selection();
       const item = this.board().items().find((i) => i.id === id);
       if (this.board().frames().some((f) => f.id === id)) this.#rename(id);
+      else if (this.board().connectors().some((c) => c.id === id)) this.#labelArrow(id);
       else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(id);
       else if (item?.kind === 'table') this.#editItem(id, '0:0');
       else if (!item) this.#edit(id);
@@ -1691,10 +1705,47 @@ export class Canvas {
     const gone = new Set(this.board().connectors().filter((c) => hidden.has(c.from) || hidden.has(c.to)).map((c) => c.id));
     return arrowLines(this.board())
       .filter((a) => !gone.has(a.id))
-      .map(({ id, d, style }) => ({ id, d, weight: style.weight, dashes: dashPattern(style).join(' ') || null }));
+      .map((line) => ({
+        id: line.id,
+        d: line.d,
+        weight: line.style.weight,
+        dashes: dashPattern(line.style).join(' ') || null,
+        heads: arrowHeads(line),
+        // The marks at the ends stay fine on a heavy line.
+        headWeight: Math.min(line.style.weight, 2),
+        mid: line.mid,
+        label: line.label,
+      }));
   });
-  /** One arrowhead per line weight, sized to it. */
-  protected readonly arrowWeights = ARROW_WEIGHTS;
+  protected readonly maxArrowLabel = MAX_ARROW_LABEL;
+  /** The arrow whose words are being written, if any. */
+  protected readonly labelling = signal<string | null>(null);
+  private readonly labelInput = viewChild<ElementRef<HTMLInputElement>>('labelInput');
+
+  /** Opens the one selected arrow's words to write. */
+  protected labelSelectedArrow(): void {
+    const [id] = this.selectedArrows();
+    if (id) this.#labelArrow(id);
+  }
+
+  #labelArrow(id: string): void {
+    if (this.readOnly() || this.board().locked().has(id)) return;
+    this.editing.set(null);
+    this.selection.set(new Set([id]));
+    this.labelling.set(id);
+  }
+
+  protected finishLabel(id: string, input: HTMLInputElement, keep: boolean): void {
+    if (this.labelling() !== id) return;
+    this.labelling.set(null);
+    if (keep) this.board().setArrowLabel(id, input.value);
+  }
+
+  protected onLabelKey(id: string, e: KeyboardEvent): void {
+    e.stopPropagation();
+    if (e.key === 'Enter') this.finishLabel(id, e.target as HTMLInputElement, true);
+    else if (e.key === 'Escape') this.finishLabel(id, e.target as HTMLInputElement, false);
+  }
 
   /** The style the next arrows get: what was picked last, for the tool or a selected arrow. */
   readonly arrowStyle = signal<ArrowStyle>(DEFAULT_ARROW);
@@ -1720,9 +1771,10 @@ export class Canvas {
     if (!line) return null;
     const { x, y, zoom } = this.viewport();
     return {
-      left: ((line.start.x + line.end.x) / 2) * zoom + x,
-      top: Math.max(8, Math.min(line.start.y, line.end.y) * zoom + y - 56),
+      left: line.mid.x * zoom + x,
+      top: Math.max(8, Math.min(line.start.y, line.end.y, line.mid.y - 12) * zoom + y - 56),
       style: line.style,
+      label: line.label,
     };
   });
 

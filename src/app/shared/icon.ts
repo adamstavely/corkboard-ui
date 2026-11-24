@@ -100,6 +100,7 @@ import {
   ArrowBigRight,
   Cylinder,
   ExternalLink,
+  ArrowLeftRight,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -206,6 +207,7 @@ export const ICONS = {
   done: Check,
   external: ExternalLink,
   embed: CodeXml,
+  swap: ArrowLeftRight,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;
