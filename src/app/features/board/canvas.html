@@ -221,6 +221,9 @@
             @if (itemEditing()?.id !== item.id) {
               <span class="shape-label">{{ item.label }}</span>
             }
+            @if (refsOf(item); as refs) {
+              <span class="shape-refs">{{ refs }}</span>
+            }
           }
           @case ('text') {
             @if (itemEditing()?.id !== item.id) {
@@ -664,6 +667,10 @@
         <button type="button" class="icon-btn" aria-label="Copy as Mermaid text" data-tip="Copy as Mermaid" (click)="copyDiagramText()"><app-icon name="code" /></button>
         @if (f.part?.type === 'flowchart') {
           <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
+        }
+        @if (f.part?.type === 'usecase') {
+          <button type="button" class="icon-btn text-btn" aria-label="Show sub-functions" data-tip="Sub-functions" [attr.aria-pressed]="showsSubfunctions(f.id)" (click)="toggleSubfunctions()">Sub</button>
+          <button type="button" class="icon-btn text-btn" aria-label="Show requirement ids" data-tip="Requirement ids" [attr.aria-pressed]="showsRefs(f.id)" (click)="toggleRefs()">Refs</button>
         }
         @if (f.part?.type === 'c4') {
           <button type="button" class="icon-btn text-btn" aria-label="Level 1: each system as one box" data-tip="Level 1" (click)="showLevel(1)">L1</button>

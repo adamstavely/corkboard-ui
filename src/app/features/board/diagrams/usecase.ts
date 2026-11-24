@@ -210,14 +210,17 @@ function linkOf(c: { label: string; dash: string; end: string }): { type: UcLink
  * A use case diagram on the board read back as its model, with positions in the skill's pixels from the diagram's
  * origin (for routing); arrows keep the board's ids.
  */
-export function readUsecase(board: BoardDoc, diagramId: string, withPositions = true): UcData | null {
+export function readUsecase(board: BoardDoc, diagramId: string, withPositions = true, shownOnly = withPositions): UcData | null {
   const frame = board.frames().find((f) => f.id === diagramId);
   if (frame?.part?.role !== 'diagram' || frame.part.type !== 'usecase') return null;
   const ox = frame.x + PAD;
   const oy = frame.y + TITLE;
   const pos = (b: Box) => (withPositions ? { x: (b.x - ox) / S, y: (b.y - oy) / S, w: b.w / S, h: b.h / S } : {});
   const subjects = board.frames().filter((f) => f.part?.of === diagramId && f.part.role === 'group');
-  const things = board.items().filter((i): i is Item & { kind: 'shape' } => i.kind === 'shape' && i.part?.of === diagramId && i.part.role === 'step');
+  // Sub-functions hidden at goal level aren't drawn, routed or laid out; the text keeps them.
+  const things = board
+    .items()
+    .filter((i): i is Item & { kind: 'shape' } => i.kind === 'shape' && i.part?.of === diagramId && i.part.role === 'step' && !(shownOnly && i.part.extra?.['hidden'] === true));
   const keyOf = new Map(things.map((t) => [t.id, t.part!.key]));
   const isCase = (t: Item) => t.part!.type === 'usecase' || t.part!.type === 'subfunction';
   const actors: UcActor[] = [];
@@ -358,7 +361,7 @@ export function usecaseKeys(board: BoardDoc, diagramId: string): Map<string, str
 /** Lays a use case diagram on the board out again where it is (one undo step). */
 export function tidyUsecase(board: BoardDoc, diagramId: string): boolean {
   const frame = board.frames().find((f) => f.id === diagramId);
-  const data = readUsecase(board, diagramId, false);
+  const data = readUsecase(board, diagramId, false, true);
   if (!frame || !data) return false;
   const layout = layoutUsecase(data);
   const byKey = usecaseKeys(board, diagramId);
@@ -369,6 +372,37 @@ export function tidyUsecase(board: BoardDoc, diagramId: string): boolean {
   }
   board.placeBoxes(boxes);
   return true;
+}
+
+/** Whether a use case diagram shows its sub-functions (off: goal level, the user goals only). */
+export const showsSubfunctions = (board: BoardDoc, diagramId: string) =>
+  board.frames().find((f) => f.id === diagramId)?.part?.extra?.['goalLevel'] !== true;
+
+/** Shows or hides a use case diagram's sub-functions, and lays it out again. */
+export function setSubfunctionsShown(board: BoardDoc, diagramId: string, shown: boolean): void {
+  const frame = board.frames().find((f) => f.id === diagramId);
+  if (!frame?.part) return;
+  const parts = new Map<string, Part>();
+  const { goalLevel: _g, ...rest } = frame.part.extra ?? {};
+  parts.set(frame.id, { ...frame.part, extra: shown ? rest : { ...rest, goalLevel: true } });
+  for (const i of board.items()) {
+    if (i.part?.of !== diagramId || i.part.type !== 'subfunction') continue;
+    const { hidden: _h, ...others } = i.part.extra ?? {};
+    parts.set(i.id, { ...i.part, extra: shown ? others : { ...others, hidden: true } });
+  }
+  board.setParts(parts);
+  tidyUsecase(board, diagramId);
+}
+
+/** Whether a use case diagram shows its use cases' requirement ids under their names. */
+export const showsRefs = (board: BoardDoc, diagramId: string) => board.frames().find((f) => f.id === diagramId)?.part?.extra?.['showRefs'] === true;
+
+/** Shows or hides the requirement ids under a use case diagram's use cases. */
+export function setRefsShown(board: BoardDoc, diagramId: string, shown: boolean): void {
+  const frame = board.frames().find((f) => f.id === diagramId);
+  if (!frame?.part) return;
+  const { showRefs: _s, ...rest } = frame.part.extra ?? {};
+  board.setParts(new Map([[frame.id, { ...frame.part, extra: shown ? { ...rest, showRefs: true } : rest }]]));
 }
 
 /** A new use case on the board, from a shape dropped in: its part, by the shape. */

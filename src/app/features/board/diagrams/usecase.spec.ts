@@ -2,7 +2,7 @@ import { BoardDoc } from '../board-doc';
 import { arrowLines } from '../export';
 import { diagramFrame } from './flow-board';
 import { diagramLayout, diagramText, tidyDiagram, USECASE_STARTER } from './kinds';
-import { readUsecase } from './usecase';
+import { readUsecase, routeUsecase, setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './usecase';
 import { settleSteps } from './flow-edit';
 
 const SHOP = `---
@@ -92,6 +92,28 @@ describe('use case diagrams', () => {
     const data = readUsecase(board, id, false)!;
     expect(data.useCases.find((u) => u.name === 'Track Order')?.subject).toBe('shop');
     expect(data.actors.find((a) => a.name === 'Courier')).toBeDefined();
+    board.destroy();
+  });
+
+  it('hides sub-functions at goal level, keeping them in the text, and shows requirement ids on request', () => {
+    const board = new BoardDoc();
+    const id = place(board);
+    const pay = board.items().find((i) => i.part?.key === 'pay')!;
+    expect(showsSubfunctions(board, id)).toBe(true);
+    setSubfunctionsShown(board, id, false);
+    expect(showsSubfunctions(board, id)).toBe(false);
+    expect(board.items().find((i) => i.id === pay.id)?.part?.extra?.['hidden']).toBe(true);
+    // Not laid out or routed, but still in the diagram's text.
+    expect(readUsecase(board, id)!.useCases.map((u) => u.id)).not.toContain('pay');
+    expect(readUsecase(board, id, false)!.useCases.map((u) => u.id)).toContain('pay');
+    const include = board.connectors().find((c) => c.to === pay.id)!;
+    expect(routeUsecase(board, diagramFrame(board, id)!).has(include.id)).toBe(false);
+    setSubfunctionsShown(board, id, true);
+    expect(board.items().find((i) => i.id === pay.id)?.part?.extra?.['hidden']).toBeUndefined();
+
+    expect(showsRefs(board, id)).toBe(false);
+    setRefsShown(board, id, true);
+    expect(showsRefs(board, id)).toBe(true);
     board.destroy();
   });
 });
