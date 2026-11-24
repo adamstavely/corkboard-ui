@@ -2,6 +2,7 @@ import { computed, signal, type Signal } from '@angular/core';
 import * as Y from 'yjs';
 import { MAX_DIAGRAM_CHARS } from './diagram';
 import { CHART_KINDS, cleanRows, type ChartKind, type ChartRow } from './chart';
+import { cleanSequence, sequenceSize, type SequenceModel } from './diagrams/sequence';
 import { hiddenByFolds, mindChildren, mindLayout, mindLinkOf, type MindLink } from './mindmap';
 
 export const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'gray'] as const;
@@ -273,8 +274,13 @@ export interface EntityItem extends Placed {
   columns: EntityColumn[];
   color: NoteColor;
 }
-export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem | ChartItem | EntityItem;
-const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram', 'chart', 'entity']);
+/** An editable sequence diagram: participants, messages in time order, frames and notes (see diagrams/sequence.ts). */
+export interface SequenceItem extends Placed {
+  kind: 'sequence';
+  sequence: SequenceModel;
+}
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem | ChartItem | EntityItem | SequenceItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram', 'chart', 'entity', 'sequence']);
 /** At most this many columns a table. */
 export const MAX_ENTITY_COLUMNS = 100;
 /** A table's columns as stored, anything malformed left out. */
@@ -1025,6 +1031,31 @@ export class BoardDoc {
     if (node?.get('kind') !== 'diagram' || node.get('source') === source) return;
     this.undo.stopCapturing();
     this.doc.transact(() => node.set('source', source), this);
+  }
+
+  /** Puts an editable sequence diagram on the board, centred on a point, sized to fit, and returns its id. */
+  addSequence(cx: number, cy: number, model: SequenceModel): string {
+    const clean = cleanSequence(model);
+    const { w, h } = sequenceSize(clean);
+    return this.#place('sequence', cx, cy, w, h, (n) => n.set('sequence', clean));
+  }
+
+  /**
+   * A sequence diagram's new model, as one undoable change; the item grows or shrinks to fit, its top-left corner
+   * kept. The whole model is written at once, so two people changing one diagram at the same moment keep the later.
+   */
+  setSequence(id: string, model: SequenceModel): void {
+    const node = this.#writable(id);
+    if (node?.get('kind') !== 'sequence') return;
+    const clean = cleanSequence(model);
+    if (JSON.stringify(clean) === JSON.stringify(node.get('sequence'))) return;
+    const { w, h } = sequenceSize(clean);
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      node.set('sequence', clean);
+      node.set('w', w);
+      node.set('h', h);
+    }, this);
   }
 
   /** Puts a chart on the board, centred on a point, and returns its id. */
@@ -1897,6 +1928,8 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
       const chart = node.get('chart') as ChartKind;
       return { ...box, kind: 'chart', chart: CHART_KINDS.includes(chart) ? chart : 'bar', title: str(node.get('title')), rows: cleanRows(node.get('data')) };
     }
+    case 'sequence':
+      return { ...box, kind: 'sequence', sequence: cleanSequence(node.get('sequence')) };
     case 'entity':
       return { ...box, kind: 'entity', name: str(node.get('name')), columns: entityColumns(node.get('columns')), color: NOTE_COLORS.includes(color) ? color : 'blue' };
     default:

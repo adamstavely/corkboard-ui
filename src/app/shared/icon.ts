@@ -134,6 +134,10 @@ import {
   Headset,
   ImageOff,
   ImagePlus,
+  GitCompareArrows,
+  TextCursorInput,
+  Split,
+  Reply,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -275,6 +279,11 @@ export const ICONS = {
   headset: Headset,
   noIcon: ImageOff,
   iconPicker: ImagePlus,
+  sequence: GitCompareArrows,
+  numbered: ListOrdered,
+  rename: TextCursorInput,
+  split: Split,
+  reply: Reply,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

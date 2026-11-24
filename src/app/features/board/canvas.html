@@ -166,7 +166,7 @@
         [style.height.px]="item.h"
         [style.z-index]="board().stack().get(item.id)"
         [attr.aria-label]="itemLabel(item)"
-        [attr.role]="item.kind === 'view' || item.kind === 'app' || item.kind === 'chart' ? 'region' : item.kind === 'diagram' ? 'figure' : 'img'"
+        [attr.role]="item.kind === 'view' || item.kind === 'app' || item.kind === 'chart' ? 'region' : item.kind === 'diagram' || item.kind === 'sequence' ? 'figure' : 'img'"
       >
         @switch (item.kind) {
           @case ('view') {
@@ -218,6 +218,17 @@
                 }
               </div>
             }
+          }
+          @case ('sequence') {
+            <app-sequence-view
+              [model]="item.sequence"
+              [width]="item.w"
+              [zoom]="viewport().zoom"
+              [label]="itemLabel(item)"
+              [editable]="editsSequence(item.id)"
+              (changed)="board().setSequence(item.id, $event)"
+              (announce)="announcement.set($event)"
+            />
           }
           @case ('chart') {
             <app-chart-view [kind]="item.chart" [title]="item.title" [rows]="item.rows" [boxHeight]="item.h" />
@@ -310,7 +321,7 @@
             [attr.data-autofocus]="true"
           ></textarea>
         }
-        @if (selection().has(item.id) && selection().size === 1 && !readOnly()) {
+        @if (selection().has(item.id) && selection().size === 1 && !readOnly() && item.kind !== 'sequence') {
           <div class="item-resize" aria-hidden="true"></div>
         }
       </div>
@@ -675,7 +686,7 @@
       @if (!readOnly() && can('diagrams') && oneDiagram(); as d) {
         <button type="button" class="icon-btn" aria-label="Edit diagram" data-tip="Edit diagram" (click)="editDiagram.emit(d)"><app-icon name="diagram" /></button>
         @if (oneTextFlowchart()) {
-          <button type="button" class="icon-btn" aria-label="Make editable: lanes and steps you can drag" data-tip="Make editable" (click)="makeEditable()"><app-icon name="flowchart" /></button>
+          <button type="button" class="icon-btn" aria-label="Make editable: parts you can change in place" data-tip="Make editable" (click)="makeEditable()"><app-icon name="flowchart" /></button>
         }
       }
       @if (!readOnly() && can('diagrams') && oneFlowchart(); as f) {
@@ -912,9 +923,9 @@
               <button type="button" class="app-menu-item" role="menuitem" (click)="addFlowchart()"><app-icon name="flowchart" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Lanes and steps to drag</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addUsecase()"><app-icon name="actor" /><span class="app-menu-label">Use case diagram</span><span class="app-menu-hint">Who wants what from a system</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addC4()"><app-icon name="landscape" /><span class="app-menu-label">C4 system landscape</span><span class="app-menu-hint">People, systems, containers</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addSequence()"><app-icon name="sequence" /><span class="app-menu-label">Sequence diagram</span><span class="app-menu-hint">Who calls whom, in order</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addErd()"><app-icon name="database" /><span class="app-menu-label">ER diagram</span><span class="app-menu-hint">Tables, keys and relationships</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart as text</span><span class="app-menu-hint">Written in Mermaid</span></button>
-              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
               <button
                 type="button"
                 class="app-menu-item"

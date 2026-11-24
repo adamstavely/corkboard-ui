@@ -1,4 +1,5 @@
 import { diagramLinks, renderDiagram, svgUrl, type DiagramImages } from './diagram';
+import { sequenceMermaid, sequenceSvg } from './diagrams/sequence';
 import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { routeDiagramArrows } from './diagrams/routing';
@@ -91,7 +92,7 @@ export function boardMarkdown(board: BoardDoc, title: string): string {
     out.push('## Charts', '');
     for (const c of charts) out.push(...chartMarkdown(c.title, c.rows), '');
   }
-  const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' && i.source.trim() ? [i.source.trim()] : []));
+  const diagrams = board.items().flatMap((i) => (i.kind === 'diagram' && i.source.trim() ? [i.source.trim()] : i.kind === 'sequence' ? [sequenceMermaid(i.sequence).trim()] : []));
   if (diagrams.length) {
     out.push('## Diagrams', '');
     for (const d of diagrams) {
@@ -320,6 +321,8 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
       if (item.kind === 'shape' && item.icon) {
         const src = shapeIconSrc(item.icon, ink);
         if (src) await image(item.id, src);
+      } else if (item.kind === 'sequence') {
+        await image(item.id, svgUrl(sequenceSvg(item.sequence)));
       } else if (item.kind === 'diagram') {
         const drawn = await renderDiagram(item.source, diagramImages);
         if ('svg' in drawn) await image(item.id, svgUrl(drawn.svg));
@@ -713,6 +716,10 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
         const plot = chartPlot(item);
         ctx.drawImage(image, plot.x, plot.y, plot.w, plot.h);
       }
+      break;
+    case 'sequence':
+      // Its own picture, drawn to the item's size.
+      if (image) ctx.drawImage(image, 0, 0, item.w, item.h);
       break;
     case 'diagram': {
       // Drawn as on the board: fitted to its box, on a card.

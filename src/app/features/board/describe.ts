@@ -57,6 +57,8 @@ export function describeThing(board: BoardDoc, id: string): string {
         return `mini-app “${clip(item.title)}”`;
       case 'diagram':
         return diagramTitle(item.source);
+      case 'sequence':
+        return `sequence diagram${item.sequence.title ? ` “${clip(item.sequence.title)}”` : ''}`;
       case 'entity':
         return `database table “${clip(item.name)}”`;
       case 'chart':
