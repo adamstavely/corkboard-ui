@@ -45,10 +45,10 @@ export interface Note {
 }
 
 /** The roles a thing can play in an editable diagram: the diagram itself (its outer frame), a lane, a step, a note. */
-export const PART_ROLES = ['diagram', 'lane', 'step', 'note'] as const;
+export const PART_ROLES = ['diagram', 'lane', 'group', 'step', 'note', 'legend'] as const;
 export type PartRole = (typeof PART_ROLES)[number];
 /** The kinds of editable diagram. */
-export const DIAGRAM_TYPES = ['flowchart'] as const;
+export const DIAGRAM_TYPES = ['flowchart', 'usecase'] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
 /**
@@ -72,6 +72,8 @@ export interface Part {
   sub?: string;
   /** On a flowchart that is a sub-process: the flowchart it belongs to (that diagram's id). */
   parent?: string;
+  /** What else the diagram's text says about it, by kind of diagram (a use case's requirement ids, say). */
+  extra?: Record<string, string | string[] | boolean>;
 }
 
 /** A titled area of the board. It holds the notes whose centres are inside it: they move when it does. */
@@ -127,7 +129,7 @@ export interface Media {
   z: number;
 }
 
-export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess'] as const;
+export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess', 'actor'] as const;
 export type ShapeKind = (typeof SHAPES)[number];
 /** A shape's fill: solid, or a see-through tint (for overlapping circles such as a Venn diagram), as in corkboard-api's layout.ts. */
 export const SHAPE_FILLS = ['solid', 'tint'] as const;
@@ -283,7 +285,7 @@ export interface Layout {
   frames?: { key?: string; title: string; x: number; y: number; w: number; h: number; fill?: string; border?: string; look?: string; part?: LayoutPart }[];
   /** `rich`: a saved board's note as written (corkboard-api's boards/rich-text.ts), used instead of `text` when given. */
   notes?: { key?: string; text: string; rich?: readonly object[]; color?: string; x: number; y: number; w?: number; h?: number; part?: LayoutPart }[];
-  texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number }[];
+  texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number; part?: LayoutPart }[];
   /** Tinted shapes go under the notes; solid ones on top with the rest. */
   shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; x: number; y: number; w: number; h: number; part?: LayoutPart }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
@@ -588,7 +590,7 @@ export class BoardDoc {
         add('text', t.key, { x: t.x, y: t.y, w: t.w ?? 240, h: TEXT_SIZES[size] * 1.6 }, (n) => {
           n.set('text', t.text);
           n.set('size', size);
-        });
+        }, t.part);
       }
       for (const s of layout.shapes ?? []) if (s.fill !== 'tint') shape(s);
       for (const t of layout.tables ?? [])
@@ -1713,7 +1715,16 @@ export function partOf(value: unknown): Part | null {
     ...(typeof p['lane'] === 'string' && p['lane'].length <= 200 ? { lane: p['lane'] } : {}),
     ...(typeof p['sub'] === 'string' && p['sub'].length <= 64 ? { sub: p['sub'] } : {}),
     ...(typeof p['parent'] === 'string' && p['parent'].length <= 64 ? { parent: p['parent'] } : {}),
+    ...(extraOf(p['extra']) ? { extra: extraOf(p['extra'])! } : {}),
   };
+}
+/** A part's extra facts, as stored: a small object of strings, lists of strings and yes/no values, else none. */
+function extraOf(value: unknown): Record<string, string | string[] | boolean> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    ([k, v]) => k.length <= 40 && (typeof v === 'boolean' || (typeof v === 'string' && v.length <= 200) || (Array.isArray(v) && v.length <= 20 && v.every((x) => typeof x === 'string' && x.length <= 200))),
+  );
+  return entries.length && entries.length <= 20 ? (Object.fromEntries(entries) as Record<string, string | string[] | boolean>) : null;
 }
 const partField = (node: Y.Map<unknown>): { part?: Part } => {
   const part = partOf(node.get('part'));

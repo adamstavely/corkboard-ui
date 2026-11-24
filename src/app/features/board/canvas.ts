@@ -7,8 +7,9 @@ import { ChartView } from './chart-view';
 import { PdfPages } from './pdf-pages';
 import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
 import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
-import { FLOWCHART_STARTER, flowchartLayout, isFlowchartText } from './diagrams/flowchart';
-import { diagramFrame, flowchartMermaid, tidyFlowchart } from './diagrams/flow-board';
+import { FLOWCHART_STARTER } from './diagrams/flowchart';
+import { diagramFrame } from './diagrams/flow-board';
+import { DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
@@ -81,6 +82,7 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   document: 'Document',
   delay: 'Delay',
   subprocess: 'Sub-process',
+  actor: 'Actor',
 };
 const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
   { id: 'sm', label: 'S', name: 'Small' },
@@ -299,6 +301,7 @@ export class Canvas {
     document: 'doc',
     delay: 'delay',
     subprocess: 'subprocess',
+    actor: 'actor',
   };
   /** The colour of the first selected note or shape, for the selection bar's swatch. */
   protected readonly barColour = computed<NoteColor>(() => {
@@ -484,7 +487,7 @@ export class Canvas {
   protected readonly oneFlowchart = computed(() => {
     const [id, ...more] = this.selection();
     const frame = more.length || !id ? null : diagramFrame(this.board(), id);
-    return frame?.part?.type === 'flowchart' ? frame : null;
+    return frame && diagramType(this.board(), frame.id) ? frame : null;
   });
   /** The one flowchart step selected, for its bar: add a remark, or start an arrow from it. */
   protected readonly oneStep = computed(() => {
@@ -883,6 +886,12 @@ export class Canvas {
   protected readonly moreDiagramsOpen = signal(false);
 
   /** Puts a starter diagram of a kind in the middle of the view, selected, and opens its text. */
+  /** Adds an editable use case diagram (actors, a system and its use cases) in the middle of the view. */
+  protected addUsecase(): void {
+    this.createOpen.set(false);
+    this.#placeFlowchart(USECASE_STARTER, this.#viewCentre());
+  }
+
   /** Adds an editable flowchart (lanes and steps to drag and write in) in the middle of the view. */
   protected addFlowchart(): void {
     this.createOpen.set(false);
@@ -894,9 +903,9 @@ export class Canvas {
    * when the text can't be read. Returns the diagram's id.
    */
   #placeFlowchart(source: string, at: Point): string | null {
-    const result = flowchartLayout(source);
+    const result = diagramLayout(source);
     if ('error' in result) {
-      this.announcement.set(`That flowchart couldn't be read: ${result.error}`);
+      this.announcement.set(`That diagram couldn't be read: ${result.error}`);
       return null;
     }
     const board = this.board();
@@ -905,10 +914,11 @@ export class Canvas {
     if (!diagram) return null;
     const subs = placeChildren(board, diagram, result.children);
     this.selection.set(new Set([diagram]));
-    const steps = result.layout.shapes?.length ?? 0;
+    const steps = result.count;
+    const what = result.type === 'usecase' ? `a use case diagram with ${steps} use case${steps === 1 ? '' : 's'}` : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
     const more = subs.length ? `, and ${subs.length} sub-process${subs.length === 1 ? '' : 'es'} under it` : '';
     // After the selection's own announcement, which would otherwise replace this one.
-    setTimeout(() => this.announcement.set([`Added a flowchart with ${steps} step${steps === 1 ? '' : 's'}${more}`, ...result.notices].join('. ')));
+    setTimeout(() => this.announcement.set([`Added ${what}${more}`, ...result.notices].join('. ')));
     return diagram;
   }
 
@@ -1042,13 +1052,14 @@ export class Canvas {
   /** Lays the selected diagram out again, optionally turning it to run the other way. */
   protected tidyDiagram(dir?: 'LR' | 'TB'): void {
     const frame = this.oneFlowchart();
-    if (frame && tidyFlowchart(this.board(), frame.id, dir)) this.announcement.set(dir ? `The flowchart now runs ${dir === 'TB' ? 'top to bottom' : 'left to right'}` : 'Tidied the flowchart');
+    const name = frame ? DIAGRAM_NAMES[diagramType(this.board(), frame.id) ?? 'flowchart'] : '';
+    if (frame && tidyDiagram(this.board(), frame.id, dir)) this.announcement.set(dir ? `The ${name} now runs ${dir === 'TB' ? 'top to bottom' : 'left to right'}` : `Tidied the ${name}`);
   }
 
   /** Copies the selected diagram as Mermaid text, to paste into docs or back onto a board. */
   protected async copyDiagramText(): Promise<void> {
     const frame = this.oneFlowchart();
-    const text = frame && flowchartMermaid(this.board(), frame.id);
+    const text = frame && diagramText(this.board(), frame.id);
     if (!text) return;
     // The copy command first, while the click still counts as the person's: some browsers refuse the async clipboard.
     let copied = false;
@@ -1064,7 +1075,7 @@ export class Canvas {
       document.removeEventListener('copy', put);
     }
     if (!copied) copied = await navigator.clipboard.writeText(text).then(() => true, () => false);
-    this.announcement.set(copied ? 'Copied the flowchart as Mermaid' : "The flowchart couldn't be copied: the browser didn't allow it");
+    this.announcement.set(copied ? 'Copied the diagram as Mermaid' : "The diagram couldn't be copied: the browser didn't allow it");
   }
 
   protected addDiagram(kind: DiagramKind): void {
@@ -1432,7 +1443,8 @@ export class Canvas {
       // Between two steps of a flowchart, an arrow runs at right angles round the steps.
       const flow = diagramOf(this.board(), from);
       const steps = flow !== null && flow === diagramOf(this.board(), id);
-      const arrow = this.board().connect(from, id, steps ? { ...this.arrowStyle(), route: 'elbow' } : this.arrowStyle());
+      const usecase = steps && diagramType(this.board(), flow) === 'usecase';
+      const arrow = this.board().connect(from, id, usecase ? { route: 'curve', dash: 'solid', weight: 2, start: 'none', end: 'none' } : steps ? { ...this.arrowStyle(), route: 'elbow' } : this.arrowStyle());
       this.#connectFrom.set(null);
       this.tool.set('select');
       if (arrow) this.selection.set(new Set([arrow]));
@@ -2078,7 +2090,7 @@ export class Canvas {
     if (this.readOnly() || isEditable(e.target)) return;
     const pasted = (e.clipboardData?.getData('text/plain') ?? '').replace(/\r\n/g, '\n');
     // A flowchart written in Mermaid, from anywhere, becomes an editable flowchart.
-    if (this.can('diagrams') && pasted !== clipboard?.text && isFlowchartText(pasted)) {
+    if (this.can('diagrams') && pasted !== clipboard?.text && isDiagramText(pasted)) {
       e.preventDefault();
       this.#placeFlowchart(pasted, this.#viewCentre());
       return;

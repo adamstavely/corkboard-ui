@@ -1,6 +1,8 @@
 import { layoutSize, NOTE_COLORS, type BoardDoc, type Frame, type Item, type Layout, type NoteColor, type Part, type ShapeKind } from '../board-doc';
 import { layoutFlow, type FlowData } from './flowchart';
 import { diagramFrame, tidyFlowchart } from './flow-board';
+import { tidyDiagram } from './kinds';
+import { USECASE_KINDS } from './usecase';
 import { routeDiagramArrows } from './routing';
 
 /**
@@ -45,12 +47,14 @@ export function freshKey(board: BoardDoc, diagramId: string, words: string, fall
   for (let i = 2; ; i++) if (!taken.has(`${safe}_${i}`)) return `${safe}_${i}`;
 }
 
-/** The flowcharts on the board, outer frames, innermost first (smallest), so a nested drop goes to the right one. */
-const flowcharts = (board: BoardDoc): Frame[] =>
+/** The editable diagrams on the board, outer frames, innermost first (smallest), so a nested drop goes to the right one. */
+const editableDiagrams = (board: BoardDoc): Frame[] =>
   board
     .frames()
-    .filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && f.part.type === 'flowchart')
+    .filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && (f.part.type === 'flowchart' || f.part.type === 'usecase'))
     .sort((a, b) => a.w * a.h - b.w * b.h);
+/** The kind of thing a shape becomes in a diagram, by the diagram's kind. */
+const kindIn = (diagram: Frame, shape: ShapeKind) => (diagram.part?.type === 'usecase' ? USECASE_KINDS[shape] : STEP_KINDS[shape]);
 
 /** Distance from a point to a polyline. */
 function distanceTo(p: { x: number; y: number }, line: { x: number; y: number }[]): number {
@@ -76,7 +80,7 @@ export function settleSteps(board: BoardDoc, ids: Iterable<string>): string[] {
   const wanted = new Set(ids);
   const shapes = board.items().filter((i): i is Item & { kind: 'shape' } => i.kind === 'shape' && wanted.has(i.id));
   if (!shapes.length) return [];
-  const diagrams = flowcharts(board);
+  const diagrams = editableDiagrams(board);
   const changes = new Map<string, Part | null>();
   const touched = new Set<string>();
   const joined: { shape: Item & { kind: 'shape' }; diagram: Frame }[] = [];
@@ -90,9 +94,9 @@ export function settleSteps(board: BoardDoc, ids: Iterable<string>): string[] {
       changes.set(shape.id, null);
       touched.add(part.of);
     }
-    if (home && (!part || part.of !== home.id) && STEP_KINDS[shape.shape]) {
+    if (home && (!part || part.of !== home.id) && kindIn(home, shape.shape)) {
       const lane = laneAt(shape, home.id);
-      changes.set(shape.id, { of: home.id, role: 'step', key: freshKey(board, home.id, shape.label, 'step'), type: STEP_KINDS[shape.shape], ...(lane ? { lane } : {}) });
+      changes.set(shape.id, { of: home.id, role: 'step', key: freshKey(board, home.id, shape.label, 'step'), type: kindIn(home, shape.shape), ...(lane ? { lane } : {}) });
       touched.add(home.id);
       joined.push({ shape, diagram: home });
     } else if (home && part?.role === 'step' && part.of === home.id) {
@@ -114,7 +118,7 @@ export function settleSteps(board: BoardDoc, ids: Iterable<string>): string[] {
   const before = joined.length === 1 ? routeDiagramArrows(board.frames(), board.items(), board.connectors()) : null;
   board.setParts(changes);
   // One step dropped on an arrow of its flowchart, with no arrows of its own yet, goes into the flow there.
-  if (joined.length === 1) {
+  if (joined.length === 1 && joined[0].diagram.part?.type === 'flowchart') {
     const [{ shape, diagram }] = joined;
     const own = board.connectors().some((c) => c.from === shape.id || c.to === shape.id);
     if (!own) {
@@ -159,7 +163,7 @@ export const autoTidies = (board: BoardDoc, diagramId: string) => diagramFrame(b
 
 /** Lays out again the flowcharts that have Auto-Tidy on, among these. */
 export function autoTidy(board: BoardDoc, diagramIds: Iterable<string>): void {
-  for (const id of new Set(diagramIds)) if (autoTidies(board, id)) tidyFlowchart(board, id);
+  for (const id of new Set(diagramIds)) if (autoTidies(board, id)) tidyDiagram(board, id);
 }
 
 /** Turns Auto-Tidy on or off for a flowchart; turning it on tidies it at once. */
@@ -168,7 +172,7 @@ export function setAutoTidy(board: BoardDoc, diagramId: string, on: boolean): vo
   if (!frame?.part) return;
   const { auto: _was, ...rest } = frame.part;
   board.setParts(new Map([[diagramId, on ? rest : { ...rest, auto: false }]]));
-  if (on) tidyFlowchart(board, diagramId);
+  if (on) tidyDiagram(board, diagramId);
 }
 
 /** Adds a lane at the end of a flowchart, named "New lane", and lays the flowchart out; returns the lane's id. */
