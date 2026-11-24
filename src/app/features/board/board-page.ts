@@ -13,6 +13,8 @@ import { StackSpread } from '@adamstavely/trenchcoat/angular/stack-spread';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { boardCanvas, boardMarkdown, download, fileName, loadImages } from './export';
 import { Api } from '../../api/generated/api';
+import { logosControllerList } from '../../api/generated/fn/logos/logos-controller-list';
+import { useWorkspaceLogos } from './diagrams/shape-icons';
 import { summaryControllerCatchUp } from '../../api/generated/fn/summary/summary-controller-catch-up';
 import type { CatchUpDto } from '../../api/generated/models/catch-up-dto';
 import { boardsControllerTemplates } from '../../api/generated/fn/boards/boards-controller-templates';
@@ -858,6 +860,11 @@ export class BoardPage {
   protected readonly deleting = signal(false);
 
   constructor() {
+    // The board's workspace logo packs, fetched the first time a logo on it, or the icon picker, wants them.
+    effect(() => {
+      const orgId = this.meta.hasValue() ? this.meta.value().orgId : '';
+      if (orgId) useWorkspaceLogos(() => this.#api.invoke(logosControllerList, { orgId }));
+    });
     // A new suggestion made for you (from Ask AI or the chat) opens the suggestions, so you can decide on it.
     effect(() => {
       const list = this.suggestions();

@@ -79,6 +79,19 @@ export interface Logo {
   vb: string;
   body: string;
 }
+/** How the picker names the packs teams add most. */
+export const PACK_NAMES: Record<string, string> = {
+  devicon: 'Tech logos',
+  aws: 'AWS',
+  azure: 'Azure',
+  'google-cloud': 'Google Cloud',
+  'oracle-cloud': 'Oracle Cloud',
+  'ibm-cloud': 'IBM Cloud',
+  'alibaba-cloud': 'Alibaba Cloud',
+  kubernetes: 'Kubernetes',
+  company: 'Our logos',
+};
+
 /** Logo packs by name, as they load: Devicon (bundled, loaded the first time a logo is wanted) and a workspace's own. */
 export const logoPacks = signal<ReadonlyMap<string, Readonly<Record<string, Logo>>>>(new Map());
 let deviconLoading: Promise<void> | null = null;
@@ -91,6 +104,26 @@ export function loadDevicon(): Promise<void> {
     logoPacks.set(next);
   });
   return deviconLoading;
+}
+
+/** How the open board gets its workspace's logo packs, and whether it has asked yet. */
+let workspaceLoader: (() => Promise<readonly { name: string; logos: Readonly<Record<string, Logo>> }[]>) | null = null;
+let workspaceAsked = false;
+
+/** The open board's workspace: where its logo packs come from, fetched the first time a logo or the picker wants them. */
+export function useWorkspaceLogos(load: () => Promise<readonly { name: string; logos: Readonly<Record<string, Logo>> }[]>): void {
+  workspaceLoader = load;
+  workspaceAsked = false;
+}
+
+/** Fetches the workspace's logo packs, once. */
+export function requestWorkspaceLogos(): void {
+  if (workspaceAsked || !workspaceLoader) return;
+  workspaceAsked = true;
+  workspaceLoader().then(
+    (packs) => packs.forEach((p) => setLogoPack(p.name, p.logos)),
+    () => (workspaceAsked = false),
+  );
 }
 
 /** Adds (or replaces) a workspace's logo pack. */
@@ -118,6 +151,7 @@ export function shapeIcon(name: string | undefined, packs: ReadonlyMap<string, R
   if (!m) return null;
   const [, pack, logo] = m;
   if (pack === 'devicon' && !packs.has('devicon')) void loadDevicon();
+  else if (!packs.has(pack)) requestWorkspaceLogos();
   const found = packs.get(pack)?.[logo];
   return found ? { kind: 'logo', src: logoSrc(found), label: logo } : null;
 }

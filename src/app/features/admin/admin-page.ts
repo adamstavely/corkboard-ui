@@ -16,6 +16,7 @@ import { providersControllerUpdate } from '../../api/generated/fn/models/provide
 import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { WorkspacePolicies } from './workspace-policies';
+import { WorkspaceLogos } from './workspace-logos';
 
 const BOARD_COLUMNS: DataColumn[] = [
   { key: 'title', label: 'Board', type: 'title' },
@@ -47,7 +48,7 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
  */
 @Component({
   selector: 'app-admin-page',
-  imports: [Button, DataTable, Skeleton, WorkspacePolicies],
+  imports: [Button, DataTable, Skeleton, WorkspacePolicies, WorkspaceLogos],
   template: `
     <div class="page">
       <h1>Workspace admin</h1>
@@ -102,6 +103,15 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
         <p class="muted">What people may do on every board in this workspace. Corkboard enforces these, whatever the app shows.</p>
         @if (session.org(); as org) {
           <app-workspace-policies [orgId]="org.id" />
+        }
+
+        <h2>Diagram logos</h2>
+        <p class="muted">
+          Logos for diagrams from a vendor's own icon download, such as AWS, Azure or Google Cloud. Their terms don't let Corkboard ship them, so add
+          the SVG files from the download here. Everyone in the workspace can use them.
+        </p>
+        @if (session.org(); as org) {
+          <app-workspace-logos [orgId]="org.id" />
         }
 
         <h2>Data</h2>
