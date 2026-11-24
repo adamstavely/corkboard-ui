@@ -158,6 +158,7 @@
         [class.actor]="item.kind === 'shape' && item.shape === 'actor'"
         [class.person]="item.kind === 'shape' && item.shape === 'person'"
         [class.subfunction]="item.part?.type === 'subfunction'"
+        [class.unrelated]="unrelatedTables().has(item.id)"
         [attr.data-item-id]="item.id"
         [style.left.px]="item.x"
         [style.top.px]="item.y"
@@ -198,6 +199,25 @@
           }
           @case ('diagram') {
             <app-diagram-view [source]="item.source" [label]="itemLabel(item)" [images]="diagramImages()" [links]="tool() === 'select' && !spaceHeld()" />
+          }
+          @case ('entity') {
+            @if (itemEditing()?.id !== item.id) {
+              <div class="entity" [style.--entity-fill]="'var(--note-' + item.color + ')'">
+                <div class="entity-name" [style.height.px]="erdRowSizes().head">{{ item.name }}</div>
+                @for (row of entityRows(item); track $index) {
+                  <div class="entity-row" [style.height.px]="erdRowSizes().row">
+                    <span class="entity-keys">{{ row.keys }}</span>
+                    <span class="entity-col">{{ row.name }}</span>
+                    @if (row.type) {
+                      <span class="entity-type">{{ row.type }}</span>
+                    }
+                  </div>
+                }
+                @if (entityMore(item); as more) {
+                  <div class="entity-more" [style.height.px]="erdRowSizes().more">+ {{ more }} more</div>
+                }
+              </div>
+            }
           }
           @case ('chart') {
             <app-chart-view [kind]="item.chart" [title]="item.title" [rows]="item.rows" [boxHeight]="item.h" />
@@ -280,9 +300,10 @@
           <textarea
             class="item-editor"
             [class.for-text]="item.kind === 'text'"
-            [attr.aria-label]="item.kind === 'shape' ? 'Shape label' : 'Text'"
+            [class.for-entity]="item.kind === 'entity'"
+            [attr.aria-label]="item.kind === 'shape' ? 'Shape label' : item.kind === 'entity' ? 'Table: its name, then a column a line (type name PK FK UK)' : 'Text'"
             [style.font-size.px]="item.kind === 'text' ? textSizes[item.size] : null"
-            [value]="item.kind === 'shape' ? item.label : item.kind === 'text' ? item.text : ''"
+            [value]="item.kind === 'shape' ? item.label : item.kind === 'text' ? item.text : item.kind === 'entity' ? entityText(item) : ''"
             (pointerdown)="$event.stopPropagation()"
             (keydown)="onItemEditKey(item.id, $event)"
             (blur)="finishItemEdit(item.id, $any($event.target).value)"
@@ -672,6 +693,20 @@
           <button type="button" class="icon-btn text-btn" aria-label="Show sub-functions" data-tip="Sub-functions" [attr.aria-pressed]="showsSubfunctions(f.id)" (click)="toggleSubfunctions()">Sub</button>
           <button type="button" class="icon-btn text-btn" aria-label="Show requirement ids" data-tip="Requirement ids" [attr.aria-pressed]="showsRefs(f.id)" (click)="toggleRefs()">Refs</button>
         }
+        @if (f.part?.type === 'erd') {
+          <tc-menu-morph [open]="columnsOpen()" (tc-open-change)="columnsOpen.set($event.detail.open)">
+            <button type="button" class="icon-btn" data-menu-trigger aria-label="Columns shown" data-tip="Columns"><app-icon name="table" /></button>
+            <div data-menu class="app-menu" aria-label="Columns shown">
+              @for (d of erdDetails; track d.id) {
+                <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="(erdDisplayOf(f.id).detail ?? 'all') === d.id" (click)="columnsOpen.set(false); setErdDetail(d.id)">
+                  <span class="app-menu-label">{{ d.label }}</span>
+                </button>
+              }
+            </div>
+          </tc-menu-morph>
+          <button type="button" class="icon-btn text-btn" aria-label="Show column types" data-tip="Types" [attr.aria-pressed]="erdDisplayOf(f.id).showTypes" (click)="toggleErdTypes()">Types</button>
+          <button type="button" class="icon-btn" aria-label="Add a table" data-tip="Add table" (click)="addErdTable()"><app-icon name="plus" /></button>
+        }
         @if (f.part?.type === 'c4') {
           <button type="button" class="icon-btn text-btn" aria-label="Level 1: each system as one box" data-tip="Level 1" (click)="showLevel(1)">L1</button>
           <button type="button" class="icon-btn text-btn" aria-label="Level 2: systems open to their containers" data-tip="Level 2" (click)="showLevel(2)">L2</button>
@@ -877,6 +912,7 @@
               <button type="button" class="app-menu-item" role="menuitem" (click)="addFlowchart()"><app-icon name="flowchart" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Lanes and steps to drag</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addUsecase()"><app-icon name="actor" /><span class="app-menu-label">Use case diagram</span><span class="app-menu-hint">Who wants what from a system</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addC4()"><app-icon name="landscape" /><span class="app-menu-label">C4 system landscape</span><span class="app-menu-hint">People, systems, containers</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addErd()"><app-icon name="database" /><span class="app-menu-label">ER diagram</span><span class="app-menu-hint">Tables, keys and relationships</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart as text</span><span class="app-menu-hint">Written in Mermaid</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
               <button

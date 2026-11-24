@@ -48,7 +48,7 @@ export interface Note {
 export const PART_ROLES = ['diagram', 'lane', 'group', 'step', 'note', 'legend'] as const;
 export type PartRole = (typeof PART_ROLES)[number];
 /** The kinds of editable diagram. */
-export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4'] as const;
+export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4', 'erd'] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
 /**
@@ -256,8 +256,46 @@ export interface ChartItem extends Placed {
 }
 
 /** The board's other things: shapes, text, pen strokes, tables, link cards, views, mini-apps, diagrams and charts. */
-export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem | ChartItem;
-const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram', 'chart']);
+/** A column of a database table in an ER diagram: its name, type and keys, and a short note. */
+export interface EntityColumn {
+  name: string;
+  type: string;
+  pk?: boolean;
+  fk?: boolean;
+  unique?: boolean;
+  nullable?: boolean;
+  note?: string;
+}
+/** A database table in an ER diagram: its name and columns, in a colour for its domain. */
+export interface EntityItem extends Placed {
+  kind: 'entity';
+  name: string;
+  columns: EntityColumn[];
+  color: NoteColor;
+}
+export type Item = ShapeItem | TextItem | DrawingItem | TableItem | LinkItem | ViewItem | AppItem | DiagramItem | ChartItem | EntityItem;
+const ITEM_KINDS = new Set(['shape', 'text', 'drawing', 'table', 'link', 'view', 'app', 'diagram', 'chart', 'entity']);
+/** At most this many columns a table. */
+export const MAX_ENTITY_COLUMNS = 100;
+/** A table's columns as stored, anything malformed left out. */
+export function entityColumns(value: unknown): EntityColumn[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, MAX_ENTITY_COLUMNS).flatMap((c) => {
+    if (!c || typeof c !== 'object' || typeof (c as EntityColumn).name !== 'string') return [];
+    const col = c as EntityColumn;
+    return [
+      {
+        name: col.name.slice(0, 80),
+        type: typeof col.type === 'string' ? col.type.slice(0, 60) : '',
+        ...(col.pk === true ? { pk: true } : {}),
+        ...(col.fk === true ? { fk: true } : {}),
+        ...(col.unique === true ? { unique: true } : {}),
+        ...(col.nullable === true ? { nullable: true } : {}),
+        ...(typeof col.note === 'string' && col.note ? { note: col.note.slice(0, 120) } : {}),
+      },
+    ];
+  });
+}
 
 /** A ready-made note: a bold heading and prompts to fill in. */
 export interface NoteTemplate {
@@ -292,6 +330,8 @@ export interface Layout {
   shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; icon?: string; x: number; y: number; w: number; h: number; part?: LayoutPart }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
   views?: { key?: string; view: string; x: number; y: number }[];
+  /** Database tables, for ER diagrams. */
+  entities?: { key?: string; name: string; columns: EntityColumn[]; color?: string; x: number; y: number; w: number; h: number; part?: LayoutPart }[];
   arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number; start?: string; end?: string; label?: string }[];
 }
 /** A thing's part in the layout's diagram (one per layout): the diagram, which gets an id when placed, is the frame with role 'diagram'. */
@@ -314,6 +354,7 @@ export function layoutSize(layout: Layout): { w: number; h: number } {
     ...(layout.texts ?? []).map((t) => ({ x: t.x, y: t.y, w: t.w ?? 240, h: TEXT_SIZES[textSize(t.size)] * 1.6 })),
     ...(layout.tables ?? []).map((t) => ({ x: t.x, y: t.y, ...tableBox(t) })),
     ...(layout.views ?? []).map((v) => ({ x: v.x, y: v.y, ...(VIEW_SIZE[v.view as BoardView] ?? { w: 0, h: 0 }) })),
+    ...(layout.entities ?? []),
   ];
   return { w: Math.max(0, ...boxes.map((b) => b.x + b.w)), h: Math.max(0, ...boxes.map((b) => b.y + b.h)) };
 }
@@ -605,6 +646,12 @@ export class BoardDoc {
           n.set('cells', cells);
           t.cells.forEach((row, r) => row.forEach((text, c) => text && cells.set(`${r}:${c}`, text)));
         });
+      for (const e of layout.entities ?? [])
+        add('entity', e.key, e, (n) => {
+          n.set('name', e.name.slice(0, 80));
+          n.set('columns', entityColumns(e.columns));
+          n.set('color', color(e.color, 'blue'));
+        }, e.part);
       for (const v of layout.views ?? []) {
         if (!(BOARD_VIEWS as readonly string[]).includes(v.view)) continue;
         add('view', v.key, { x: v.x, y: v.y, ...VIEW_SIZE[v.view as BoardView] }, (n) => n.set('view', v.view));
@@ -988,6 +1035,17 @@ export class BoardDoc {
       // Not "rows": the API reads that as a table's row count.
       n.set('data', cleanRows(rows));
     });
+  }
+
+  /** A database table's name and columns, as one undoable change. */
+  setEntity(id: string, name: string, columns: readonly EntityColumn[]): void {
+    const node = this.#writable(id);
+    if (node?.get('kind') !== 'entity') return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      node.set('name', name.trim().slice(0, 80));
+      node.set('columns', entityColumns(columns));
+    }, this);
   }
 
   /** A chart's kind, title and rows, as one undoable change. */
@@ -1839,6 +1897,8 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
       const chart = node.get('chart') as ChartKind;
       return { ...box, kind: 'chart', chart: CHART_KINDS.includes(chart) ? chart : 'bar', title: str(node.get('title')), rows: cleanRows(node.get('data')) };
     }
+    case 'entity':
+      return { ...box, kind: 'entity', name: str(node.get('name')), columns: entityColumns(node.get('columns')), color: NOTE_COLORS.includes(color) ? color : 'blue' };
     default:
       return null;
   }

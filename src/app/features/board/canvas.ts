@@ -11,10 +11,11 @@ import { FLOWCHART_STARTER } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { tidyC4 } from './diagrams/c4';
+import { columnsText, ERD_STARTER, erdDisplay, erdRows, readColumns, tidyErd, visibleColumns } from './diagrams/erd';
 import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
 import { logoPacks, shapeIcon } from './diagrams/shape-icons';
 import { IconPicker } from './icon-picker';
-import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
+import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, freshKey, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -29,7 +30,7 @@ import {
 } from '@adamstavely/trenchcoat/selection-toolbar';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import type { Editor } from '@tiptap/core';
-import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, DEFAULT_ARROW, MAX_ARROW_LABEL, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Clip, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
+import { VIEW_NAMES, type BoardView, type Layout, layoutSize, type ViewItem, type AppItem, DEFAULT_ARROW, MAX_ARROW_LABEL, DEFAULT_FRAME, DEFAULT_PEN, type PenStyle, FRAME_BORDERS, FRAME_FILLS, FRAME_LOOKS, type FrameBorder, type FrameFill, type FrameLook, type FrameStyle, type Restack, NOTE_COLORS, NOTE_SIZE, type ArrowRoute, type ArrowStyle, NOTE_TEMPLATES, SHAPES, TEXT_SIZES, type BoardDoc, type Clip, type EntityItem, type Item, type NoteColor, type NoteTemplate, type Note, type ShapeKind, type TableItem, type TextSize } from './board-doc';
 import { boardTags, findOnBoard, NO_QUERY, notePeople, type FindQuery } from './find';
 import { describeBoard, describeThing } from './describe';
 import { align, distribute, snap, tidy, type Alignment, type Box as LayoutBox, type Guide } from './layout';
@@ -877,6 +878,8 @@ export class Canvas {
         return `Diagram: ${diagramTitle(item.source)}`;
       case 'chart':
         return `${CHART_NAMES[item.chart]}${item.title ? `: ${item.title}` : ''}`;
+      case 'entity':
+        return `Database table ${item.name}, ${item.columns.length} column${item.columns.length === 1 ? '' : 's'}`;
     }
   }
 
@@ -928,6 +931,70 @@ export class Canvas {
     const refs = item.part?.extra?.['refs'];
     return Array.isArray(refs) && refs.length && item.part && showsRefs(this.board(), item.part.of) ? refs.join(', ') : null;
   };
+
+  /** Adds an editable ER diagram in the middle of the view. */
+  protected addErd(): void {
+    this.createOpen.set(false);
+    this.#placeFlowchart(ERD_STARTER, this.#viewCentre());
+  }
+
+  protected readonly erdRowSizes = computed(() => erdRows());
+  protected readonly erdDisplayOf = (id: string) => erdDisplay(this.board(), id);
+  protected readonly erdDetails = [
+    { id: 'all', label: 'Every column' },
+    { id: 'keys', label: 'Key columns only' },
+    { id: 'names', label: 'Table names only' },
+  ] as const;
+  protected readonly columnsOpen = signal(false);
+
+  /** A table's rows as its diagram shows them: keys, name and (if shown) type. */
+  protected entityRows(item: EntityItem): { keys: string; name: string; type: string }[] {
+    const display = item.part ? erdDisplay(this.board(), item.part.of) : { showTypes: true };
+    return visibleColumns(item.columns, display.detail).cols.map(({ col }) => ({
+      keys: [col.pk ? 'PK' : '', col.fk ? 'FK' : '', col.unique ? 'UK' : ''].filter(Boolean).join(' '),
+      name: `${col.name}${col.nullable ? '?' : ''}`,
+      type: display.showTypes ? col.type : '',
+    }));
+  }
+  protected entityMore(item: EntityItem): number {
+    const detail = item.part ? erdDisplay(this.board(), item.part.of).detail : undefined;
+    return visibleColumns(item.columns, detail).more;
+  }
+  /** A table as text to edit: its name, then a column a line. */
+  protected readonly entityText = (item: EntityItem) => `${item.name}\n${columnsText(item.columns)}`;
+
+  /** With one table selected, the tables it isn't related to, dimmed so its relationships stand out. */
+  protected readonly unrelatedTables = computed(() => {
+    const [id, ...more] = this.selection();
+    const board = this.board();
+    const table = more.length ? null : board.items().find((i) => i.id === id && i.kind === 'entity');
+    if (!table?.part) return new Set<string>();
+    const related = new Set([table.id, ...board.connectors().flatMap((c) => (c.from === table.id ? [c.to] : c.to === table.id ? [c.from] : []))]);
+    return new Set(board.items().filter((i) => i.kind === 'entity' && i.part?.of === table.part!.of && !related.has(i.id)).map((i) => i.id));
+  });
+
+  /** Shows every column, key columns only, or table names only, in the selected ER diagram. */
+  protected setErdDetail(detail: 'all' | 'keys' | 'names'): void {
+    const frame = this.oneFlowchart();
+    if (frame) tidyErd(this.board(), frame.id, { detail });
+  }
+  protected toggleErdTypes(): void {
+    const frame = this.oneFlowchart();
+    if (frame) tidyErd(this.board(), frame.id, { showTypes: !erdDisplay(this.board(), frame.id).showTypes });
+  }
+  /** Adds a table to the selected ER diagram, lays it out, and opens it to write. */
+  protected addErdTable(): void {
+    const frame = this.oneFlowchart();
+    if (!frame) return;
+    const board = this.board();
+    const key = freshKey(board, frame.id, 'new table', 'table');
+    const [id] = board.addLayout({ entities: [{ name: key, columns: [{ name: 'id', type: 'uuid', pk: true }], color: 'blue', x: 0, y: 0, w: 210, h: 78, part: { role: 'step', key, type: 'table' } }] }, frame.x + frame.w - 120, frame.y + frame.h - 60);
+    if (!id) return;
+    board.setParts(new Map([[id, { of: frame.id, role: 'step', key, type: 'table' }]]));
+    tidyErd(board, frame.id);
+    this.selection.set(new Set([id]));
+    this.#editItem(id);
+  }
 
   /** Adds an editable C4 system landscape in the middle of the view. */
   protected addC4(): void {
@@ -1003,7 +1070,9 @@ export class Canvas {
         ? `a use case diagram with ${steps} use case${steps === 1 ? '' : 's'}`
         : result.type === 'c4'
           ? `a C4 diagram with ${steps} element${steps === 1 ? '' : 's'}`
-          : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
+          : result.type === 'erd'
+            ? `an ER diagram with ${steps} table${steps === 1 ? '' : 's'}`
+            : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
     const more = subs.length ? `, and ${subs.length} sub-process${subs.length === 1 ? '' : 'es'} under it` : '';
     // After the selection's own announcement, which would otherwise replace this one.
     setTimeout(() => this.announcement.set([`Added ${what}${more}`, ...result.notices].join('. ')));
@@ -1216,6 +1285,8 @@ export class Canvas {
       this.itemEditing.set(null);
       this.surface().nativeElement.focus({ preventScroll: true });
     } else if (e.key === 'Enter' && !e.shiftKey) {
+      // A table takes a line a column: Enter starts the next one, and ⌘/Ctrl Enter finishes.
+      if (this.board().items().some((i) => i.id === id && i.kind === 'entity') && !(e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
       this.finishItemEdit(id, (e.target as HTMLTextAreaElement).value);
     }
@@ -1244,6 +1315,19 @@ export class Canvas {
     if (editing.cell) {
       const [row, col] = editing.cell.split(':').map(Number);
       this.board().setCell(id, row, col, value);
+    } else if (this.board().items().some((i) => i.id === id && i.kind === 'entity')) {
+      // A table: its name on the first line, then a column a line; its diagram lays itself out again.
+      const [name = '', ...lines] = value.split('\n');
+      const board = this.board();
+      board.setEntity(id, name.trim() || 'table', readColumns(lines.join('\n')));
+      // It fits its rows at once, Auto-Tidy or not.
+      const table = board.items().find((i): i is EntityItem => i.id === id && i.kind === 'entity');
+      if (table) {
+        const sizes = erdRows();
+        const shown = visibleColumns(table.columns, table.part ? erdDisplay(board, table.part.of).detail : undefined);
+        board.resizeItem(id, table.w, Math.round(sizes.head + shown.cols.length * sizes.row + (shown.more ? sizes.more : 0)));
+      }
+      autoTidy(board, [diagramOf(board, id) ?? ''].filter(Boolean));
     } else {
       this.board().setText(id, value.trim());
       // A step named for the first time takes an id from its name, for its diagram's text.
@@ -1263,7 +1347,9 @@ export class Canvas {
     setTimeout(() => {
       const el = this.surface().nativeElement.parentElement?.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-autofocus]');
       el?.focus();
-      el?.select?.();
+      // A table's text opens with the caret at its end, ready for the next column; anything else, all selected.
+      if (el?.classList.contains('for-entity')) el.setSelectionRange(el.value.length, el.value.length);
+      else el?.select?.();
     });
   }
 
@@ -1533,8 +1619,17 @@ export class Canvas {
       // Between two steps of a flowchart, an arrow runs at right angles round the steps.
       const flow = diagramOf(this.board(), from);
       const steps = flow !== null && flow === diagramOf(this.board(), id);
-      const usecase = steps && diagramType(this.board(), flow) === 'usecase';
-      const arrow = this.board().connect(from, id, usecase ? { route: 'curve', dash: 'solid', weight: 2, start: 'none', end: 'none' } : steps ? { ...this.arrowStyle(), route: 'elbow' } : this.arrowStyle());
+      const kind = steps ? diagramType(this.board(), flow) : null;
+      // Each kind of diagram draws a new link its own way: an association, a relationship (many to one), a step.
+      const style =
+        kind === 'usecase'
+          ? ({ route: 'curve', dash: 'solid', weight: 2, start: 'none', end: 'none' } as const)
+          : kind === 'erd'
+            ? ({ route: 'curve', dash: 'dashed', weight: 2, start: 'zeroMany', end: 'one' } as const)
+            : steps
+              ? { ...this.arrowStyle(), route: 'elbow' as const }
+              : this.arrowStyle();
+      const arrow = this.board().connect(from, id, style);
       this.#connectFrom.set(null);
       this.tool.set('select');
       if (arrow) this.selection.set(new Set([arrow]));
@@ -1716,7 +1811,7 @@ export class Canvas {
       if (item?.kind === 'link' && safeUrl(item.url) !== '#') window.open(item.url, '_blank', 'noopener,noreferrer');
       else if (item?.kind === 'diagram' && !this.readOnly() && this.can('diagrams')) this.editDiagram.emit(item.id);
       else if (item?.kind === 'chart' && !this.readOnly() && this.can('charts')) this.editChart.emit(item.id);
-      else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(item.id);
+      else if (item?.kind === 'shape' || item?.kind === 'text' || item?.kind === 'entity') this.#editItem(item.id);
       else if (item?.kind === 'table') {
         const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]')?.dataset['cell'];
         if (cell) this.#editItem(item.id, cell);
@@ -1892,7 +1987,7 @@ export class Canvas {
       const item = this.board().items().find((i) => i.id === id);
       if (this.board().frames().some((f) => f.id === id)) this.#rename(id);
       else if (this.board().connectors().some((c) => c.id === id)) this.#labelArrow(id);
-      else if (item?.kind === 'shape' || item?.kind === 'text') this.#editItem(id);
+      else if (item?.kind === 'shape' || item?.kind === 'text' || item?.kind === 'entity') this.#editItem(id);
       else if (item?.kind === 'table') this.#editItem(id, '0:0');
       else if (!item) this.#edit(id);
     } else if (mod && e.key.toLowerCase() === 'z') {
