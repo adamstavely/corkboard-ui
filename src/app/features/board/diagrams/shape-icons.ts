@@ -71,6 +71,29 @@ export const GENERIC_ICONS: { group: string; icons: { name: string; icon: IconNa
       { name: 'shield', icon: 'shield', label: 'Shield' },
     ],
   },
+  {
+    group: 'Process markers (BPMN)',
+    icons: [
+      { name: 'bpmn-timer', icon: 'timer', label: 'Timer' },
+      { name: 'bpmn-message', icon: 'mail', label: 'Message' },
+      { name: 'bpmn-signal', icon: 'triangle', label: 'Signal' },
+      { name: 'bpmn-error', icon: 'bpmnError', label: 'Error' },
+      { name: 'bpmn-conditional', icon: 'doc', label: 'Condition' },
+      { name: 'bpmn-terminate', icon: 'bpmnTerminate', label: 'Terminate' },
+      { name: 'bpmn-user', icon: 'user', label: 'User task' },
+      { name: 'bpmn-service', icon: 'bpmnService', label: 'Service task' },
+      { name: 'bpmn-script', icon: 'bpmnScript', label: 'Script task' },
+      { name: 'bpmn-send', icon: 'bpmnSend', label: 'Send task' },
+      { name: 'bpmn-receive', icon: 'mail', label: 'Receive task' },
+      { name: 'bpmn-manual', icon: 'bpmnManual', label: 'Manual task' },
+      { name: 'bpmn-rule', icon: 'table', label: 'Business rule' },
+      { name: 'bpmn-exclusive', icon: 'close', label: 'Exclusive gateway' },
+      { name: 'bpmn-parallel', icon: 'plus', label: 'Parallel gateway' },
+      { name: 'bpmn-inclusive', icon: 'bpmnInclusive', label: 'Inclusive gateway' },
+      { name: 'bpmn-event', icon: 'bpmnEvent', label: 'Event-based gateway' },
+      { name: 'bpmn-complex', icon: 'bpmnComplex', label: 'Complex gateway' },
+    ],
+  },
 ];
 const GENERIC = new Map(GENERIC_ICONS.flatMap((g) => g.icons.map((i) => [i.name, i] as const)));
 

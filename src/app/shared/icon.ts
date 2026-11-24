@@ -140,6 +140,13 @@ import {
   Reply,
   SquareRoundCorner,
   Shuffle,
+  Cog,
+  ScrollText,
+  Hand,
+  Pentagon,
+  Asterisk,
+  CircleDot,
+  Send,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -288,6 +295,15 @@ export const ICONS = {
   reply: Reply,
   rounded: SquareRoundCorner,
   stateMachine: Shuffle,
+  bpmnError: Zap,
+  bpmnService: Cog,
+  bpmnScript: ScrollText,
+  bpmnManual: Hand,
+  bpmnInclusive: Circle,
+  bpmnEvent: Pentagon,
+  bpmnComplex: Asterisk,
+  bpmnTerminate: CircleDot,
+  bpmnSend: Send,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

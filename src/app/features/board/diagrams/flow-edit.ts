@@ -1,5 +1,5 @@
 import { layoutSize, NOTE_COLORS, type BoardDoc, type Frame, type Item, type Layout, type NoteColor, type Part, type ShapeKind } from '../board-doc';
-import { layoutFlow, type FlowData } from './flowchart';
+import { isFlowKind, layoutFlow, type FlowData } from './flowchart';
 import { diagramFrame, tidyFlowchart } from './flow-board';
 import { tidyDiagram } from './kinds';
 import { USECASE_KINDS } from './usecase';
@@ -53,7 +53,7 @@ export function freshKey(board: BoardDoc, diagramId: string, words: string, fall
 const editableDiagrams = (board: BoardDoc): Frame[] =>
   board
     .frames()
-    .filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && (f.part.type === 'flowchart' || f.part.type === 'state' || f.part.type === 'usecase' || f.part.type === 'c4'))
+    .filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && (isFlowKind(f.part.type) || f.part.type === 'usecase' || f.part.type === 'c4'))
     .sort((a, b) => a.w * a.h - b.w * b.h);
 /** The kind of thing a shape becomes in a diagram, by the diagram's kind. */
 const kindIn = (diagram: Frame, shape: ShapeKind) => (diagram.part?.type === 'usecase' ? USECASE_KINDS[shape] : diagram.part?.type === 'c4' ? C4_SHAPE_KINDS[shape] : STEP_KINDS[shape]);
@@ -120,7 +120,7 @@ export function settleSteps(board: BoardDoc, ids: Iterable<string>): string[] {
   const before = joined.length === 1 ? routeDiagramArrows(board.frames(), board.items(), board.connectors()) : null;
   board.setParts(changes);
   // One step dropped on an arrow of its flowchart, with no arrows of its own yet, goes into the flow there.
-  if (joined.length === 1 && (joined[0].diagram.part?.type === 'flowchart' || joined[0].diagram.part?.type === 'state')) {
+  if (joined.length === 1 && isFlowKind(joined[0].diagram.part?.type)) {
     const [{ shape, diagram }] = joined;
     const own = board.connectors().some((c) => c.from === shape.id || c.to === shape.id);
     if (!own) {

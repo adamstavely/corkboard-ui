@@ -49,7 +49,7 @@ export interface Note {
 export const PART_ROLES = ['diagram', 'lane', 'group', 'step', 'note', 'legend'] as const;
 export type PartRole = (typeof PART_ROLES)[number];
 /** The kinds of editable diagram. */
-export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4', 'erd', 'state'] as const;
+export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4', 'erd', 'state', 'bpmn'] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
 /**

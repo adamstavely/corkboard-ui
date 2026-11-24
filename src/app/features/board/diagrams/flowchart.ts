@@ -1,4 +1,4 @@
-import type { DiagramType, Layout, NoteColor, ShapeKind } from '../board-doc';
+import type { Layout, NoteColor, ShapeKind } from '../board-doc';
 import { flowchartEngine } from './vendor/flowchart';
 
 /**
@@ -28,6 +28,8 @@ export interface FlowNode {
   laneId?: string;
   type: string;
   label: string;
+  /** What a BPMN step is beyond its engine type (its event trigger, task kind or gateway kind), kept in its part. */
+  extra?: Record<string, string | boolean | string[]>;
   x?: number;
   y?: number;
 }
@@ -37,6 +39,8 @@ export interface FlowEdge {
   to: string;
   label?: string;
   feedback?: boolean;
+  /** A BPMN message flow (between pools): dashed. */
+  message?: boolean;
 }
 export interface FlowData {
   diagramType?: string;
@@ -68,6 +72,13 @@ export const FLOW_SHAPES: Record<string, ShapeKind> = {
   connector: 'ellipse',
 };
 
+/** The diagrams drawn by the flowchart engine: flowcharts, state machines and BPMN processes. */
+export type FlowKind = 'flowchart' | 'state' | 'bpmn';
+export const isFlowKind = (type: string | undefined): type is FlowKind => type === 'flowchart' || type === 'state' || type === 'bpmn';
+/** In a BPMN process: events are circles, activities rounded boxes, gateways diamonds, data documents and stores. */
+const BPMN_SHAPES: Record<string, ShapeKind> = { start: 'ellipse', end: 'ellipse', event: 'ellipse', task: 'rounded', subprocess: 'subprocess', decision: 'diamond', data: 'document', store: 'cylinder' };
+/** Events in their own colours: where it starts green, where it ends pink, in between yellow. */
+const BPMN_COLOURS: Partial<Record<string, NoteColor>> = { start: 'green', end: 'pink', event: 'yellow' };
 /** In a state machine, states are rounded boxes, and forks and joins bars. */
 const STATE_SHAPES: Record<string, ShapeKind> = { task: 'rounded', subprocess: 'rounded', fork: 'rect', join: 'rect' };
 
@@ -152,8 +163,8 @@ export function flowchartLayout(source: string): FlowchartResult {
 }
 
 /** A flowchart's (or state machine's) model laid out: the main flow, and each sub-process as a flowchart of its own. */
-export function flowDataLayout(data: FlowData, notices: string[], type: DiagramType = 'flowchart'): FlowchartResult {
-  if (!data.nodes.length) return { error: type === 'state' ? 'The state diagram has no states.' : 'The flowchart has no steps.' };
+export function flowDataLayout(data: FlowData, notices: string[], type: FlowKind = 'flowchart'): FlowchartResult {
+  if (!data.nodes.length) return { error: type === 'state' ? 'The state diagram has no states.' : type === 'bpmn' ? 'The process has no steps.' : 'The flowchart has no steps.' };
   // Each sub-process becomes a flowchart of its own, linked to its step (nested ones too: they're all in one list).
   const children = Object.keys(data.children ?? {}).flatMap((slug) => {
     const flow = childFlow(data, slug);
@@ -169,7 +180,7 @@ export function flowDataLayout(data: FlowData, notices: string[], type: DiagramT
 }
 
 /** A flowchart's model (lanes, steps, arrows, remarks) laid out afresh as board things, from the layout's top-left. */
-export function layoutFlow(data: FlowData, type: DiagramType = 'flowchart'): Layout {
+export function layoutFlow(data: FlowData, type: FlowKind = 'flowchart'): Layout {
   const eng = flowEngine();
   // Without subgraphs a flowchart has one unnamed lane: no lane frames, just the diagram.
   const named = data.swimlanes !== false && data.lanes.length > 0;
@@ -197,7 +208,7 @@ export function layoutFlow(data: FlowData, type: DiagramType = 'flowchart'): Lay
   const diagram = { w: lanesBox.w + PAD * 2, h: DIAGRAM_TITLE + lanesBox.h + PAD };
   layout.frames!.push({
     key: 'diagram',
-    title: data.title?.trim() || (type === 'state' ? 'State machine' : 'Flowchart'),
+    title: data.title?.trim() || (type === 'state' ? 'State machine' : type === 'bpmn' ? 'Process' : 'Flowchart'),
     x: 0,
     y: 0,
     ...diagram,
@@ -228,19 +239,20 @@ export function layoutFlow(data: FlowData, type: DiagramType = 'flowchart'): Lay
     const y = tb ? origin.y + laneTitle + b.y * s : origin.y + lane + laneTitle + b.y * s;
     layout.shapes!.push({
       key: n.id,
-      shape: (type === 'state' ? STATE_SHAPES[n.type] : undefined) ?? FLOW_SHAPES[n.type] ?? 'rect',
-      color: n.type === 'connector' || n.type === 'fork' || n.type === 'join' ? 'gray' : (colourOf.get(n.laneId ?? '') ?? 'blue'),
+      shape: (type === 'state' ? STATE_SHAPES[n.type] : type === 'bpmn' ? BPMN_SHAPES[n.type] : undefined) ?? FLOW_SHAPES[n.type] ?? 'rect',
+      color: n.type === 'connector' || n.type === 'fork' || n.type === 'join' || n.type === 'data' || n.type === 'store' ? 'gray' : ((type === 'bpmn' ? BPMN_COLOURS[n.type] : undefined) ?? colourOf.get(n.laneId ?? '') ?? 'blue'),
+      ...(type === 'bpmn' && typeof n.extra?.['marker'] === 'string' ? { icon: `bpmn-${n.extra['marker']}` } : {}),
       label: n.label,
       x: Math.round(x),
       y: Math.round(y),
       w: Math.round(b.w * s),
       h: Math.round(b.h * s),
-      part: { role: 'step', key: n.id, type: n.type, ...(named && n.laneId ? { lane: n.laneId } : {}) },
+      part: { role: 'step', key: n.id, type: n.type, ...(named && n.laneId ? { lane: n.laneId } : {}), ...(n.extra && Object.keys(n.extra).length ? { extra: n.extra } : {}) },
     });
   }
   for (const e of data.edges) {
     if (!boxes.has(e.from) || !boxes.has(e.to)) continue;
-    layout.arrows!.push({ from: e.from, to: e.to, route: 'elbow', ...(e.label ? { label: e.label.slice(0, 200) } : {}), ...(e.feedback ? { weight: 4 } : {}) });
+    layout.arrows!.push({ from: e.from, to: e.to, route: 'elbow', ...(e.label ? { label: e.label.slice(0, 200) } : {}), ...(e.feedback ? { weight: 4 } : {}), ...(e.message ? { dash: 'dashed' } : {}) });
   }
   // Remarks: a row of notes under the diagram, each under its first step where there's room, with dotted lines to its steps.
   let nextX = 0;
