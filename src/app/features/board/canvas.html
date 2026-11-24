@@ -642,6 +642,21 @@
           <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="backward" /></button>
         }
         <button type="button" class="icon-btn" aria-label="Copy as Mermaid text" data-tip="Copy as Mermaid" (click)="copyDiagramText()"><app-icon name="code" /></button>
+        <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Auto-Tidy: lay the flowchart out after each change"
+          data-tip="Auto-Tidy"
+          [attr.aria-pressed]="autoTidies(f.id)"
+          (click)="toggleAutoTidy()"
+        >
+          <app-icon name="autoTidy" />
+        </button>
+      }
+      @if (!readOnly() && can('diagrams') && oneStep()) {
+        <button type="button" class="icon-btn" aria-label="Draw an arrow from this step" data-tip="Connect" (click)="connectFromStep()"><app-icon name="arrow" /></button>
+        <button type="button" class="icon-btn" aria-label="Add a note to this step" data-tip="Add note" (click)="addStepRemark()"><app-icon name="sticky" /></button>
       }
       @if (!readOnly() && can('charts') && oneChart(); as c) {
         <button type="button" class="icon-btn" aria-label="Edit chart" data-tip="Edit chart" (click)="editChart.emit(c)"><app-icon name="chart" /></button>

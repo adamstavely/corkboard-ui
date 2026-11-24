@@ -9,6 +9,7 @@ import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
 import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
 import { FLOWCHART_STARTER, flowchartLayout, isFlowchartText } from './diagrams/flowchart';
 import { diagramFrame, flowchartMermaid, tidyFlowchart } from './diagrams/flow-board';
+import { addLane, addRemark, autoTidies, autoTidy, diagramOf, nameStep, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
 import { Api } from '../../api/generated/api';
@@ -433,6 +434,8 @@ export class Canvas {
     } else {
       const id = tool === 'text' ? board.addText(cx, cy) : board.addShape(cx, cy, tool);
       if (sized) board.resizeItem(id, w, h);
+      // A shape drawn in a flowchart is one of its steps.
+      autoTidy(board, settleSteps(board, [id]));
       this.selection.set(new Set([id]));
       this.#editItem(id);
     }
@@ -480,6 +483,12 @@ export class Canvas {
     const [id, ...more] = this.selection();
     const frame = more.length || !id ? null : diagramFrame(this.board(), id);
     return frame?.part?.type === 'flowchart' ? frame : null;
+  });
+  /** The one flowchart step selected, for its bar: add a remark, or start an arrow from it. */
+  protected readonly oneStep = computed(() => {
+    const [id, ...more] = this.selection();
+    const item = more.length ? null : this.board().items().find((i) => i.id === id);
+    return item?.part?.role === 'step' && diagramFrame(this.board(), item.part.of) ? item : null;
   });
   /** The one chart selected, by itself, to edit its numbers. */
   protected readonly oneChart = computed(() => {
@@ -906,6 +915,61 @@ export class Canvas {
     if (this.#placeFlowchart(item.source, { x: item.x + item.w / 2, y: item.y + item.h / 2 })) this.board().remove([item.id]);
   }
 
+  /**
+   * After things are dragged: shapes moved into a flowchart join it (onto an arrow, into the flow there), steps moved
+   * out of one leave it, and flowcharts with Auto-Tidy on lay themselves out again. Dragging a whole flowchart doesn't.
+   */
+  #afterMove(ids: Iterable<string>): void {
+    const board = this.board();
+    const moved = [...ids];
+    const whole = new Set(moved.filter((id) => diagramFrame(board, id)));
+    // Steps alone are settled (a dragged lane carries its steps, which keep their lane); remarks just move.
+    const lanes = new Set(moved.filter((id) => board.frames().find((f) => f.id === id)?.part?.role === 'lane'));
+    const carried = new Set(board.diagramMembers([...lanes]));
+    const steps = moved.filter((id) => !carried.has(id));
+    const changing = moved.filter((id) => [...board.frames(), ...board.items()].some((t) => t.id === id && (t.part?.role === 'step' || t.part?.role === 'lane')));
+    const flows = new Set([...settleSteps(board, steps), ...changing.flatMap((id) => diagramOf(board, id) ?? [])]);
+    autoTidy(board, [...flows].filter((id) => !whole.has(id)));
+  }
+
+  protected readonly autoTidies = (id: string) => autoTidies(this.board(), id);
+
+  /** Turns Auto-Tidy on or off for the selected flowchart. */
+  protected toggleAutoTidy(): void {
+    const frame = this.oneFlowchart();
+    if (!frame) return;
+    const on = !autoTidies(this.board(), frame.id);
+    setAutoTidy(this.board(), frame.id, on);
+    this.announcement.set(on ? 'Auto-Tidy is on: the flowchart lays itself out after each change' : 'Auto-Tidy is off: steps stay where you put them');
+  }
+
+  /** Adds a lane to the selected flowchart and names it. */
+  protected addLaneToDiagram(): void {
+    const frame = this.oneFlowchart();
+    const id = frame && addLane(this.board(), frame.id);
+    if (id) this.#rename(id);
+  }
+
+  /** Adds a remark to the selected step and opens it to write. */
+  protected addStepRemark(): void {
+    const step = this.oneStep();
+    const id = step && addRemark(this.board(), step.id);
+    if (id) {
+      this.selection.set(new Set([id]));
+      this.#edit(id);
+    }
+  }
+
+  /** Starts an arrow from the selected step: the next click picks where it goes. */
+  protected connectFromStep(): void {
+    const step = this.oneStep();
+    if (!step) return;
+    this.pickTool('connect');
+    this.#connectFrom.set(step.id);
+    this.selection.set(new Set([step.id]));
+    this.announcement.set('Click the step the arrow goes to');
+  }
+
   /** Lays the selected diagram out again, optionally turning it to run the other way. */
   protected tidyDiagram(dir?: 'LR' | 'TB'): void {
     const frame = this.oneFlowchart();
@@ -1012,7 +1076,11 @@ export class Canvas {
     if (editing.cell) {
       const [row, col] = editing.cell.split(':').map(Number);
       this.board().setCell(id, row, col, value);
-    } else this.board().setText(id, value.trim());
+    } else {
+      this.board().setText(id, value.trim());
+      // A step named for the first time takes an id from its name, for its diagram's text.
+      nameStep(this.board(), id);
+    }
     this.itemEditing.set(null);
   }
 
@@ -1292,10 +1360,14 @@ export class Canvas {
         this.selection.set(new Set([id]));
         return;
       }
-      const arrow = this.board().connect(from, id, this.arrowStyle());
+      // Between two steps of a flowchart, an arrow runs at right angles round the steps.
+      const flow = diagramOf(this.board(), from);
+      const steps = flow !== null && flow === diagramOf(this.board(), id);
+      const arrow = this.board().connect(from, id, steps ? { ...this.arrowStyle(), route: 'elbow' } : this.arrowStyle());
       this.#connectFrom.set(null);
       this.tool.set('select');
       if (arrow) this.selection.set(new Set([arrow]));
+      if (steps) autoTidy(this.board(), [flow]);
       return;
     }
     if (itemId && itemId === this.itemEditing()?.id) return;
@@ -1450,6 +1522,7 @@ export class Canvas {
       if (box) this.#placeWith(this.#gesture.tool, box);
       this.tool.set('select');
     }
+    if (this.#gesture?.kind === 'drag' && this.#gesture.moved) this.#afterMove(this.#gesture.ids);
     if ((this.#gesture?.kind === 'drag' && this.#gesture.moved) || this.#gesture?.kind === 'resize') this.board().undo.stopCapturing();
     this.#gesture = undefined;
     this.guides.set([]);
@@ -1975,8 +2048,12 @@ export class Canvas {
     if (this.selection().size === 0) return;
     this.editing.set(null);
     this.renaming.set(null);
-    this.board().remove(this.selection());
+    const board = this.board();
+    // Flowcharts that lose a step, lane or arrow lay themselves out again (unless they go too).
+    const flows = new Set([...this.selection()].flatMap((id) => diagramOf(board, id) ?? []));
+    board.remove(this.selection());
     this.selection.set(new Set());
+    autoTidy(board, [...flows].filter((id) => diagramFrame(board, id)));
   }
 
   /** Adds a frame around the selected notes, or an empty one in the middle of the view, and names it. */

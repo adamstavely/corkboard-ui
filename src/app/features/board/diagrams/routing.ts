@@ -12,6 +12,8 @@ export interface RoutedArrow {
   angle: number;
   startAngle: number;
   mid: Point;
+  /** The corners it turns at, start to end. */
+  points: Point[];
 }
 
 /** How far inside its box a step's outline is, on one side, at a point along that side: arrows end on the outline. */
@@ -119,6 +121,7 @@ function route(tb: boolean, nodes: FlowNode[], edges: FlowEdge[], boxes: Record<
       angle: Math.atan2(z.y - y.y, z.x - y.x),
       startAngle: Math.atan2(a.y - b.y, a.x - b.x),
       mid: { x: r.midX, y: r.midY },
+      points: p,
     });
   }
   return out;

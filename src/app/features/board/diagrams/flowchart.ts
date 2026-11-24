@@ -183,7 +183,7 @@ export function layoutFlow(data: FlowData): Layout {
       y: Math.round(y),
       w: Math.round(b.w * s),
       h: Math.round(b.h * s),
-      part: { role: 'step', key: n.id, type: n.type },
+      part: { role: 'step', key: n.id, type: n.type, ...(named && n.laneId ? { lane: n.laneId } : {}) },
     });
   }
   for (const e of data.edges) {
