@@ -51,7 +51,7 @@
         [attr.width]="f.w"
         [attr.height]="f.h"
         rx="6"
-        [style.--fill]="f.colour ? 'var(--note-' + f.colour + ')' : null"
+        [style.--fill]="f.colour ? 'var(--diagram-' + f.colour + ', var(--note-' + f.colour + '))' : null"
       />
       @for (div of f.dividers; track div.at) {
         <line
@@ -93,7 +93,7 @@
         [attr.width]="b.w"
         [attr.height]="b.h"
         rx="2"
-        [style.--fill]="'var(--note-' + b.colour + ')'"
+        [style.--fill]="'var(--diagram-' + b.colour + ', var(--note-' + b.colour + '))'"
       />
     }
     @for (m of d.messages; track m.id) {
@@ -235,7 +235,7 @@
       [style.top.px]="p.y"
       [style.width.px]="p.w"
       [style.height.px]="p.h"
-      [style.--fill]="'var(--note-' + p.colour + ')'"
+      [style.--fill]="'var(--diagram-' + p.colour + ', var(--note-' + p.colour + '))'"
       [attr.role]="editable() ? 'button' : null"
       [attr.tabindex]="editable() ? 0 : null"
       [attr.aria-label]="kindLabels[p.kind] + ': ' + p.name"

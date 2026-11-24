@@ -1,7 +1,7 @@
 import type { ShapeKind } from './board-doc';
 
 /** The outline of a shape filling a w × h box, as an SVG path. */
-export function shapePath(shape: ShapeKind, w: number, h: number): string {
+export function shapePath(shape: ShapeKind, w: number, h: number, radius = 16): string {
   switch (shape) {
     case 'ellipse':
       return `M 0 ${h / 2} A ${w / 2} ${h / 2} 0 1 0 ${w} ${h / 2} A ${w / 2} ${h / 2} 0 1 0 0 ${h / 2} Z`;
@@ -63,7 +63,8 @@ export function shapePath(shape: ShapeKind, w: number, h: number): string {
     }
     case 'rounded': {
       // A state: a box with rounded corners.
-      const r = Math.min(16, h / 2, w / 2);
+      const r = Math.max(0, Math.min(radius, h / 2, w / 2));
+      if (!r) return `M 0 0 H ${w} V ${h} H 0 Z`;
       return `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} H ${r} A ${r} ${r} 0 0 1 0 ${h - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
     }
     case 'pill': {

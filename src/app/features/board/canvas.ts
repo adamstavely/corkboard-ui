@@ -14,6 +14,8 @@ import { tidyC4 } from './diagrams/c4';
 import { isSequenceText, parseSequence, SEQUENCE_STARTER } from './diagrams/sequence';
 import { isStateText, STATE_STARTER } from './diagrams/state';
 import { BPMN_STARTER } from './diagrams/bpmn';
+import { diagramFill, themeVars } from './diagrams/diagram-theme';
+import { workspaceLook } from './diagrams/workspace-look';
 import { SequenceView } from './sequence-view';
 import { columnsText, ERD_STARTER, erdDisplay, erdRows, readColumns, tidyErd, visibleColumns } from './diagrams/erd';
 import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
@@ -1043,6 +1045,20 @@ export class Canvas {
     { id: 'layers', label: 'In layers' },
   ] as const;
   protected readonly arrangeOpen = signal(false);
+
+  /** The diagrams' look on this board, as CSS variables: the board's own, Trench Coat's, or its workspace's. */
+  protected readonly diagramLook = computed(() => {
+    const look = this.board().look();
+    return themeVars(look.kind === 'own' ? look.theme : look.kind === 'trenchcoat' ? null : workspaceLook());
+  });
+  /** How round a diagram's rounded boxes are: the look's corners, else Trench Coat's. */
+  protected readonly diagramRadius = computed(() => {
+    const look = this.board().look();
+    const theme = look.kind === 'own' ? look.theme : look.kind === 'trenchcoat' ? null : workspaceLook();
+    return theme && Object.keys(themeVars(theme)).length ? theme.radius * 2 : 16;
+  });
+  /** A diagram thing's fill: the look's for its colour, else the board's. */
+  protected readonly diagramFill = diagramFill;
 
   /** Whether a diagram is drawn by the flowchart engine (a flowchart, state machine or BPMN process). */
   protected readonly flowKind = isFlowKind;

@@ -10,7 +10,8 @@
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  color: var(--tc-text-primary);
+  color: var(--diagram-ink, var(--tc-text-primary));
+  font-family: var(--diagram-font, inherit);
   font-size: 14px;
   user-select: none;
   border-radius: var(--tc-radius-md);
