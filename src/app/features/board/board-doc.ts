@@ -48,7 +48,7 @@ export interface Note {
 export const PART_ROLES = ['diagram', 'lane', 'group', 'step', 'note', 'legend'] as const;
 export type PartRole = (typeof PART_ROLES)[number];
 /** The kinds of editable diagram. */
-export const DIAGRAM_TYPES = ['flowchart', 'usecase'] as const;
+export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4'] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
 /**
@@ -129,7 +129,7 @@ export interface Media {
   z: number;
 }
 
-export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess', 'actor'] as const;
+export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess', 'actor', 'person', 'queue'] as const;
 export type ShapeKind = (typeof SHAPES)[number];
 /** A shape's fill: solid, or a see-through tint (for overlapping circles such as a Venn diagram), as in corkboard-api's layout.ts. */
 export const SHAPE_FILLS = ['solid', 'tint'] as const;
@@ -1243,6 +1243,19 @@ export class BoardDoc {
         const node = this.#writable(id);
         const read = partOf(part);
         if (node && read) node.set('part', read);
+      }
+    }, this);
+  }
+
+  /** Renames and restyles a diagram's group frames in one step, as a C4 system opening or closing does. */
+  restyleDiagramGroups(changes: readonly { id: string; title: string; look: string; fill: string }[]): void {
+    this.doc.transact(() => {
+      for (const c of changes) {
+        const node = this.#writable(c.id);
+        if (!node || node.get('kind') !== 'frame') continue;
+        if (node.get('title') !== c.title) node.set('title', c.title);
+        if ((FRAME_LOOKS as readonly string[]).includes(c.look) && node.get('look') !== c.look) node.set('look', c.look);
+        if ((FRAME_FILLS as readonly string[]).includes(c.fill) && node.get('fill') !== c.fill) node.set('fill', c.fill);
       }
     }, this);
   }

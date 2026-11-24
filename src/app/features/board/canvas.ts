@@ -9,7 +9,8 @@ import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
 import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
 import { FLOWCHART_STARTER } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
-import { DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
+import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
+import { tidyC4 } from './diagrams/c4';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
@@ -83,6 +84,8 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   delay: 'Delay',
   subprocess: 'Sub-process',
   actor: 'Actor',
+  person: 'Person',
+  queue: 'Queue',
 };
 const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
   { id: 'sm', label: 'S', name: 'Small' },
@@ -302,6 +305,8 @@ export class Canvas {
     delay: 'delay',
     subprocess: 'subprocess',
     actor: 'actor',
+    person: 'user',
+    queue: 'queue',
   };
   /** The colour of the first selected note or shape, for the selection bar's swatch. */
   protected readonly barColour = computed<NoteColor>(() => {
@@ -886,6 +891,46 @@ export class Canvas {
   protected readonly moreDiagramsOpen = signal(false);
 
   /** Puts a starter diagram of a kind in the middle of the view, selected, and opens its text. */
+  /** Adds an editable C4 system landscape in the middle of the view. */
+  protected addC4(): void {
+    this.createOpen.set(false);
+    this.#placeFlowchart(C4_STARTER, this.#viewCentre());
+  }
+
+  /** The one C4 system group selected, open or not, for its Collapse or Expand button. */
+  protected readonly oneC4System = computed(() => {
+    const [id, ...more] = this.selection();
+    const frame = more.length ? null : this.board().frames().find((f) => f.id === id);
+    const diagram = frame?.part?.role === 'group' ? diagramFrame(this.board(), frame.part.of) : null;
+    return frame && diagram?.part?.type === 'c4' && frame.part!.extra?.['kind'] === 'system' ? { frame, diagram, collapsed: frame.part!.extra?.['collapsed'] === true } : null;
+  });
+
+  /** Opens or closes the selected C4 system: its containers, or one box for it. */
+  protected toggleSystem(): void {
+    const s = this.oneC4System();
+    if (!s) return;
+    tidyC4(this.board(), s.diagram.id, { collapse: { [s.frame.part!.key]: !s.collapsed } });
+    this.announcement.set(s.collapsed ? `Opened ${s.frame.title.split('\n')[0]} to show its containers` : `Closed ${s.frame.title.split('\n')[0]} to one box`);
+  }
+
+  /** Shows a C4 diagram at a level: 1, every system as one box; 2, every system open to its containers. */
+  protected showLevel(level: 1 | 2): void {
+    const frame = this.oneFlowchart();
+    if (frame && tidyC4(this.board(), frame.id, { level })) this.announcement.set(level === 1 ? 'Level 1: each system as one box' : 'Level 2: systems open to their containers');
+  }
+
+  /** Lays a C4 diagram out another way: round its centre, flowing down, or in layers. */
+  protected arrangeC4(arrange: 'surround' | 'flow' | 'layers'): void {
+    const frame = this.oneFlowchart();
+    if (frame && tidyC4(this.board(), frame.id, { arrange })) this.announcement.set(`Arranged the C4 diagram ${arrange === 'surround' ? 'round its centre' : arrange === 'flow' ? 'as a flow' : 'in layers'}`);
+  }
+  protected readonly c4Arrangements = [
+    { id: 'surround', label: 'Round the centre' },
+    { id: 'flow', label: 'Flowing down' },
+    { id: 'layers', label: 'In layers' },
+  ] as const;
+  protected readonly arrangeOpen = signal(false);
+
   /** Adds an editable use case diagram (actors, a system and its use cases) in the middle of the view. */
   protected addUsecase(): void {
     this.createOpen.set(false);
@@ -915,7 +960,12 @@ export class Canvas {
     const subs = placeChildren(board, diagram, result.children);
     this.selection.set(new Set([diagram]));
     const steps = result.count;
-    const what = result.type === 'usecase' ? `a use case diagram with ${steps} use case${steps === 1 ? '' : 's'}` : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
+    const what =
+      result.type === 'usecase'
+        ? `a use case diagram with ${steps} use case${steps === 1 ? '' : 's'}`
+        : result.type === 'c4'
+          ? `a C4 diagram with ${steps} element${steps === 1 ? '' : 's'}`
+          : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
     const more = subs.length ? `, and ${subs.length} sub-process${subs.length === 1 ? '' : 'es'} under it` : '';
     // After the selection's own announcement, which would otherwise replace this one.
     setTimeout(() => this.announcement.set([`Added ${what}${more}`, ...result.notices].join('. ')));
@@ -1239,7 +1289,9 @@ export class Canvas {
   protected readonly nearNotes = computed(() => (this.farView() ? this.drawnNotes().filter((n) => n.id === this.editing()) : this.drawnNotes()));
   /** The notes drawn as their colour alone, zoomed out. */
   protected readonly farNotes = computed(() => (this.farView() ? this.drawnNotes().filter((n) => n.id !== this.editing()) : NO_NOTES));
-  protected readonly drawnItems = computed(() => this.#cull(this.board().items()));
+  /** Things a diagram hides (inside a collapsed C4 system) aren't drawn. */
+  protected readonly drawnItems = computed(() => this.#cull(this.board().items().filter((i) => i.part?.extra?.['hidden'] !== true)));
+  protected readonly drawnFrames = computed(() => this.board().frames().filter((f) => f.part?.extra?.['hidden'] !== true));
   protected readonly drawnMedia = computed(() => this.#cull(this.board().media()));
   #cull<T extends { id: string } & Rect>(all: T[]): T[] {
     const show = this.#onScreen();

@@ -3,6 +3,7 @@ import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { routeDiagramArrows } from './diagrams/routing';
 import { routeUsecase } from './diagrams/usecase';
+import { routeC4 } from './diagrams/c4';
 import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -157,10 +158,18 @@ export interface ArrowPath {
  */
 export function arrowLines(board: BoardDoc): ArrowPath[] {
   // Arrows into a folded branch go with it.
-  const boxes = new Map<string, Box>([...shownNotes(board), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
-  // Right-angled arrows inside an editable diagram are routed round its steps, all together.
-  const routed = new Map([...routeDiagramArrows(board.frames(), board.items(), board.connectors()), ...routeUsecaseArrows(board)]);
+  // Things a diagram hides (inside a collapsed C4 system) have no arrows of their own; the system's box takes them.
+  const shown = <T extends { part?: { extra?: Record<string, unknown> } }>(all: T[]) => all.filter((t) => t.part?.extra?.['hidden'] !== true);
+  const boxes = new Map<string, Box>([...shownNotes(board), ...shown(board.frames()), ...shown(board.items()), ...board.media()].map((n) => [n.id, n]));
+  // Arrows inside an editable diagram are routed by its kind's engine, all together.
+  const c4 = routeC4Arrows(board);
+  const routed = new Map([...routeDiagramArrows(board.frames(), board.items(), board.connectors()), ...routeUsecaseArrows(board), ...c4.routes]);
   return board.connectors().flatMap((c) => {
+    if (c4.merged.has(c.id)) return [];
+    const style0: ArrowStyle = { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end };
+    const r0 = routed.get(c.id);
+    // A C4 relation into a collapsed system is drawn to the system's box, by the route the engine gives it.
+    if (r0 && (!boxes.has(c.from) || !boxes.has(c.to))) return [{ id: c.id, ...r0, label: c.label, style: style0 }];
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
     if (!a || !b) return [];
@@ -204,6 +213,18 @@ export function arrowLines(board: BoardDoc): ArrowPath[] {
 }
 
 const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+/** The arrows of every C4 diagram on the board, routed by the diagram skill's engine, and those a collapsed system merges. */
+function routeC4Arrows(board: BoardDoc) {
+  const routes: [string, ReturnType<typeof routeC4>['routes'] extends Map<string, infer R> ? R : never][] = [];
+  const merged = new Set<string>();
+  for (const d of board.frames().filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && f.part.type === 'c4')) {
+    const r = routeC4(board, d);
+    for (const [id, route] of r.routes) if (board.connectors().some((c) => c.id === id && c.route === 'elbow')) routes.push([id, route]);
+    for (const id of r.merged) merged.add(id);
+  }
+  return { routes, merged };
+}
 
 /** The curved arrows of every use case diagram on the board, routed by the diagram skill's engine. */
 function routeUsecaseArrows(board: BoardDoc) {

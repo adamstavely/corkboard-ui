@@ -109,6 +109,9 @@ import {
   Rows3,
   WandSparkles,
   PersonStanding,
+  User,
+  ListEnd,
+  Building2,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -224,6 +227,9 @@ export const ICONS = {
   addLane: Rows3,
   autoTidy: WandSparkles,
   actor: PersonStanding,
+  user: User,
+  queue: ListEnd,
+  landscape: Building2,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

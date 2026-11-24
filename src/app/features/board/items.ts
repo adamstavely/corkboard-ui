@@ -49,6 +49,18 @@ export function shapePath(shape: ShapeKind, w: number, h: number): string {
       const cx = w / 2;
       return `M ${round(cx - r)} ${round(r + 2)} A ${round(r)} ${round(r)} 0 1 0 ${round(cx + r)} ${round(r + 2)} A ${round(r)} ${round(r)} 0 1 0 ${round(cx - r)} ${round(r + 2)} Z`;
     }
+    case 'person': {
+      // A C4 person: a round head over a rounded body that holds the words.
+      const r = Math.min(w * 0.18, h * 0.2);
+      const top = r * 1.6;
+      const rr = Math.min(w, h - top) * 0.22;
+      return `M ${round(w / 2 - r)} ${round(r)} A ${round(r)} ${round(r)} 0 1 0 ${round(w / 2 + r)} ${round(r)} A ${round(r)} ${round(r)} 0 1 0 ${round(w / 2 - r)} ${round(r)} Z M ${round(rr)} ${round(top)} H ${round(w - rr)} Q ${w} ${round(top)} ${w} ${round(top + rr)} V ${round(h - rr)} Q ${w} ${h} ${round(w - rr)} ${h} H ${round(rr)} Q 0 ${h} 0 ${round(h - rr)} V ${round(top + rr)} Q 0 ${round(top)} ${round(rr)} ${round(top)} Z`;
+    }
+    case 'queue': {
+      // A queue: a cylinder on its side.
+      const rx = Math.min(w * 0.12, h / 4);
+      return `M ${rx} 0 H ${w - rx} A ${rx} ${h / 2} 0 0 1 ${w - rx} ${h} H ${rx} A ${rx} ${h / 2} 0 0 1 ${rx} 0 Z`;
+    }
     case 'pill': {
       // A start or end: a box with fully rounded ends.
       const r = Math.min(h / 2, w / 2);
@@ -89,6 +101,11 @@ export function shapeDetail(shape: ShapeKind, w: number, h: number): string | nu
     const foot = h * 0.66;
     const arm = Math.min(w * 0.3, h * 0.2);
     return `M ${round(cx)} ${round(neck)} V ${round(hip)} M ${round(cx - arm)} ${round(neck + (hip - neck) * 0.35)} H ${round(cx + arm)} M ${round(cx)} ${round(hip)} L ${round(cx - arm * 0.8)} ${round(foot)} M ${round(cx)} ${round(hip)} L ${round(cx + arm * 0.8)} ${round(foot)}`;
+  }
+  // A queue's near end.
+  if (shape === 'queue') {
+    const rx = Math.min(w * 0.12, h / 4);
+    return `M ${w - rx} 0 A ${rx} ${h / 2} 0 0 0 ${w - rx} ${h}`;
   }
   // A sub-process: a box with a second line down each side.
   if (shape === 'subprocess') {

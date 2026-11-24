@@ -362,3 +362,13 @@
 .surface.bare ~ .rail-stack {
   display: none;
 }
+
+/* A bar button that says what it does in a word or two (L1, L2) rather than an icon. */
+.icon-btn.text-btn {
+  width: auto;
+  min-width: 32px;
+  padding-inline: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--tc-font-weight-semibold);
+}

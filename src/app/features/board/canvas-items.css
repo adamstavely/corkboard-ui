@@ -75,6 +75,8 @@
   font-weight: var(--tc-font-weight-medium);
   text-align: center;
   overflow-wrap: anywhere;
+  /* Lines kept as written: a C4 box's name, its kind and technology, then what it does. */
+  white-space: pre-line;
 }
 .item-text .text-body {
   display: block;
@@ -357,4 +359,9 @@
   stroke-width: 1.5;
   stroke-dasharray: 6 4;
   vector-effect: non-scaling-stroke;
+}
+
+/* A C4 person: the words sit in the body, under the head. */
+.item-shape.person .shape-label {
+  inset: 34% 8% 6%;
 }
