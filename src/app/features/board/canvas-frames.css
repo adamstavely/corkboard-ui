@@ -197,3 +197,22 @@
   background: var(--tc-surface-raised);
   cursor: nwse-resize;
 }
+
+/* A lane's name floating at the edge of the screen while the lane runs on and its own name has scrolled away. */
+.lane-float {
+  position: absolute;
+  z-index: 2;
+  max-width: 220px;
+  padding: 2px 10px;
+  overflow: hidden;
+  border: 1px solid var(--tc-border-default);
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font-size: 13px;
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}

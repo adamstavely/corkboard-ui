@@ -1,6 +1,6 @@
 import type { BoardDoc, Frame, Item } from '../board-doc';
 import { plainText } from '../comments';
-import { flowEngine, layoutFlow, type FlowData, type FlowEdge, type FlowNode } from './flowchart';
+import { flowEngine, layoutFlow, type ChildData, type FlowData, type FlowEdge, type FlowNode } from './flowchart';
 
 /** A diagram's outer frame, by its id, if it is one. */
 export function diagramFrame(board: BoardDoc, id: string): Frame | null {
@@ -85,9 +85,36 @@ export function readFlowchart(board: BoardDoc, diagramId: string): FlowData | nu
   };
 }
 
-/** A flowchart on the board written as Mermaid, as the diagram skill writes it (lanes as subgraphs, remarks as flags). */
-export function flowchartMermaid(board: BoardDoc, diagramId: string): string | null {
+/**
+ * A flowchart with its sub-processes, as the skill's writer takes it: every lane once, and each sub-process (at any
+ * depth) under the id of the step it belongs to.
+ */
+export function readFlowchartTree(board: BoardDoc, diagramId: string): FlowData | null {
   const data = readFlowchart(board, diagramId);
+  if (!data) return null;
+  const children: Record<string, ChildData> = {};
+  const lanes = new Map(data.lanes.map((l) => [l.id, l]));
+  const seen = new Set([diagramId]);
+  const walk = (id: string) => {
+    for (const step of board.items()) {
+      const sub = step.part?.of === id && step.part.role === 'step' ? step.part.sub : undefined;
+      if (!sub || seen.has(sub)) continue;
+      const child = readFlowchart(board, sub);
+      if (!child) continue;
+      seen.add(sub);
+      const own = child.swimlanes === false ? [] : child.lanes;
+      for (const l of own) if (!lanes.has(l.id)) lanes.set(l.id, l);
+      children[step.part!.key] = { name: child.title ?? step.part!.key, laneOrder: own.map((l) => l.id), nodes: own.length ? child.nodes : child.nodes.map(({ laneId: _l, ...n }) => n), edges: child.edges, ...(child.notes ? { notes: child.notes } : {}) };
+      walk(sub);
+    }
+  };
+  walk(diagramId);
+  return Object.keys(children).length ? { ...data, lanes: [...lanes.values()], children } : data;
+}
+
+/** A flowchart on the board written as Mermaid, as the diagram skill writes it (lanes as subgraphs, remarks as flags, sub-processes as sub_ blocks). */
+export function flowchartMermaid(board: BoardDoc, diagramId: string): string | null {
+  const data = readFlowchartTree(board, diagramId);
   return data ? flowEngine().toMermaid(data, {}) : null;
 }
 
@@ -122,5 +149,12 @@ export function tidyFlowchart(board: BoardDoc, diagramId: string, dir?: 'LR' | '
     if (now && covered(now)) boxes.set(now.id, { x: diagram.x + note.x, y: diagram.y + note.y, w: 0, h: 0 });
   }
   board.placeBoxes(boxes, dir ? new Map([[diagram.id, { ...diagram.part!, dir }]]) : undefined);
+  // Sub-processes under it stay clear of it as it grows.
+  const now = diagramFrame(board, diagramId)!;
+  const bottom = now.y + now.h + 120;
+  for (const child of board.frames().filter((f) => f.part?.role === 'diagram' && f.part.parent === diagramId)) {
+    const overlaps = child.x < now.x + now.w && now.x < child.x + child.w && child.y < bottom && now.y < child.y + child.h;
+    if (overlaps) board.move([child.id, ...board.diagramMembers([child.id])], 0, bottom - child.y);
+  }
   return true;
 }

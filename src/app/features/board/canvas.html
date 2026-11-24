@@ -643,6 +643,9 @@
         }
         <button type="button" class="icon-btn" aria-label="Copy as Mermaid text" data-tip="Copy as Mermaid" (click)="copyDiagramText()"><app-icon name="code" /></button>
         <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
+        @if (parentOf(f); as parent) {
+          <button type="button" class="icon-btn" [attr.aria-label]="'Back to ' + parent.title" data-tip="Back to its flowchart" (click)="backToParent()"><app-icon name="back" /></button>
+        }
         <button
           type="button"
           class="icon-btn"
@@ -654,9 +657,16 @@
           <app-icon name="autoTidy" />
         </button>
       }
-      @if (!readOnly() && can('diagrams') && oneStep()) {
+      @if (!readOnly() && can('diagrams') && oneStep(); as s) {
         <button type="button" class="icon-btn" aria-label="Draw an arrow from this step" data-tip="Connect" (click)="connectFromStep()"><app-icon name="arrow" /></button>
         <button type="button" class="icon-btn" aria-label="Add a note to this step" data-tip="Add note" (click)="addStepRemark()"><app-icon name="sticky" /></button>
+        @if (subOf(s); as sub) {
+          <button type="button" class="icon-btn" [attr.aria-label]="'Open the sub-process ' + sub.title" data-tip="Open sub-process" (click)="openSubprocess()"><app-icon name="external" /></button>
+          <button type="button" class="icon-btn" aria-label="Put the sub-process's steps back here" data-tip="Put steps back" (click)="expandStep()"><app-icon name="unfold" /></button>
+        }
+      }
+      @if (!readOnly() && can('diagrams') && stepsToCollapse()) {
+        <button type="button" class="icon-btn" aria-label="Move these steps into a sub-process" data-tip="Make a sub-process" (click)="collapseSteps()"><app-icon name="subprocess" /></button>
       }
       @if (!readOnly() && can('charts') && oneChart(); as c) {
         <button type="button" class="icon-btn" aria-label="Edit chart" data-tip="Edit chart" (click)="editChart.emit(c)"><app-icon name="chart" /></button>
@@ -782,6 +792,11 @@
     </tc-menu-morph>
   </div>
 </div>
+
+<!-- Lane names that stay in view while their lanes run on across the screen. -->
+@for (lane of floatingLanes(); track lane.id) {
+  <div class="lane-float" aria-hidden="true" [style.left.px]="lane.left" [style.top.px]="lane.top">{{ lane.title }}</div>
+}
 
 @if (arrowBar(); as bar) {
   <app-arrow-style

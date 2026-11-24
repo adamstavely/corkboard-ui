@@ -1,4 +1,5 @@
-import { NOTE_COLORS, type BoardDoc, type Frame, type Item, type NoteColor, type Part, type ShapeKind } from '../board-doc';
+import { layoutSize, NOTE_COLORS, type BoardDoc, type Frame, type Item, type Layout, type NoteColor, type Part, type ShapeKind } from '../board-doc';
+import { layoutFlow, type FlowData } from './flowchart';
 import { diagramFrame, tidyFlowchart } from './flow-board';
 import { routeDiagramArrows } from './routing';
 
@@ -212,3 +213,200 @@ export function addRemark(board: BoardDoc, stepId: string): string | null {
   board.connect(id, stepId, { route: 'straight', dash: 'dotted', start: 'none', end: 'none', weight: 1 });
   return id;
 }
+
+// ── Sub-processes ─────────────────────────────────────────────────────────
+
+const GAP = 120;
+
+/** Where the next sub-process of a flowchart goes: under it, below any it has already. */
+function belowFamily(board: BoardDoc, diagram: Frame): { x: number; y: number } {
+  const family = board.frames().filter((f) => f.id === diagram.id || f.part?.parent === diagram.id);
+  const remarks = board.notes().filter((n) => n.part && family.some((f) => f.id === n.part!.of));
+  const bottom = Math.max(...family.map((f) => f.y + f.h), ...remarks.map((n) => n.y + n.h));
+  return { x: diagram.x, y: bottom + GAP };
+}
+
+/**
+ * Places sub-process flows (from Mermaid's `sub_` blocks) under their flowchart, each linked both ways to the
+ * sub-process step it belongs to (found by id in the flowchart or a sub-process placed before it).
+ */
+export function placeChildren(board: BoardDoc, diagramId: string, children: { slug: string; layout: Layout }[]): string[] {
+  const placed: string[] = [];
+  const family = [diagramId];
+  for (const child of children) {
+    const parentStep = board.items().find((i) => i.part?.role === 'step' && i.part.key === child.slug && family.includes(i.part.of));
+    const parent = parentStep ? diagramFrame(board, parentStep.part!.of) : diagramFrame(board, diagramId);
+    if (!parent) continue;
+    const at = belowFamily(board, diagramFrame(board, diagramId)!);
+    const size = layoutSize(child.layout);
+    const ids = board.addLayout(child.layout, at.x + size.w / 2, at.y + size.h / 2);
+    const id = ids.find((x) => diagramFrame(board, x));
+    if (!id) continue;
+    const frame = diagramFrame(board, id)!;
+    const links = new Map<string, Part>([[id, { ...frame.part!, parent: parent.id }]]);
+    if (parentStep) links.set(parentStep.id, { ...parentStep.part!, sub: id });
+    board.setParts(links);
+    family.push(id);
+    placed.push(id);
+  }
+  return placed;
+}
+
+/** The flowcharts that are sub-processes of this one, at any depth. */
+export function subprocessesOf(board: BoardDoc, diagramId: string): string[] {
+  const found: string[] = [];
+  const walk = (id: string) => {
+    for (const f of board.frames()) {
+      if (f.part?.role === 'diagram' && f.part.parent === id && !found.includes(f.id)) {
+        found.push(f.id);
+        walk(f.id);
+      }
+    }
+  };
+  walk(diagramId);
+  return found;
+}
+
+/**
+ * Moves some steps of a flowchart into a sub-process of their own: a new flowchart under it holds them (the same
+ * board things, with their comments), opened by a start pill and closed by an end pill per way out; one sub-process
+ * step takes their place, with the arrows that came in and went out. Returns the new flowchart's id.
+ */
+export function collapseToSubprocess(board: BoardDoc, stepIds: readonly string[], name = 'Sub-process'): string | null {
+  const steps = board.items().filter((i): i is Item & { kind: 'shape' } => i.kind === 'shape' && stepIds.includes(i.id) && i.part?.role === 'step');
+  const diagramId = steps[0]?.part?.of;
+  const diagram = diagramId ? diagramFrame(board, diagramId) : null;
+  if (!diagram || !steps.length || steps.some((s) => s.part!.of !== diagramId)) return null;
+  const chosen = new Set(steps.map((s) => s.id));
+  const arrows = board.connectors().filter((c) => chosen.has(c.from) || chosen.has(c.to));
+  const incoming = arrows.filter((c) => !chosen.has(c.from) && chosen.has(c.to) && board.items().some((i) => i.id === c.from));
+  const outgoing = arrows.filter((c) => chosen.has(c.from) && !chosen.has(c.to) && board.items().some((i) => i.id === c.to));
+  const internal = arrows.filter((c) => chosen.has(c.from) && chosen.has(c.to));
+  const lanes = board.frames().filter((f) => f.part?.of === diagram.id && f.part.role === 'lane');
+  const laneOf = (s: Item) => s.part?.lane ?? lanes.find((l) => inside(s, l))?.part?.key;
+  const usedLanes = lanes.filter((l) => steps.some((s) => laneOf(s) === l.part!.key));
+  // The child's model: the steps by their keys, a start into each step something came into, an end per way out.
+  const key = (id: string) => steps.find((s) => s.id === id)!.part!.key;
+  const entries = [...new Set(incoming.map((c) => key(c.to)))];
+  if (!entries.length) entries.push(...steps.filter((s) => !internal.some((c) => c.to === s.id)).map((s) => s.part!.key).slice(0, 1));
+  const exits = [...new Set(outgoing.map((c) => key(c.from)))];
+  const data: FlowData = {
+    diagramType: 'flowchart',
+    title: name,
+    direction: diagram.part!.dir === 'TB' ? 'TB' : 'LR',
+    ...(usedLanes.length ? {} : { swimlanes: false }),
+    lanes: usedLanes.length ? usedLanes.map((l) => ({ id: l.part!.key, name: l.title })) : [{ id: 'lane-main', name: 'Process' }],
+    nodes: [
+      { id: 'sub_start', type: 'start', label: name, laneId: laneOf(steps.find((s) => s.part!.key === entries[0]) ?? steps[0]) ?? 'lane-main' },
+      ...steps.map((s) => ({ id: s.part!.key, type: s.part!.type ?? 'task', label: s.label, laneId: laneOf(s) ?? 'lane-main' })),
+      ...exits.map((k, i) => ({ id: `sub_end_${i + 1}`, type: 'end', label: `${name} done`, laneId: laneOf(steps.find((s) => s.part!.key === k)!) ?? 'lane-main' })),
+    ],
+    edges: [
+      ...entries.map((k, i) => ({ id: `in${i}`, from: 'sub_start', to: k })),
+      ...internal.map((c) => ({ id: c.id, from: key(c.from), to: key(c.to), label: c.label })),
+      ...exits.map((k, i) => ({ id: `out${i}`, from: k, to: `sub_end_${i + 1}` })),
+    ],
+  };
+  const layout = layoutFlow(data);
+  // Lay the frames and the new pills down; the steps themselves move in, keeping their ids.
+  const moving = new Set(steps.map((s) => s.part!.key));
+  const fresh: Layout = {
+    frames: layout.frames,
+    shapes: layout.shapes?.filter((s) => !moving.has(s.key!)),
+    arrows: layout.arrows?.filter((a) => !moving.has(a.from) && !moving.has(a.to)),
+  };
+  const at = belowFamily(board, diagram);
+  const size = layoutSize(layout);
+  const ids = board.addLayout(fresh, at.x + size.w / 2, at.y + size.h / 2);
+  const childId = ids.find((x) => diagramFrame(board, x));
+  if (!childId) return null;
+  const child = diagramFrame(board, childId)!;
+  const origin = { x: child.x - layout.frames![0].x, y: child.y - layout.frames![0].y };
+  const boxes = new Map<string, Box>();
+  const parts = new Map<string, Part | null>([[childId, { ...child.part!, parent: diagram.id }]]);
+  for (const s of steps) {
+    const box = layout.shapes!.find((l) => l.key === s.part!.key)!;
+    boxes.set(s.id, { x: origin.x + box.x, y: origin.y + box.y, w: box.w, h: box.h });
+    parts.set(s.id, { ...s.part!, of: childId, ...(box.part?.lane ? { lane: box.part.lane } : {}) });
+  }
+  board.placeBoxes(boxes);
+  board.setParts(parts);
+  const childKey = (k: string) => board.items().find((i) => i.part?.of === childId && i.part.key === k)?.id;
+  for (const a of layout.arrows ?? []) {
+    if (!moving.has(a.from) && !moving.has(a.to)) continue;
+    if (internal.some((c) => key(c.from) === a.from && key(c.to) === a.to)) continue;
+    const from = childKey(a.from);
+    const to = childKey(a.to);
+    if (from && to) board.connect(from, to, { route: 'elbow' });
+  }
+  // In the flowchart, one sub-process step where the steps were, joined as they were.
+  const centre = { x: steps.reduce((t, s) => t + s.x + s.w / 2, 0) / steps.length, y: steps.reduce((t, s) => t + s.y + s.h / 2, 0) / steps.length };
+  const lane = laneOf(steps[0]);
+  const stepId = board.addShape(centre.x, centre.y, 'subprocess', steps[0].color, name);
+  board.resizeItem(stepId, steps[0].w, steps[0].h);
+  board.setParts(new Map<string, Part>([[stepId, { of: diagram.id, role: 'step', key: freshKey(board, diagram.id, name, 'sub'), type: 'subprocess', sub: childId, ...(lane ? { lane } : {}) }]]));
+  for (const c of incoming) {
+    const id = board.connect(c.from, stepId, { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end });
+    if (id && c.label) board.setArrowLabel(id, c.label);
+  }
+  for (const c of outgoing) {
+    const id = board.connect(stepId, c.to, { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end });
+    if (id && c.label) board.setArrowLabel(id, c.label);
+  }
+  board.remove([...incoming, ...outgoing].map((c) => c.id));
+  tidyFlowchart(board, diagram.id);
+  tidyFlowchart(board, childId);
+  return childId;
+}
+
+/**
+ * Puts a sub-process back in its flowchart: its steps (the same board things) take the sub-process step's place,
+ * joined to what came into and went out of it, and the sub-process flowchart goes. Its start and end pills go too.
+ */
+export function expandSubprocess(board: BoardDoc, stepId: string): boolean {
+  const step = board.items().find((i) => i.id === stepId);
+  const childId = step?.part?.sub;
+  const child = childId ? diagramFrame(board, childId) : null;
+  const diagramId = step?.part?.of;
+  if (!step || !child || !diagramId || !diagramFrame(board, diagramId)) return false;
+  const all = board.items().filter((i) => i.part?.of === child.id && i.part.role === 'step');
+  const arrows = board.connectors();
+  const pill = (i: Item) => i.part!.type === 'start' || i.part!.type === 'end';
+  const starts = all.filter((i) => pill(i) && !arrows.some((c) => c.to === i.id));
+  const ends = all.filter((i) => pill(i) && !arrows.some((c) => c.from === i.id));
+  const bounds = new Set([...starts, ...ends].map((i) => i.id));
+  const moving = all.filter((i) => !bounds.has(i.id));
+  const entries = arrows.filter((c) => bounds.has(c.from) && starts.some((s) => s.id === c.from)).map((c) => c.to);
+  const exits = arrows.filter((c) => ends.some((e) => e.id === c.to)).map((c) => c.from);
+  const parentLanes = new Set(board.frames().filter((f) => f.part?.of === diagramId && f.part.role === 'lane').map((f) => f.part!.key));
+  // The steps join the flowchart, beside where the sub-process step was, in their own lane where it has one.
+  const parts = new Map<string, Part | null>();
+  const boxes = new Map<string, Box>();
+  moving.forEach((m, i) => {
+    const lane = m.part!.lane && parentLanes.has(m.part!.lane) ? m.part!.lane : step.part!.lane;
+    parts.set(m.id, { ...m.part!, of: diagramId, key: freshKey(board, diagramId, m.part!.key, 'step'), ...(lane ? { lane } : {}) });
+    boxes.set(m.id, { x: step.x + i * 24, y: step.y + i * 24, w: 0, h: 0 });
+  });
+  for (const n of board.notes()) if (n.part?.of === child.id) parts.set(n.id, { ...n.part, of: diagramId, key: freshKey(board, diagramId, n.part.key, 'n') });
+  board.placeBoxes(boxes);
+  board.setParts(parts);
+  for (const c of arrows.filter((a) => a.to === stepId)) {
+    for (const to of entries) {
+      const id = board.connect(c.from, to, { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end });
+      if (id && c.label) board.setArrowLabel(id, c.label);
+    }
+  }
+  for (const c of arrows.filter((a) => a.from === stepId)) {
+    for (const from of exits) {
+      const id = board.connect(from, c.to, { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end });
+      if (id && c.label) board.setArrowLabel(id, c.label);
+    }
+  }
+  // Its own sub-processes now belong to the flowchart.
+  const grandchildren = board.frames().filter((f) => f.part?.parent === child.id);
+  if (grandchildren.length) board.setParts(new Map(grandchildren.map((g) => [g.id, { ...g.part!, parent: diagramId }])));
+  board.remove([stepId, ...bounds, child.id, ...board.frames().filter((f) => f.part?.of === child.id && f.part.role === 'lane').map((f) => f.id)]);
+  tidyFlowchart(board, diagramId);
+  return true;
+}
+

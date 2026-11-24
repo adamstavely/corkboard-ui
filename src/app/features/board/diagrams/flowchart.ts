@@ -82,7 +82,39 @@ const NOTE = { w: 220, h: 140, gap: 24 };
 /** The colours lanes take in turn; a lane's steps share its colour. */
 const LANE_COLOURS: NoteColor[] = ['blue', 'green', 'yellow', 'purple', 'pink', 'gray'];
 
-export type FlowchartResult = { layout: Layout; notices: string[] } | { error: string };
+/** A sub-process flow, from a `sub_<slug>` block: the step it belongs to (by id), its name and its own layout. */
+export interface ChildFlow {
+  slug: string;
+  name: string;
+  layout: Layout;
+}
+export type FlowchartResult = { layout: Layout; children: ChildFlow[]; notices: string[] } | { error: string };
+
+/** One sub-process of a flowchart's model as a flowchart of its own: its steps, arrows, remarks and the lanes they use. */
+export function childFlow(data: FlowData, slug: string): FlowData | null {
+  const child = (data.children as Record<string, ChildData> | undefined)?.[slug];
+  if (!child) return null;
+  const byId = new Map(data.lanes.map((l) => [l.id, l]));
+  const order = [...(child.laneOrder ?? []), ...child.nodes.map((n) => n.laneId ?? '')].filter((id, i, a) => byId.has(id) && a.indexOf(id) === i);
+  return {
+    diagramType: 'flowchart',
+    title: child.name,
+    ...(data.direction ? { direction: data.direction } : {}),
+    ...(order.length ? {} : { swimlanes: false }),
+    lanes: order.length ? order.map((id) => ({ id, name: byId.get(id)!.name })) : [{ id: 'lane-main', name: 'Process' }],
+    nodes: child.nodes,
+    edges: child.edges,
+    ...(child.notes?.length ? { notes: child.notes } : {}),
+  };
+}
+/** A sub-process as the skill's reader and writer keep it. */
+export interface ChildData {
+  name: string;
+  laneOrder?: string[];
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  notes?: { id: string; text: string; nodes: string[] }[];
+}
 
 /** A step's box in the skill's pixels, from its slot: decisions are deeper, dots smaller. */
 function stepBox(n: FlowNode, tb: boolean, LE: FlowEngine['LE']): { x: number; y: number; w: number; h: number } {
@@ -112,8 +144,18 @@ export function flowchartLayout(source: string): FlowchartResult {
   const data = parsed.data;
   if (!data.nodes.length) return { error: 'The flowchart has no steps.' };
   const notices = [...parsed.warnings];
-  if (data.children && Object.keys(data.children).length) notices.push('Sub-process flows are shown as their step; opening them on the board comes later.');
-  return { layout: layoutFlow(data), notices };
+  // Each sub-process becomes a flowchart of its own, linked to its step (nested ones too: they're all in one list).
+  const children = Object.keys(data.children ?? {}).flatMap((slug) => {
+    const flow = childFlow(data, slug);
+    return flow?.nodes.length ? [{ slug, name: flow.title ?? slug, layout: layoutFlow(flow) }] : [];
+  });
+  // The main flow keeps only its own lanes (those its steps use, and any no sub-process uses).
+  if (children.length) {
+    const own = new Set(data.nodes.map((n) => n.laneId));
+    const theirs = new Set(Object.values(data.children as Record<string, ChildData>).flatMap((c) => [...(c.laneOrder ?? []), ...c.nodes.map((n) => n.laneId ?? '')]));
+    data.lanes = data.lanes.filter((l) => own.has(l.id) || !theirs.has(l.id));
+  }
+  return { layout: layoutFlow(data), children, notices };
 }
 
 /** A flowchart's model (lanes, steps, arrows, remarks) laid out afresh as board things, from the layout's top-left. */
