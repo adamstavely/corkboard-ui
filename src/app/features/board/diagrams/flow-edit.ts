@@ -3,6 +3,7 @@ import { layoutFlow, type FlowData } from './flowchart';
 import { diagramFrame, tidyFlowchart } from './flow-board';
 import { tidyDiagram } from './kinds';
 import { USECASE_KINDS } from './usecase';
+import { C4_SHAPE_KINDS } from './c4';
 import { routeDiagramArrows } from './routing';
 
 /**
@@ -51,10 +52,10 @@ export function freshKey(board: BoardDoc, diagramId: string, words: string, fall
 const editableDiagrams = (board: BoardDoc): Frame[] =>
   board
     .frames()
-    .filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && (f.part.type === 'flowchart' || f.part.type === 'usecase'))
+    .filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && (f.part.type === 'flowchart' || f.part.type === 'usecase' || f.part.type === 'c4'))
     .sort((a, b) => a.w * a.h - b.w * b.h);
 /** The kind of thing a shape becomes in a diagram, by the diagram's kind. */
-const kindIn = (diagram: Frame, shape: ShapeKind) => (diagram.part?.type === 'usecase' ? USECASE_KINDS[shape] : STEP_KINDS[shape]);
+const kindIn = (diagram: Frame, shape: ShapeKind) => (diagram.part?.type === 'usecase' ? USECASE_KINDS[shape] : diagram.part?.type === 'c4' ? C4_SHAPE_KINDS[shape] : STEP_KINDS[shape]);
 
 /** Distance from a point to a polyline. */
 function distanceTo(p: { x: number; y: number }, line: { x: number; y: number }[]): number {

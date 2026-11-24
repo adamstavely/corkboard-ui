@@ -21,7 +21,7 @@
   (wheel)="onWheel($event)"
 >
   <div class="world" [style.transform]="worldTransform()">
-    @for (frame of board().frames(); track frame.id) {
+    @for (frame of drawnFrames(); track frame.id) {
       <div
         class="frame"
         [class.dimmed]="dims(frame.id)"
@@ -156,6 +156,7 @@
         [class.locked]="board().locked().has(item.id)"
         [class.tint]="item.kind === 'shape' && item.fill === 'tint'"
         [class.actor]="item.kind === 'shape' && item.shape === 'actor'"
+        [class.person]="item.kind === 'shape' && item.shape === 'person'"
         [class.subfunction]="item.part?.type === 'subfunction'"
         [attr.data-item-id]="item.id"
         [style.left.px]="item.x"
@@ -647,6 +648,20 @@
         @if (f.part?.type === 'flowchart') {
           <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
         }
+        @if (f.part?.type === 'c4') {
+          <button type="button" class="icon-btn text-btn" aria-label="Level 1: each system as one box" data-tip="Level 1" (click)="showLevel(1)">L1</button>
+          <button type="button" class="icon-btn text-btn" aria-label="Level 2: systems open to their containers" data-tip="Level 2" (click)="showLevel(2)">L2</button>
+          <tc-menu-morph [open]="arrangeOpen()" (tc-open-change)="arrangeOpen.set($event.detail.open)">
+            <button type="button" class="icon-btn" data-menu-trigger aria-label="Arrange" data-tip="Arrange"><app-icon name="arrange" /></button>
+            <div data-menu class="app-menu" aria-label="Arrange">
+              @for (a of c4Arrangements; track a.id) {
+                <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="f.part?.extra?.['arrange'] === a.id" (click)="arrangeOpen.set(false); arrangeC4(a.id)">
+                  <span class="app-menu-label">{{ a.label }}</span>
+                </button>
+              }
+            </div>
+          </tc-menu-morph>
+        }
         @if (parentOf(f); as parent) {
           <button type="button" class="icon-btn" [attr.aria-label]="'Back to ' + parent.title" data-tip="Back to its flowchart" (click)="backToParent()"><app-icon name="back" /></button>
         }
@@ -668,6 +683,11 @@
           <button type="button" class="icon-btn" [attr.aria-label]="'Open the sub-process ' + sub.title" data-tip="Open sub-process" (click)="openSubprocess()"><app-icon name="external" /></button>
           <button type="button" class="icon-btn" aria-label="Put the sub-process's steps back here" data-tip="Put steps back" (click)="expandStep()"><app-icon name="unfold" /></button>
         }
+      }
+      @if (!readOnly() && can('diagrams') && oneC4System(); as sys) {
+        <button type="button" class="icon-btn" [attr.aria-label]="sys.collapsed ? 'Open the system to its containers' : 'Close the system to one box'" [attr.data-tip]="sys.collapsed ? 'Open system' : 'Close system'" (click)="toggleSystem()">
+          <app-icon [name]="sys.collapsed ? 'unfold' : 'fold'" />
+        </button>
       }
       @if (!readOnly() && can('diagrams') && stepsToCollapse()) {
         <button type="button" class="icon-btn" aria-label="Move these steps into a sub-process" data-tip="Make a sub-process" (click)="collapseSteps()"><app-icon name="subprocess" /></button>
@@ -832,6 +852,7 @@
             @if (can('diagrams')) {
               <button type="button" class="app-menu-item" role="menuitem" (click)="addFlowchart()"><app-icon name="flowchart" /><span class="app-menu-label">Flowchart</span><span class="app-menu-hint">Lanes and steps to drag</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addUsecase()"><app-icon name="actor" /><span class="app-menu-label">Use case diagram</span><span class="app-menu-hint">Who wants what from a system</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addC4()"><app-icon name="landscape" /><span class="app-menu-label">C4 system landscape</span><span class="app-menu-hint">People, systems, containers</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart as text</span><span class="app-menu-hint">Written in Mermaid</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('sequence')"><app-icon name="diagram" /><span class="app-menu-label">Sequence diagram</span></button>
               <button
