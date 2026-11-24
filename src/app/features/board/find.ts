@@ -1,4 +1,5 @@
 import type { BoardDoc } from './board-doc';
+import { sequenceWords } from './diagrams/sequence';
 import { plainText } from './comments';
 
 /** What to find on the board: words, a tag, and who added a note. Empty parts don't narrow anything. */
@@ -36,7 +37,7 @@ export function findOnBoard(board: BoardDoc, q: FindQuery): string[] | null {
     for (const m of board.media()) if (hit(m.name)) found.push(m);
     for (const i of board.items()) {
       const text =
-        i.kind === 'shape' ? i.label : i.kind === 'text' ? i.text : i.kind === 'table' ? [...i.cells.values()].join(' ') : i.kind === 'link' ? `${i.title} ${i.description} ${i.url}` : i.kind === 'app' ? i.title : i.kind === 'diagram' ? i.source : i.kind === 'chart' ? `${i.title} ${i.rows.map((r) => r.label).join(' ')}` : '';
+        i.kind === 'shape' ? i.label : i.kind === 'text' ? i.text : i.kind === 'table' ? [...i.cells.values()].join(' ') : i.kind === 'link' ? `${i.title} ${i.description} ${i.url}` : i.kind === 'app' ? i.title : i.kind === 'diagram' ? i.source : i.kind === 'sequence' ? sequenceWords(i.sequence) : i.kind === 'chart' ? `${i.title} ${i.rows.map((r) => r.label).join(' ')}` : '';
       if (text && hit(text)) found.push(i);
     }
   }

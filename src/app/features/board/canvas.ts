@@ -11,6 +11,8 @@ import { FLOWCHART_STARTER } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { tidyC4 } from './diagrams/c4';
+import { isSequenceText, parseSequence, SEQUENCE_STARTER } from './diagrams/sequence';
+import { SequenceView } from './sequence-view';
 import { columnsText, ERD_STARTER, erdDisplay, erdRows, readColumns, tidyErd, visibleColumns } from './diagrams/erd';
 import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
 import { logoPacks, shapeIcon } from './diagrams/shape-icons';
@@ -177,7 +179,7 @@ export const GUEST_CAPABILITIES: ReadonlySet<CanvasCapability> = new Set();
 
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView, PdfPages, IconPicker],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView, PdfPages, IconPicker, SequenceView],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-frames.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -498,7 +500,7 @@ export class Canvas {
   protected readonly oneTextFlowchart = computed(() => {
     const [id, ...more] = this.selection();
     const item = more.length ? null : this.board().items().find((i) => i.id === id);
-    return item?.kind === 'diagram' && diagramKind(item.source) === 'flowchart' ? item.id : null;
+    return item?.kind === 'diagram' && (diagramKind(item.source) === 'flowchart' || isSequenceText(item.source)) ? item.id : null;
   });
   /** The one editable diagram selected (its outer frame), for its bar: lay it out again, turn it, copy it as text. */
   protected readonly oneFlowchart = computed(() => {
@@ -878,6 +880,8 @@ export class Canvas {
         return `Diagram: ${diagramTitle(item.source)}`;
       case 'chart':
         return `${CHART_NAMES[item.chart]}${item.title ? `: ${item.title}` : ''}`;
+      case 'sequence':
+        return `Sequence diagram${item.sequence.title ? `: ${item.sequence.title}` : ''}, ${item.sequence.participants.length} participants, ${item.sequence.messages.length} messages`;
       case 'entity':
         return `Database table ${item.name}, ${item.columns.length} column${item.columns.length === 1 ? '' : 's'}`;
     }
@@ -1036,6 +1040,30 @@ export class Canvas {
   ] as const;
   protected readonly arrangeOpen = signal(false);
 
+  /** Adds an editable sequence diagram in the middle of the view. */
+  protected addSequence(): void {
+    this.createOpen.set(false);
+    this.#placeSequence(SEQUENCE_STARTER, this.#viewCentre());
+  }
+
+  /** Puts a sequence diagram written in Mermaid on the board as an editable one, selected; false if it can't be read. */
+  #placeSequence(text: string, at: { x: number; y: number }): boolean {
+    const parsed = parseSequence(text);
+    if ('error' in parsed) {
+      this.announcement.set(`The sequence diagram couldn't be read: ${parsed.error}`);
+      return false;
+    }
+    const id = this.board().addSequence(at.x, at.y, parsed.model);
+    this.selection.set(new Set([id]));
+    const n = parsed.model.messages.length;
+    this.announcement.set(`Added a sequence diagram with ${n} message${n === 1 ? '' : 's'}. ${parsed.warnings.join(' ')}`.trim());
+    return true;
+  }
+
+  /** Whether the one selected sequence diagram can be changed in place. */
+  protected readonly editsSequence = (id: string): boolean =>
+    this.selection().size === 1 && this.selection().has(id) && !this.readOnly() && this.can('diagrams') && !this.board().locked().has(id);
+
   /** Adds an editable use case diagram (actors, a system and its use cases) in the middle of the view. */
   protected addUsecase(): void {
     this.createOpen.set(false);
@@ -1084,6 +1112,10 @@ export class Canvas {
     const id = this.oneTextFlowchart();
     const item = this.board().items().find((i) => i.id === id);
     if (!item || item.kind !== 'diagram') return;
+    if (isSequenceText(item.source)) {
+      if (this.#placeSequence(item.source, { x: item.x + item.w / 2, y: item.y + item.h / 2 })) this.board().remove([item.id]);
+      return;
+    }
     if (this.#placeFlowchart(item.source, { x: item.x + item.w / 2, y: item.y + item.h / 2 })) this.board().remove([item.id]);
   }
 
@@ -1639,7 +1671,10 @@ export class Canvas {
     if (itemId && itemId === this.itemEditing()?.id) return;
     // Inside the note being edited, the pointer is the editor's; so is the title being renamed.
     if (id && id === this.editing()) return;
-    if (target.closest('.toolbar') || target.closest('.frame-rename') || target.closest('.arrow-label-input') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
+    if (target.closest('.toolbar') || target.closest('.seq-ui') || target.closest('.frame-rename') || target.closest('.arrow-label-input') || target.closest('.note-votes') || target.closest('.note-reactions')) return;
+    // On the sequence diagram being changed, a press on one of its parts picks the part (shift adds a message to the
+    // run picked): the item stays selected and stays put.
+    if (itemId && target.closest('app-sequence-view [data-part], app-sequence-view .message-hit') && this.editsSequence(itemId)) return;
     // An arrow is picked by clicking its line; it never drags.
     const connectorId = target.closest<SVGElement>('[data-connector-id]')?.dataset['connectorId'];
     if (connectorId && e.button === 0) {
@@ -1797,7 +1832,7 @@ export class Canvas {
   }
 
   protected onDoubleClick(e: MouseEvent): void {
-    if ((e.target as HTMLElement).closest('.view-body, .arrow-label-input')) return;
+    if ((e.target as HTMLElement).closest('.view-body, .arrow-label-input, app-sequence-view')) return;
     // An arrow opens its words to write.
     const arrowId = (e.target as Element).closest<HTMLElement | SVGElement>('[data-connector-id]')?.dataset['connectorId'];
     if (arrowId) {
@@ -1855,7 +1890,7 @@ export class Canvas {
   @HostListener('document:keydown', ['$event'])
   protected onKeyDown(e: KeyboardEvent): void {
     // Keys inside a placed view are the view's (arrow keys move a matrix point; Delete isn't the board's).
-    if ((e.target as HTMLElement | null)?.closest?.('.view-body')) return;
+    if ((e.target as HTMLElement | null)?.closest?.('.view-body, .seq-ui')) return;
     const mod = e.metaKey || e.ctrlKey;
     // Writing in a note: Tab starts the next one beside it, ⌘/Ctrl Enter the next one below (Tab in a list still indents).
     const writing = this.editing();
@@ -2275,6 +2310,11 @@ export class Canvas {
     if (this.readOnly() || isEditable(e.target)) return;
     const pasted = (e.clipboardData?.getData('text/plain') ?? '').replace(/\r\n/g, '\n');
     // A flowchart written in Mermaid, from anywhere, becomes an editable flowchart.
+    if (this.can('diagrams') && pasted !== clipboard?.text && isSequenceText(pasted)) {
+      e.preventDefault();
+      this.#placeSequence(pasted, this.#viewCentre());
+      return;
+    }
     if (this.can('diagrams') && pasted !== clipboard?.text && isDiagramText(pasted)) {
       e.preventDefault();
       this.#placeFlowchart(pasted, this.#viewCentre());

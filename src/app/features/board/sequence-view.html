@@ -1,0 +1,761 @@
+@let d = drawing();
+<div
+  class="seq"
+  role="group"
+  [attr.aria-label]="label()"
+  [class.editable]="editable()"
+  [style.width.px]="d.width"
+  [style.height.px]="d.height"
+  [style.transform]="'scale(' + scale() + ')'"
+>
+  <svg
+    class="seq-lines"
+    [attr.viewBox]="'0 0 ' + d.width + ' ' + d.height"
+    [attr.width]="d.width"
+    [attr.height]="d.height"
+    aria-hidden="true"
+  >
+    <defs>
+      <marker
+        [attr.id]="uid + '-s'"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="12"
+        markerHeight="12"
+        markerUnits="userSpaceOnUse"
+        orient="auto-start-reverse"
+      >
+        <path d="M0 0L10 5L0 10z" class="head-solid" />
+      </marker>
+      <marker
+        [attr.id]="uid + '-o'"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="12"
+        markerHeight="12"
+        markerUnits="userSpaceOnUse"
+        orient="auto-start-reverse"
+      >
+        <path d="M1 1L9 5L1 9" class="head-open" />
+      </marker>
+    </defs>
+    @for (f of d.frames; track f.id) {
+      <rect
+        class="frame"
+        [class.phase]="f.colour"
+        [class.picked]="isPicked('fragment', f.id)"
+        [attr.x]="f.x"
+        [attr.y]="f.y"
+        [attr.width]="f.w"
+        [attr.height]="f.h"
+        rx="6"
+        [style.--fill]="f.colour ? 'var(--note-' + f.colour + ')' : null"
+      />
+      @for (div of f.dividers; track div.at) {
+        <line
+          class="divider"
+          [attr.x1]="f.x"
+          [attr.x2]="f.x + f.w"
+          [attr.y1]="div.y"
+          [attr.y2]="div.y"
+        />
+      }
+    }
+    @for (l of d.lifelines; track l.id) {
+      <line class="lifeline" [attr.x1]="l.x" [attr.x2]="l.x" [attr.y1]="l.y1" [attr.y2]="l.y2" />
+      @if (l.cap) {
+        <line
+          class="lifeline cap"
+          [attr.x1]="l.x - 7"
+          [attr.x2]="l.x + 7"
+          [attr.y1]="l.y2"
+          [attr.y2]="l.y2"
+        />
+      }
+      @if (editable()) {
+        <line
+          class="life-hit"
+          [attr.x1]="l.x"
+          [attr.x2]="l.x"
+          [attr.y1]="l.y1"
+          [attr.y2]="l.y2"
+          (pointerdown)="startMessage($event, l.id)"
+        />
+      }
+    }
+    @for (b of d.bars; track $index) {
+      <rect
+        class="bar"
+        [attr.x]="b.x"
+        [attr.y]="b.y"
+        [attr.width]="b.w"
+        [attr.height]="b.h"
+        rx="2"
+        [style.--fill]="'var(--note-' + b.colour + ')'"
+      />
+    }
+    @for (m of d.messages; track m.id) {
+      <path
+        class="message"
+        [class.reply]="m.kind === 'reply'"
+        [class.picked]="isPicked('message', m.id)"
+        [attr.d]="m.d"
+        [attr.marker-end]="'url(#' + uid + (m.kind === 'sync' ? '-s' : '-o') + ')'"
+      />
+      <path
+        class="message-hit"
+        [attr.d]="m.d"
+        (click)="pick($event, 'message', m.id)"
+        (dblclick)="openEditor($event, 'message', m.id)"
+      />
+    }
+    @if (rubber(); as r) {
+      <line
+        class="rubber"
+        [attr.x1]="r.x1"
+        [attr.y1]="r.y"
+        [attr.x2]="r.x2"
+        [attr.y2]="r.y2"
+        [attr.marker-end]="'url(#' + uid + '-s)'"
+      />
+    }
+  </svg>
+
+  @for (f of d.frames; track f.id) {
+    <div
+      class="frame-tag"
+      [attr.data-part]="'fragment:' + f.id"
+      [class.picked]="isPicked('fragment', f.id)"
+      [style.left.px]="f.x"
+      [style.top.px]="f.y"
+      [attr.role]="editable() ? 'button' : null"
+      [attr.tabindex]="editable() ? 0 : null"
+      [attr.aria-label]="(f.kind === 'group' ? 'Phase' : f.kind + ' frame') + ': ' + f.label"
+      (click)="pick($event, 'fragment', f.id)"
+      (dblclick)="openEditor($event, 'fragment', f.id)"
+    >
+      @if (editable()) {
+        <button
+          type="button"
+          class="fold seq-ui"
+          [attr.aria-label]="f.collapsed ? 'Open the frame' : 'Fold the frame'"
+          [attr.aria-expanded]="!f.collapsed"
+          (click)="$event.stopPropagation(); toggleCollapsed(f.id)"
+        >
+          <app-icon [name]="f.collapsed ? 'unfold' : 'chevron'" />
+        </button>
+      }
+      @if (f.kind !== 'group') {
+        <span class="frame-kind">{{ f.kind }}</span>
+      }
+      <span>{{ f.label }}</span>
+    </div>
+    @for (div of f.dividers; track div.at) {
+      @if (div.label) {
+        <div class="branch" [style.left.px]="f.x + 10" [style.top.px]="div.y + 3">
+          [{{ div.label }}]
+        </div>
+      }
+    }
+    @if (f.summary; as sum) {
+      <button
+        type="button"
+        class="summary seq-ui"
+        [style.left.px]="sum.x"
+        [style.top.px]="sum.y"
+        [disabled]="!editable()"
+        (click)="toggleCollapsed(f.id)"
+      >
+        {{ sum.text }}
+      </button>
+    }
+  }
+
+  @for (m of d.messages; track m.id) {
+    <div
+      class="label"
+      [class.self]="m.self"
+      [class.picked]="isPicked('message', m.id)"
+      [attr.data-part]="'message:' + m.id"
+      [style.left.px]="m.label.x"
+      [style.top.px]="m.label.y"
+      [attr.role]="editable() ? 'button' : null"
+      [attr.tabindex]="editable() ? 0 : null"
+      [attr.aria-label]="messageAria(m)"
+      (click)="pick($event, 'message', m.id)"
+      (dblclick)="openEditor($event, 'message', m.id)"
+    >
+      @if (m.step !== null) {
+        <span class="step">{{ m.step }}</span>
+      }
+      <span class="text">{{ m.label.lines.join('\n') || ' ' }}</span>
+    </div>
+    @if (m.detail; as det) {
+      <div
+        class="detail"
+        [class.self]="m.self"
+        [style.left.px]="det.x"
+        [style.top.px]="det.y"
+        aria-hidden="true"
+      >
+        {{ det.lines.join('\n') }}
+      </div>
+    }
+  }
+
+  @for (n of d.notes; track n.id) {
+    <div
+      class="note"
+      [class.picked]="isPicked('note', n.id)"
+      [attr.data-part]="'note:' + n.id"
+      [style.left.px]="n.x"
+      [style.top.px]="n.y"
+      [style.width.px]="n.w"
+      [style.height.px]="n.h"
+      [attr.role]="editable() ? 'button' : 'note'"
+      [attr.tabindex]="editable() ? 0 : null"
+      [attr.aria-label]="'Note: ' + n.lines.join(' ')"
+      (click)="pick($event, 'note', n.id)"
+      (dblclick)="openEditor($event, 'note', n.id)"
+    >
+      {{ n.lines.join('\n') }}
+    </div>
+  }
+
+  @for (p of d.participants; track p.id) {
+    <div
+      class="participant"
+      [class.rail]="p.rail"
+      [class.external]="p.kind === 'external'"
+      [class.picked]="isPicked('participant', p.id)"
+      [attr.data-part]="'participant:' + p.id"
+      [style.left.px]="p.x"
+      [style.top.px]="p.y"
+      [style.width.px]="p.w"
+      [style.height.px]="p.h"
+      [style.--fill]="'var(--note-' + p.colour + ')'"
+      [attr.role]="editable() ? 'button' : null"
+      [attr.tabindex]="editable() ? 0 : null"
+      [attr.aria-label]="kindLabels[p.kind] + ': ' + p.name"
+      [attr.title]="p.rail ? p.name : null"
+      (click)="pick($event, 'participant', p.id)"
+      (dblclick)="openEditor($event, 'participant', p.id)"
+    >
+      @if (kindIcons[p.kind]; as icon) {
+        <app-icon [name]="icon" />
+      }
+      @if (!p.rail) {
+        <span class="name">{{ p.name }}</span>
+      }
+    </div>
+  }
+
+  @if (editable()) {
+    <!-- Adding a participant: between two, or at either end. -->
+    @for (p of d.participants; track p.id; let i = $index) {
+      @if (i === 0) {
+        <button
+          type="button"
+          class="insert seq-ui"
+          [style.left.px]="p.x - 26"
+          [style.top.px]="p.y + p.h / 2"
+          aria-label="Add a participant at the left end"
+          (click)="addParticipantAt(0)"
+        >
+          <app-icon name="plus" />
+        </button>
+      }
+      <button
+        type="button"
+        class="insert seq-ui"
+        [style.left.px]="$last ? p.x + p.w + 26 : (p.cx + d.participants[i + 1].cx) / 2"
+        [style.top.px]="p.y + p.h / 2"
+        [attr.aria-label]="
+          $last ? 'Add a participant at the right end' : 'Insert a participant here'
+        "
+        (click)="addParticipantAt(i + 1)"
+      >
+        <app-icon name="plus" />
+      </button>
+    }
+
+    @if (editorBox(); as box) {
+      <textarea
+        #editor
+        class="editor seq-ui"
+        [class.note-editor]="editing()?.kind === 'note'"
+        [style.left.px]="box.x"
+        [style.top.px]="box.y"
+        [style.width.px]="box.w"
+        [style.height.px]="box.h"
+        [value]="editing()!.value"
+        [attr.aria-label]="
+          editing()?.kind === 'note'
+            ? 'Note text (Shift Enter for a new line)'
+            : editing()?.kind + ' name'
+        "
+        maxlength="400"
+        (keydown)="editorKey($event)"
+        (blur)="commitEditor()"
+        (pointerdown)="$event.stopPropagation()"
+      ></textarea>
+    }
+
+    <!-- The bar: what can be done to what's picked, or to the whole diagram. Stays the same size on screen. -->
+    @let at = barAt();
+    <div
+      class="bar-anchor seq-ui"
+      [style.left.px]="at.x"
+      [style.top.px]="at.y"
+      [style.transform]="'scale(' + barScale() + ')'"
+    >
+      <div
+        class="seq-tools"
+        [class.side]="at.place === 'side'"
+        [class.below]="at.place === 'below'"
+      >
+        <div
+          class="seq-bar"
+          role="toolbar"
+          [attr.aria-label]="current() ? 'Change the ' + current()!.kind : 'Sequence diagram'"
+        >
+          @if (pickedParticipant(); as p) {
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Rename"
+              data-tip="Rename"
+              (click)="openEditor(null, 'participant', p.id)"
+            >
+              <app-icon name="rename" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              [attr.aria-expanded]="menu() === 'kind'"
+              (click)="toggleMenu('kind')"
+              aria-label="Kind"
+              data-tip="Kind"
+            >
+              <app-icon [name]="kindIcons[p.kind ?? 'system'] ?? 'server'" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              [attr.aria-expanded]="menu() === 'colour'"
+              (click)="toggleMenu('colour')"
+              aria-label="Colour"
+              data-tip="Colour"
+            >
+              <app-icon name="fill" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              [attr.aria-expanded]="menu() === 'to'"
+              (click)="toggleMenu('to')"
+              aria-label="Send a message to…"
+              data-tip="Message to…"
+            >
+              <app-icon name="arrowRight" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Add a note over it"
+              data-tip="Add note"
+              (click)="addNoteHere()"
+            >
+              <app-icon name="sticky" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Move left"
+              data-tip="Move left"
+              [disabled]="model().participants[0]?.id === p.id"
+              (click)="moveParticipant(-1)"
+            >
+              <app-icon name="arrowLeft" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Move right"
+              data-tip="Move right"
+              [disabled]="model().participants.at(-1)?.id === p.id"
+              (click)="moveParticipant(1)"
+            >
+              <app-icon name="arrowRight" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Remove, with its messages"
+              data-tip="Remove"
+              (click)="remove()"
+            >
+              <app-icon name="trash" />
+            </button>
+          } @else if (pickedMessage(); as m) {
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Rename"
+              data-tip="Rename"
+              (click)="openEditor(null, 'message', m.id)"
+            >
+              <app-icon name="rename" />
+            </button>
+            <span class="group" role="radiogroup" aria-label="Kind of message">
+              <button
+                type="button"
+                class="icon-btn text-btn"
+                role="radio"
+                [attr.aria-checked]="(m.kind ?? 'sync') === 'sync'"
+                [attr.aria-label]="messageLabels.sync"
+                data-tip="Call"
+                (click)="setMessageKind('sync')"
+              >
+                Call
+              </button>
+              <button
+                type="button"
+                class="icon-btn text-btn"
+                role="radio"
+                [attr.aria-checked]="m.kind === 'reply'"
+                [attr.aria-label]="messageLabels.reply"
+                data-tip="Reply"
+                (click)="setMessageKind('reply')"
+              >
+                Reply
+              </button>
+              <button
+                type="button"
+                class="icon-btn text-btn"
+                role="radio"
+                [attr.aria-checked]="m.kind === 'async'"
+                [attr.aria-label]="messageLabels.async"
+                data-tip="No reply expected"
+                (click)="setMessageKind('async')"
+              >
+                Async
+              </button>
+            </span>
+            @if ((m.kind ?? 'sync') === 'sync' && m.from !== m.to) {
+              <button
+                type="button"
+                class="icon-btn"
+                aria-label="Add its reply"
+                data-tip="Add reply"
+                (click)="addReply()"
+              >
+                <app-icon name="reply" />
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Turn around"
+              data-tip="Turn around"
+              (click)="reverse()"
+            >
+              <app-icon name="swap" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Earlier"
+              data-tip="Earlier"
+              [disabled]="model().messages[0]?.id === m.id"
+              (click)="moveMessage(-1)"
+            >
+              <app-icon name="up" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Later"
+              data-tip="Later"
+              [disabled]="model().messages.at(-1)?.id === m.id"
+              (click)="moveMessage(1)"
+            >
+              <app-icon name="chevron" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              [attr.aria-expanded]="menu() === 'frame'"
+              (click)="toggleMenu('frame')"
+              [attr.aria-label]="
+                run().length
+                  ? 'Put a frame around these messages'
+                  : 'Put a frame around this message (shift-click to pick more)'
+              "
+              data-tip="Frame"
+            >
+              <app-icon name="frame" />
+            </button>
+            @if (canSplit()) {
+              <button
+                type="button"
+                class="icon-btn"
+                aria-label="Start another branch here (else)"
+                data-tip="Branch here"
+                (click)="split()"
+              >
+                <app-icon name="split" />
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Add a note after it"
+              data-tip="Add note"
+              (click)="addNoteHere()"
+            >
+              <app-icon name="sticky" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Remove"
+              data-tip="Remove"
+              (click)="remove()"
+            >
+              <app-icon name="trash" />
+            </button>
+          } @else if (pickedFragment(); as f) {
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Rename"
+              data-tip="Rename"
+              (click)="openEditor(null, 'fragment', f.id)"
+            >
+              <app-icon name="rename" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn text-btn"
+              [attr.aria-expanded]="menu() === 'frameKind'"
+              (click)="toggleMenu('frameKind')"
+              aria-label="Kind of frame"
+              data-tip="Kind"
+            >
+              {{ f.kind === 'group' ? 'phase' : f.kind }}
+            </button>
+            @if (f.kind === 'group') {
+              <button
+                type="button"
+                class="icon-btn"
+                [attr.aria-expanded]="menu() === 'colour'"
+                (click)="toggleMenu('colour')"
+                aria-label="Colour"
+                data-tip="Colour"
+              >
+                <app-icon name="fill" />
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-btn"
+              [attr.aria-label]="f.collapsed ? 'Open the frame' : 'Fold the frame'"
+              [attr.data-tip]="f.collapsed ? 'Open' : 'Fold'"
+              (click)="toggleCollapsed(f.id)"
+            >
+              <app-icon [name]="f.collapsed ? 'unfold' : 'fold'" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Remove the frame (its messages stay)"
+              data-tip="Remove frame"
+              (click)="remove()"
+            >
+              <app-icon name="trash" />
+            </button>
+          } @else if (pickedNote(); as n) {
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Edit the note"
+              data-tip="Edit"
+              (click)="openEditor(null, 'note', n.id)"
+            >
+              <app-icon name="rename" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Remove the note"
+              data-tip="Remove"
+              (click)="remove()"
+            >
+              <app-icon name="trash" />
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Add a participant"
+              data-tip="Add participant"
+              (click)="addParticipantAt(model().participants.length)"
+            >
+              <app-icon name="plus" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Number the messages"
+              data-tip="Numbers"
+              [attr.aria-pressed]="!!model().numbered"
+              (click)="toggle('numbered')"
+            >
+              <app-icon name="numbered" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn text-btn"
+              aria-label="Show message details"
+              data-tip="Details"
+              [attr.aria-pressed]="model().showDetails !== false"
+              (click)="toggle('showDetails')"
+            >
+              Details
+            </button>
+            <button
+              type="button"
+              class="icon-btn text-btn"
+              aria-label="Lifelines only while each participant takes part"
+              data-tip="Trim lifelines"
+              [attr.aria-pressed]="!!model().lifespans"
+              (click)="toggle('lifespans')"
+            >
+              Trim
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Edit as Mermaid text"
+              data-tip="Edit as text"
+              [attr.aria-expanded]="textOpen()"
+              (click)="openText()"
+            >
+              <app-icon name="code" />
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              aria-label="Copy as Mermaid text"
+              data-tip="Copy as Mermaid"
+              (click)="copyText()"
+            >
+              <app-icon name="copy" />
+            </button>
+          }
+        </div>
+        @if (menu(); as open) {
+          <div class="seq-options" role="group" [attr.aria-label]="menuLabels[open]">
+            @switch (open) {
+              @case ('kind') {
+                @for (k of kinds; track k) {
+                  <button
+                    type="button"
+                    class="option"
+                    [attr.aria-pressed]="(pickedParticipant()?.kind ?? 'system') === k"
+                    (click)="setKind(k)"
+                  >
+                    <app-icon [name]="kindIcons[k] ?? 'server'" />{{ kindLabels[k] }}
+                  </button>
+                }
+              }
+              @case ('colour') {
+                @for (c of colours; track c; let i = $index) {
+                  <button
+                    type="button"
+                    class="option"
+                    [attr.aria-pressed]="
+                      (pickedParticipant()?.color ??
+                        pickedFragment()?.color ??
+                        (pickedFragment() ? '1' : null)) === c
+                    "
+                    (click)="setColour(c)"
+                  >
+                    <span
+                      class="swatch"
+                      [style.background]="'var(--note-' + slotColours[i] + ')'"
+                    ></span
+                    >{{ colourNames[i] }}
+                  </button>
+                }
+                @if (pickedParticipant(); as p) {
+                  <button
+                    type="button"
+                    class="option"
+                    [attr.aria-pressed]="!p.color"
+                    (click)="setColour(undefined)"
+                  >
+                    By its place
+                  </button>
+                }
+              }
+              @case ('to') {
+                @for (o of others(); track o.id) {
+                  <button type="button" class="option" (click)="messageTo(o.id)">
+                    {{ o.id === pickedParticipant()?.id ? 'Itself' : o.name }}
+                  </button>
+                }
+              }
+              @case ('frame') {
+                @for (k of frameKinds; track k) {
+                  <button type="button" class="option" (click)="wrap(k)">
+                    {{ frameLabels[k] }}
+                  </button>
+                }
+              }
+              @case ('frameKind') {
+                @for (k of frameKinds; track k) {
+                  <button
+                    type="button"
+                    class="option"
+                    [attr.aria-pressed]="pickedFragment()?.kind === k"
+                    (click)="setFrameKind(k)"
+                  >
+                    {{ frameLabels[k] }}
+                  </button>
+                }
+              }
+            }
+          </div>
+        }
+        @if (textOpen() && !current()) {
+          <div class="text-panel" (pointerdown)="$event.stopPropagation()">
+            <textarea
+              class="source"
+              spellcheck="false"
+              aria-label="The diagram as Mermaid text"
+              [attr.aria-describedby]="uid + '-err'"
+              [value]="text()"
+              (input)="text.set($any($event.target).value)"
+              (keydown)="$event.stopPropagation()"
+              (keydown.meta.enter)="applyText()"
+              (keydown.control.enter)="applyText()"
+            ></textarea>
+            <p class="error" [id]="uid + '-err'" role="alert">{{ textError() }}</p>
+            <div class="actions">
+              <button type="button" class="icon-btn text-btn" (click)="textOpen.set(false)">
+                Cancel
+              </button>
+              <button type="button" class="icon-btn text-btn filled" (click)="applyText()">
+                Apply
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>
