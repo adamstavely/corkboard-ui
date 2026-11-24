@@ -3,9 +3,11 @@ import { plainText } from '../comments';
 import { c4Engine } from './vendor/c4';
 
 /**
- * Editable C4 diagrams (system landscape, levels 1 and 2), from the skill's C4 JSON or Mermaid C4: the Ultimate Diagram
- * skill's C4 engine (vendor/) places people, systems, containers, databases and queues in nested boundaries, collapses
- * a system to one box at level 1, and routes the relations. They become board things tagged with their parts.
+ * Editable C4 diagrams at all four levels, from the skill's C4 JSON or Mermaid C4: the Ultimate Diagram skill's C4
+ * engine (vendor/) places people, systems, containers, databases and queues in nested boundaries and routes the
+ * relations. A group opens or closes to one box: a system to its containers (level 2), a container to its components
+ * (level 3), a component to its code, its classes, interfaces and enums with their members (level 4). They become board
+ * things tagged with their parts.
  */
 
 const TOKENS = {
@@ -19,11 +21,11 @@ const TOKENS = {
 };
 
 type Pt = [number, number];
-export const C4_KINDS = ['person', 'system', 'container', 'database', 'queue', 'external'] as const;
+export const C4_KINDS = ['person', 'system', 'container', 'database', 'queue', 'external', 'component', 'code'] as const;
 export type C4Kind = (typeof C4_KINDS)[number];
 export interface C4Element {
   id: string;
-  kind: C4Kind | 'component';
+  kind: C4Kind;
   name: string;
   description?: string;
   tech?: string;
@@ -38,10 +40,15 @@ export interface C4Element {
   h?: number;
   _hidden?: boolean;
 }
+/** A group's kind: who owns what (boundary), or a system, container or component opened to what's inside it. */
+export const C4_GROUP_KINDS = ['boundary', 'system', 'container', 'component'] as const;
+export type C4GroupKind = (typeof C4_GROUP_KINDS)[number];
+/** The level at which each kind of group opens: a system shows its containers at 2, and so on. */
+const OPENS_AT: Partial<Record<C4GroupKind, number>> = { system: 2, container: 3, component: 4 };
 export interface C4Group {
   id: string;
   name: string;
-  kind: 'boundary' | 'system';
+  kind: C4GroupKind;
   parent?: string;
   collapsed?: boolean;
   core?: boolean;
@@ -89,10 +96,10 @@ const TITLE = 56;
 const NOTE = { w: 220, h: 140, gap: 24 };
 const SLOT_COLOURS: NoteColor[] = ['blue', 'green', 'yellow', 'purple', 'pink', 'gray', 'blue', 'green', 'gray'];
 /** A kind's colour when the diagram gives none: people one colour, what's yours another, outside systems grey. */
-const KIND_COLOUR: Record<string, NoteColor> = { person: 'purple', system: 'blue', container: 'blue', component: 'blue', database: 'blue', queue: 'blue', external: 'gray' };
+const KIND_COLOUR: Record<string, NoteColor> = { person: 'purple', system: 'blue', container: 'blue', component: 'blue', database: 'blue', queue: 'blue', external: 'gray', code: 'green' };
 const KIND_SHAPE: Record<string, 'person' | 'rect' | 'cylinder' | 'queue'> = { person: 'person', database: 'cylinder', queue: 'queue' };
 /** The bracket line under an element's name, as C4 diagrams write it. */
-const KIND_NAMES: Record<string, string> = { person: 'Person', system: 'Software System', container: 'Container', component: 'Component', database: 'Database', queue: 'Queue', external: 'External System' };
+const KIND_NAMES: Record<string, string> = { person: 'Person', system: 'Software System', container: 'Container', component: 'Component', database: 'Database', queue: 'Queue', external: 'External System', code: 'Code' };
 const colourOf = (e: { kind: string; color?: string }): NoteColor => (e.color && /^[1-9]$/.test(e.color) ? SLOT_COLOURS[Number(e.color) - 1] : KIND_COLOUR[e.kind] ?? 'blue');
 
 /** Whether text is a C4 diagram: the skill's JSON, or Mermaid C4 (C4Context, C4Container…). */
@@ -132,7 +139,8 @@ function readLabel(label: string): { name: string; tech?: string; description?: 
   const [name = '', ...rest] = label.split('\n');
   const bracket = rest.findIndex((l) => /^\[.*\]$/.test(l.trim()));
   const tech = bracket >= 0 ? /^\[[^:\]]*(?::\s*(.*))?\]$/.exec(rest[bracket].trim())?.[1] : undefined;
-  const description = rest.filter((_, i) => i !== bracket).join(' ').trim();
+  // A code element's members are a line each; other descriptions are one line.
+  const description = rest.filter((_, i) => i !== bracket).join('\n').trim();
   return { name: name.trim(), ...(tech ? { tech } : {}), ...(description ? { description } : {}) };
 }
 const relationLabel = (r: C4Relation) => `${r.label}${r.tech ? ` [${r.tech}]` : ''}`.slice(0, 200);
@@ -242,7 +250,7 @@ export function readC4(board: BoardDoc, diagramId: string, withPositions = true)
     return {
       id: f.part!.key,
       name: f.title.split('\n')[0],
-      kind: x['kind'] === 'system' ? 'system' : 'boundary',
+      kind: (C4_GROUP_KINDS as readonly unknown[]).includes(x['kind']) ? (x['kind'] as C4GroupKind) : 'boundary',
       ...(xs(x['parent']) ? { parent: xs(x['parent']) } : {}),
       ...(x['collapsed'] === true ? { collapsed: true } : { collapsed: false }),
       ...(xs(x['color']) ? { color: xs(x['color']) } : {}),
@@ -313,7 +321,9 @@ export function readC4(board: BoardDoc, diagramId: string, withPositions = true)
 export function c4Text(board: BoardDoc, diagramId: string, as: 'json' | 'mermaid' = 'mermaid'): string | null {
   const data = readC4(board, diagramId, false);
   if (!data) return null;
-  return as === 'json' ? JSON.stringify(data, null, 2) : c4().toMermaid(data, {});
+  // Mermaid's C4 stops at components: a diagram with opened containers or components, or with code, is written as JSON.
+  const deep = data.groups.some((g) => g.kind === 'container' || g.kind === 'component') || data.elements.some((e) => e.kind === 'code');
+  return as === 'json' || deep ? JSON.stringify(data, null, 2) : c4().toMermaid(data, {});
 }
 
 /** A C4 diagram's arrows as the skill's engine routes them, and the arrows a collapsed system's box stands in for. */
@@ -365,12 +375,13 @@ function c4Keys(board: BoardDoc, diagramId: string): Map<string, string> {
  * Lays a C4 diagram out again where it is (one undo step): positions and sizes, which systems show as one box, and which
  * elements are hidden inside them. Optionally a system group opens or closes first, or every system does (a level).
  */
-export function tidyC4(board: BoardDoc, diagramId: string, change?: { collapse?: Record<string, boolean>; level?: 1 | 2; arrange?: C4Data['arrange'] }): boolean {
+export function tidyC4(board: BoardDoc, diagramId: string, change?: { collapse?: Record<string, boolean>; level?: C4Level; arrange?: C4Data['arrange'] }): boolean {
   const frame = board.frames().find((f) => f.id === diagramId);
   const data = readC4(board, diagramId, false);
   if (!frame || !data) return false;
   for (const g of data.groups) {
-    if (change?.level && g.kind === 'system') g.collapsed = change.level === 1;
+    const opens = OPENS_AT[g.kind];
+    if (change?.level && opens) g.collapsed = change.level < opens;
     if (change?.collapse && g.id in change.collapse) g.collapsed = change.collapse[g.id];
   }
   if (change?.arrange) data.arrange = change.arrange;
@@ -404,6 +415,15 @@ export function tidyC4(board: BoardDoc, diagramId: string, change?: { collapse?:
     }),
   );
   return true;
+}
+
+/** C4's four levels: system context, containers, components, code. */
+export type C4Level = 1 | 2 | 3 | 4;
+
+/** The deepest level a diagram has something to show at: 2 with systems opened to containers, 3 with components, 4 with code. */
+export function c4Depth(board: BoardDoc, diagramId: string): C4Level {
+  const kinds = new Set(board.frames().filter((f) => f.part?.of === diagramId && f.part.role === 'group').map((f) => f.part!.extra?.['kind']));
+  return kinds.has('component') ? 4 : kinds.has('container') ? 3 : 2;
 }
 
 /** A C4 element's kind from a shape dropped into the diagram: a figure is a person, a cylinder a database, and so on. */

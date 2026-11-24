@@ -10,7 +10,7 @@ import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type Diagram
 import { FLOWCHART_STARTER, isFlowKind } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
-import { tidyC4 } from './diagrams/c4';
+import { tidyC4, c4Depth, type C4Level } from './diagrams/c4';
 import { isSequenceText, parseSequence, SEQUENCE_STARTER } from './diagrams/sequence';
 import { isStateText, STATE_STARTER } from './diagrams/state';
 import { BPMN_STARTER } from './diagrams/bpmn';
@@ -1012,26 +1012,32 @@ export class Canvas {
     this.#placeFlowchart(C4_STARTER, this.#viewCentre());
   }
 
-  /** The one C4 system group selected, open or not, for its Collapse or Expand button. */
+  /** The one C4 group selected that opens (a system, container or component), open or not, for its Open or Close button. */
   protected readonly oneC4System = computed(() => {
     const [id, ...more] = this.selection();
     const frame = more.length ? null : this.board().frames().find((f) => f.id === id);
     const diagram = frame?.part?.role === 'group' ? diagramFrame(this.board(), frame.part.of) : null;
-    return frame && diagram?.part?.type === 'c4' && frame.part!.extra?.['kind'] === 'system' ? { frame, diagram, collapsed: frame.part!.extra?.['collapsed'] === true } : null;
+    const kind = frame?.part?.extra?.['kind'];
+    const inside = kind === 'system' ? 'containers' : kind === 'container' ? 'components' : kind === 'component' ? 'code' : null;
+    return frame && diagram?.part?.type === 'c4' && inside ? { frame, diagram, collapsed: frame.part!.extra?.['collapsed'] === true, inside } : null;
   });
 
-  /** Opens or closes the selected C4 system: its containers, or one box for it. */
+  /** Opens or closes the selected C4 group: what's inside it, or one box for it. */
   protected toggleSystem(): void {
     const s = this.oneC4System();
     if (!s) return;
     tidyC4(this.board(), s.diagram.id, { collapse: { [s.frame.part!.key]: !s.collapsed } });
-    this.announcement.set(s.collapsed ? `Opened ${s.frame.title.split('\n')[0]} to show its containers` : `Closed ${s.frame.title.split('\n')[0]} to one box`);
+    this.announcement.set(s.collapsed ? `Opened ${s.frame.title.split('\n')[0]} to show its ${s.inside}` : `Closed ${s.frame.title.split('\n')[0]} to one box`);
   }
 
-  /** Shows a C4 diagram at a level: 1, every system as one box; 2, every system open to its containers. */
-  protected showLevel(level: 1 | 2): void {
+  /** How deep the selected C4 diagram goes: which level buttons it has. */
+  protected readonly c4Depth = (id: string) => c4Depth(this.board(), id);
+
+  /** Shows a C4 diagram at a level: 1, each system as one box; 2, systems open to their containers; 3, containers to their components; 4, components to their code. */
+  protected showLevel(level: C4Level): void {
     const frame = this.oneFlowchart();
-    if (frame && tidyC4(this.board(), frame.id, { level })) this.announcement.set(level === 1 ? 'Level 1: each system as one box' : 'Level 2: systems open to their containers');
+    const said = { 1: 'Level 1: each system as one box', 2: 'Level 2: systems open to their containers', 3: 'Level 3: containers open to their components', 4: 'Level 4: components open to their code' };
+    if (frame && tidyC4(this.board(), frame.id, { level })) this.announcement.set(said[level]);
   }
 
   /** Lays a C4 diagram out another way: round its centre, flowing down, or in layers. */
