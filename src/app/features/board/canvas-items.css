@@ -69,7 +69,8 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  color: #1a1a1a;
+  /* The theme's text: shape fills are pastels in light mode and deep tones in dark, as notes are. */
+  color: var(--tc-text-primary);
   font-size: 15px;
   font-weight: var(--tc-font-weight-medium);
   text-align: center;
@@ -212,7 +213,7 @@
   border: none;
   border-radius: 0;
   background: transparent;
-  color: #1a1a1a;
+  color: var(--tc-text-primary);
   font-weight: var(--tc-font-weight-medium);
   outline: none;
 }

@@ -148,9 +148,10 @@ describe('shapes', () => {
     }
   });
 
-  it('give a cylinder its top rim, and nothing else a detail line', () => {
+  it('give a cylinder its top rim and a sub-process its inner sides, and nothing else a detail line', () => {
     expect(shapeDetail('cylinder', 200, 120)).toMatch(/^M 0 18 A 100 18/);
-    expect(SHAPES.filter((s) => shapeDetail(s, 200, 120))).toEqual(['cylinder']);
+    expect(shapeDetail('subprocess', 200, 120)).toBe('M 14 0 V 120 M 186 0 V 120');
+    expect(SHAPES.filter((s) => shapeDetail(s, 200, 120))).toEqual(['cylinder', 'subprocess']);
   });
 });
 
