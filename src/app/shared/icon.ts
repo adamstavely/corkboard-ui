@@ -108,6 +108,7 @@ import {
   Waypoints,
   Rows3,
   WandSparkles,
+  PersonStanding,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -222,6 +223,7 @@ export const ICONS = {
   flowchart: Waypoints,
   addLane: Rows3,
   autoTidy: WandSparkles,
+  actor: PersonStanding,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

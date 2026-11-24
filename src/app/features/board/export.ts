@@ -2,6 +2,7 @@ import { diagramLinks, renderDiagram, svgUrl, type DiagramImages } from './diagr
 import { chartMarkdown, chartSpec } from './chart';
 import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { routeDiagramArrows } from './diagrams/routing';
+import { routeUsecase } from './diagrams/usecase';
 import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -158,7 +159,7 @@ export function arrowLines(board: BoardDoc): ArrowPath[] {
   // Arrows into a folded branch go with it.
   const boxes = new Map<string, Box>([...shownNotes(board), ...board.frames(), ...board.items(), ...board.media()].map((n) => [n.id, n]));
   // Right-angled arrows inside an editable diagram are routed round its steps, all together.
-  const routed = routeDiagramArrows(board.frames(), board.items(), board.connectors());
+  const routed = new Map([...routeDiagramArrows(board.frames(), board.items(), board.connectors()), ...routeUsecaseArrows(board)]);
   return board.connectors().flatMap((c) => {
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
@@ -203,6 +204,12 @@ export function arrowLines(board: BoardDoc): ArrowPath[] {
 }
 
 const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+/** The curved arrows of every use case diagram on the board, routed by the diagram skill's engine. */
+function routeUsecaseArrows(board: BoardDoc) {
+  const diagrams = board.frames().filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && f.part.type === 'usecase');
+  return diagrams.flatMap((d) => [...routeUsecase(board, d)].filter(([id]) => board.connectors().some((c) => c.id === id && c.route === 'curve')));
+}
 
 /** One stroke of an arrow's end: SVG path data, filled with the line's colour, the paper's, or not at all. */
 export interface HeadPart {

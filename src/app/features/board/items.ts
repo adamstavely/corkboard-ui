@@ -43,6 +43,12 @@ export function shapePath(shape: ShapeKind, w: number, h: number): string {
       const rr = Math.min(12, w / 4, body / 4);
       return `M ${rr} 0 H ${w - rr} Q ${w} 0 ${w} ${rr} V ${body - rr} Q ${w} ${body} ${w - rr} ${body} H ${w * 0.38} L ${w * 0.18} ${h} L ${w * 0.22} ${body} H ${rr} Q 0 ${body} 0 ${body - rr} V ${rr} Q 0 0 ${rr} 0 Z`;
     }
+    case 'actor': {
+      // A person: a head over a stick figure (see shapeDetail), its name under it.
+      const r = Math.min(w * 0.14, h * 0.1);
+      const cx = w / 2;
+      return `M ${round(cx - r)} ${round(r + 2)} A ${round(r)} ${round(r)} 0 1 0 ${round(cx + r)} ${round(r + 2)} A ${round(r)} ${round(r)} 0 1 0 ${round(cx - r)} ${round(r + 2)} Z`;
+    }
     case 'pill': {
       // A start or end: a box with fully rounded ends.
       const r = Math.min(h / 2, w / 2);
@@ -74,6 +80,16 @@ const round = (n: number) => Math.round(n * 10) / 10;
 
 /** A line drawn over a shape's fill, where its outline alone doesn't show its form: a cylinder's top rim. */
 export function shapeDetail(shape: ShapeKind, w: number, h: number): string | null {
+  // A person's body, arms and legs, under the head, in the top two-thirds of the box.
+  if (shape === 'actor') {
+    const r = Math.min(w * 0.14, h * 0.1);
+    const cx = w / 2;
+    const neck = 2 * r + 2;
+    const hip = h * 0.46;
+    const foot = h * 0.66;
+    const arm = Math.min(w * 0.3, h * 0.2);
+    return `M ${round(cx)} ${round(neck)} V ${round(hip)} M ${round(cx - arm)} ${round(neck + (hip - neck) * 0.35)} H ${round(cx + arm)} M ${round(cx)} ${round(hip)} L ${round(cx - arm * 0.8)} ${round(foot)} M ${round(cx)} ${round(hip)} L ${round(cx + arm * 0.8)} ${round(foot)}`;
+  }
   // A sub-process: a box with a second line down each side.
   if (shape === 'subprocess') {
     const side = Math.min(14, w / 8);
