@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { BoardDoc } from './board-doc';
 import { noteLines } from './tasks';
-import { arrowLines, boardBounds, boardBoxes, boardMarkdown, dashPattern, fileName } from './export';
+import { arrowHead, arrowHeads, arrowLines, boardBounds, boardBoxes, boardMarkdown, dashPattern, fileName } from './export';
 
 describe('export', () => {
   it('writes the board as Markdown: frames as headings, notes as bullets, bold kept', () => {
@@ -72,13 +72,40 @@ describe('export', () => {
     // Out of the right side, across, down, across into the left side.
     expect(line.d).toMatch(/^M 200 100 H 350 V 300 H 500$/);
     expect(line.angle).toBe(0);
-    expect(line.style).toEqual({ route: 'elbow', dash: 'dashed', weight: 4 });
+    expect(line.style).toEqual({ route: 'elbow', dash: 'dashed', weight: 4, start: 'none', end: 'arrow' });
+    // The label goes on the middle of the upright.
+    expect(line.mid).toEqual({ x: 350, y: 200 });
     expect(dashPattern(line.style)).toEqual([16, 12]);
 
     board.setArrowStyle([arrow], { route: 'curve', dash: 'dotted' });
     [line] = arrowLines(board);
     expect(line.d).toMatch(/^M 200 100 C /);
     expect(board.connectors()[0]).toMatchObject({ route: 'curve', dash: 'dotted', weight: 4 });
+    board.destroy();
+  });
+
+  it('gives arrows words and ends of their own, and turns them round', () => {
+    const board = new BoardDoc();
+    const a = board.addNote(100, 100);
+    const b = board.addNote(600, 100);
+    const arrow = board.connect(a, b, { start: 'one', end: 'zeroMany' })!;
+    board.setArrowLabel(arrow, '  places  ');
+    let [line] = arrowLines(board);
+    expect(line.label).toBe('places');
+    expect(line.style).toMatchObject({ start: 'one', end: 'zeroMany' });
+    // A head at each end, pointing into its box: one bar pair at the start, a crow's foot and a ring at the end.
+    const heads = arrowHeads(line);
+    expect(heads.map((h) => h.fill)).toEqual(['none', 'none', 'paper']);
+    expect(line.startAngle).toBeCloseTo(Math.PI);
+
+    board.reverseArrows([arrow]);
+    expect(board.connectors()[0]).toMatchObject({ from: b, to: a, start: 'zeroMany', end: 'one', label: 'places' });
+    board.setArrowLabel(arrow, '');
+    expect(board.connectors()[0].label).toBe('');
+    board.setArrowStyle([arrow], { end: 'sideways' as never });
+    expect(board.connectors()[0].end).toBe('arrow');
+    [line] = arrowLines(board);
+    expect(arrowHead('none', line.end, line.angle, 2)).toEqual([]);
     board.destroy();
   });
 

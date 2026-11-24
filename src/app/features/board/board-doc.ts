@@ -252,7 +252,7 @@ export interface Layout {
   shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; x: number; y: number; w: number; h: number }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
   views?: { key?: string; view: string; x: number; y: number }[];
-  arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number }[];
+  arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number; start?: string; end?: string; label?: string }[];
 }
 type LayoutTable = NonNullable<Layout['tables']>[number];
 const tableSize = (t: LayoutTable) => ({
@@ -300,18 +300,32 @@ export const ARROW_DASHES = ['solid', 'dashed', 'dotted'] as const;
 export type ArrowDash = (typeof ARROW_DASHES)[number];
 /** Line weights, in board pixels. */
 export const ARROW_WEIGHTS = [1, 2, 4, 6] as const;
+/**
+ * What an arrow's ends look like: nothing, an arrowhead, an open triangle ("is a"), or the crow's-foot marks of a data
+ * diagram (exactly one, zero or one, one or many, zero or many).
+ */
+export const ARROW_HEADS = ['none', 'arrow', 'triangle', 'one', 'zeroOne', 'oneMany', 'zeroMany'] as const;
+export type ArrowHead = (typeof ARROW_HEADS)[number];
+/** The longest label an arrow takes. */
+export const MAX_ARROW_LABEL = 200;
 
 export interface ArrowStyle {
   route: ArrowRoute;
   dash: ArrowDash;
   weight: number;
+  /** The end the arrow leaves from. */
+  start: ArrowHead;
+  /** The end the arrow points at. */
+  end: ArrowHead;
 }
-export const DEFAULT_ARROW: ArrowStyle = { route: 'straight', dash: 'solid', weight: 2 };
+export const DEFAULT_ARROW: ArrowStyle = { route: 'straight', dash: 'solid', weight: 2, start: 'none', end: 'arrow' };
 
 export interface Connector extends ArrowStyle {
   id: string;
   from: string;
   to: string;
+  /** Words on the line ("Yes", "places"), '' for none. */
+  label: string;
 }
 
 type Box = Pick<Frame, 'x' | 'y' | 'w' | 'h'>;
@@ -555,6 +569,9 @@ export class BoardDoc {
         node.set('route', (ARROW_ROUTES as readonly string[]).includes(a.route ?? '') ? a.route : DEFAULT_ARROW.route);
         node.set('dash', (ARROW_DASHES as readonly string[]).includes(a.dash ?? '') ? a.dash : DEFAULT_ARROW.dash);
         node.set('weight', (ARROW_WEIGHTS as readonly number[]).includes(a.weight ?? 0) ? a.weight : DEFAULT_ARROW.weight);
+        node.set('start', (ARROW_HEADS as readonly string[]).includes(a.start ?? '') ? a.start : DEFAULT_ARROW.start);
+        node.set('end', (ARROW_HEADS as readonly string[]).includes(a.end ?? '') ? a.end : DEFAULT_ARROW.end);
+        if (a.label?.trim()) node.set('label', a.label.trim().slice(0, MAX_ARROW_LABEL));
         this.#nodes.set(crypto.randomUUID(), node);
       }
     }, this);
@@ -1291,7 +1308,8 @@ export class BoardDoc {
   }
 
   /** Draws an arrow from one note or frame to another, unless there is one already; returns its id. */
-  connect(from: string, to: string, style: ArrowStyle = DEFAULT_ARROW): string | null {
+  connect(from: string, to: string, change: Partial<ArrowStyle> = {}): string | null {
+    const style = { ...DEFAULT_ARROW, ...change };
     if (from === to || !this.#nodes.has(from) || !this.#nodes.has(to)) return null;
     const existing = this.connectors().find((c) => c.from === from && c.to === to);
     if (existing) return existing.id;
@@ -1305,9 +1323,38 @@ export class BoardDoc {
       node.set('route', style.route);
       node.set('dash', style.dash);
       node.set('weight', style.weight);
+      node.set('start', style.start);
+      node.set('end', style.end);
       this.#nodes.set(id, node);
     }, this);
     return id;
+  }
+
+  /** Writes the words on an arrow; blank clears them. */
+  setArrowLabel(id: string, label: string): void {
+    const node = this.#writable(id);
+    if (!node || node.get('kind') !== 'connector') return;
+    const text = label.trim().slice(0, MAX_ARROW_LABEL);
+    if (text === ((node.get('label') as string | undefined) ?? '')) return;
+    this.undo.stopCapturing();
+    this.doc.transact(() => (text ? node.set('label', text) : node.delete('label')), this);
+  }
+
+  /** Turns arrows round: each runs the other way, its two ends swapped with it. */
+  reverseArrows(ids: Iterable<string>): void {
+    const arrows = new Map(this.connectors().map((c) => [c.id, c]));
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#writable(id);
+        const arrow = arrows.get(id);
+        if (!node || !arrow) continue;
+        node.set('from', arrow.to);
+        node.set('to', arrow.from);
+        node.set('start', arrow.end);
+        node.set('end', arrow.start);
+      }
+    }, this);
   }
 
   /** Restyles arrows: how they run, their dashes, their weight. */
@@ -1441,7 +1488,7 @@ export class BoardDoc {
     if (node.get('kind') === 'connector') {
       const from = node.get('from');
       const to = node.get('to');
-      return typeof from === 'string' && typeof to === 'string' ? { list: 'connectors', locked, value: { id, from, to, ...arrowStyleOf(node) } } : null;
+      return typeof from === 'string' && typeof to === 'string' ? { list: 'connectors', locked, value: { id, from, to, label: labelOf(node), ...arrowStyleOf(node) } } : null;
     }
     if (node.get('kind') === 'frame') {
       const title = node.get('title');
@@ -1510,7 +1557,15 @@ function arrowStyleOf(node: Y.Map<unknown>): ArrowStyle {
     route: ARROW_ROUTES.includes(route) ? route : DEFAULT_ARROW.route,
     dash: ARROW_DASHES.includes(dash) ? dash : DEFAULT_ARROW.dash,
     weight: typeof weight === 'number' && (ARROW_WEIGHTS as readonly number[]).includes(weight) ? weight : DEFAULT_ARROW.weight,
+    start: headOf(node.get('start'), DEFAULT_ARROW.start),
+    end: headOf(node.get('end'), DEFAULT_ARROW.end),
   };
+}
+const headOf = (value: unknown, fallback: ArrowHead): ArrowHead => ((ARROW_HEADS as readonly unknown[]).includes(value) ? (value as ArrowHead) : fallback);
+/** An arrow's words, as stored: a string within the limit, else none. */
+function labelOf(node: Y.Map<unknown>): string {
+  const label = node.get('label');
+  return typeof label === 'string' ? label.slice(0, MAX_ARROW_LABEL) : '';
 }
 
 const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);

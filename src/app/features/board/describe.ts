@@ -61,5 +61,7 @@ export function describeThing(board: BoardDoc, id: string): string {
         return `${CHART_NAMES[item.chart].toLowerCase()}${item.title ? ` “${clip(item.title)}”` : ''}`;
     }
   }
-  return board.connectors().some((c) => c.id === id) ? 'arrow' : 'something no longer on the board';
+  const arrow = board.connectors().find((c) => c.id === id);
+  if (!arrow) return 'something no longer on the board';
+  return arrow.label ? `arrow “${clip(arrow.label)}”` : 'arrow';
 }

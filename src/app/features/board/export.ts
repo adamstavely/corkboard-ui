@@ -1,6 +1,6 @@
 import { diagramLinks, renderDiagram, svgUrl, type DiagramImages } from './diagram';
 import { chartMarkdown, chartSpec } from './chart';
-import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
+import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, type BoardDoc, type Frame, type Item, type Media, type Note } from './board-doc';
 import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -140,6 +140,11 @@ export interface ArrowPath {
   d: string;
   /** The direction of the line arriving at the end, in radians, for the arrowhead. */
   angle: number;
+  /** The direction a head at the start points (back along the line, into the box it leaves). */
+  startAngle: number;
+  /** Where the label goes: the middle of the line. */
+  mid: Point;
+  label: string;
   style: ArrowStyle;
 }
 
@@ -155,11 +160,14 @@ export function arrowLines(board: BoardDoc): ArrowPath[] {
     const a = boxes.get(c.from);
     const b = boxes.get(c.to);
     if (!a || !b) return [];
-    const style = { route: c.route, dash: c.dash, weight: c.weight };
+    const style: ArrowStyle = { route: c.route, dash: c.dash, weight: c.weight, start: c.start, end: c.end };
+    const { label } = c;
     if (c.route === 'straight') {
       const start = edgePoint(a, centre(b));
       const end = edgePoint(b, centre(a));
-      return [{ id: c.id, start, end, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}`, angle: Math.atan2(end.y - start.y, end.x - start.x), style }];
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+      const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+      return [{ id: c.id, start, end, d: `M ${start.x} ${start.y} L ${end.x} ${end.y}`, angle, startAngle: angle + Math.PI, mid, label, style }];
     }
     const ca = centre(a);
     const cb = centre(b);
@@ -169,22 +177,79 @@ export function arrowLines(board: BoardDoc): ArrowPath[] {
     const start = across ? { x: ca.x + (sx * a.w) / 2, y: ca.y } : { x: ca.x, y: ca.y + (sy * a.h) / 2 };
     const end = across ? { x: cb.x - (sx * b.w) / 2, y: cb.y } : { x: cb.x, y: cb.y - (sy * b.h) / 2 };
     const angle = across ? (sx > 0 ? 0 : Math.PI) : sy > 0 ? Math.PI / 2 : -Math.PI / 2;
+    const startAngle = angle + Math.PI;
     let d: string;
+    let mid: Point;
     if (c.route === 'elbow') {
-      const mid = across ? (start.x + end.x) / 2 : (start.y + end.y) / 2;
-      d = across ? `M ${start.x} ${start.y} H ${mid} V ${end.y} H ${end.x}` : `M ${start.x} ${start.y} V ${mid} H ${end.x} V ${end.y}`;
+      const turn = across ? (start.x + end.x) / 2 : (start.y + end.y) / 2;
+      d = across ? `M ${start.x} ${start.y} H ${turn} V ${end.y} H ${end.x}` : `M ${start.x} ${start.y} V ${turn} H ${end.x} V ${end.y}`;
+      mid = across ? { x: turn, y: (start.y + end.y) / 2 } : { x: (start.x + end.x) / 2, y: turn };
     } else {
       const pull = across ? Math.abs(end.x - start.x) / 2 : Math.abs(end.y - start.y) / 2;
       const [c1, c2] = across
         ? [{ x: start.x + sx * pull, y: start.y }, { x: end.x - sx * pull, y: end.y }]
         : [{ x: start.x, y: start.y + sy * pull }, { x: end.x, y: end.y - sy * pull }];
       d = `M ${start.x} ${start.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${end.x} ${end.y}`;
+      // The curve's middle (t = ½).
+      mid = { x: (start.x + 3 * c1.x + 3 * c2.x + end.x) / 8, y: (start.y + 3 * c1.y + 3 * c2.y + end.y) / 8 };
     }
-    return [{ id: c.id, start, end, d, angle, style }];
+    return [{ id: c.id, start, end, d, angle, startAngle, mid, label, style }];
   });
 }
 
 const centre = (b: Box): Point => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+/** One stroke of an arrow's end: SVG path data, filled with the line's colour, the paper's, or not at all. */
+export interface HeadPart {
+  d: string;
+  fill: 'line' | 'paper' | 'none';
+}
+
+/**
+ * The marks at one end of an arrow, as paths on the board: `tip` is where the line meets the box, `angle` the direction
+ * the line arrives in. Sized to the line's weight, as the arrowheads always were.
+ */
+export function arrowHead(head: ArrowHead, tip: Point, angle: number, weight: number): HeadPart[] {
+  if (head === 'none') return [];
+  const long = 8 + weight * 2;
+  const half = long / 2;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  // (along, across) in the line's own frame: along runs back from the tip, across to its left.
+  const at = (along: number, across: number) => `${round(tip.x - along * cos - across * sin)} ${round(tip.y - along * sin + across * cos)}`;
+  const bar = (along: number) => `M ${at(along, -half)} L ${at(along, half)}`;
+  const circle = (along: number, r: number) => `M ${at(along - r, 0)} A ${r} ${r} 0 1 0 ${at(along + r, 0)} A ${r} ${r} 0 1 0 ${at(along - r, 0)}`;
+  const foot = `M ${at(0, -half)} L ${at(long, 0)} L ${at(0, half)} M ${at(0, 0)} L ${at(long, 0)}`;
+  switch (head) {
+    case 'arrow':
+      return [{ d: `M ${at(0, 0)} L ${at(long, -half)} L ${at(long, half)} Z`, fill: 'line' }];
+    case 'triangle': {
+      const big = long * 1.4;
+      return [{ d: `M ${at(0, 0)} L ${at(big, -big / 2)} L ${at(big, big / 2)} Z`, fill: 'paper' }];
+    }
+    case 'one':
+      return [{ d: `${bar(long * 0.5)} ${bar(long * 0.9)}`, fill: 'none' }];
+    case 'zeroOne':
+      return [
+        { d: bar(long * 0.5), fill: 'none' },
+        { d: circle(long * 1.1, half * 0.6), fill: 'paper' },
+      ];
+    case 'oneMany':
+      return [{ d: `${foot} ${bar(long * 1.3)}`, fill: 'none' }];
+    case 'zeroMany':
+      return [
+        { d: foot, fill: 'none' },
+        { d: circle(long * 1.5, half * 0.6), fill: 'paper' },
+      ];
+  }
+}
+const round = (n: number) => Math.round(n * 100) / 100;
+
+/** Both ends of a drawn arrow. */
+export const arrowHeads = (line: ArrowPath): HeadPart[] => [
+  ...arrowHead(line.style.start, line.start, line.startAngle, line.style.weight),
+  ...arrowHead(line.style.end, line.end, line.angle, line.style.weight),
+];
 
 /** An arrow's dashes as a dash pattern for its weight: [] for solid. Dots need round line caps. */
 export function dashPattern(style: ArrowStyle): number[] {
@@ -400,20 +465,44 @@ export function boardCanvas(board: BoardDoc, images: ReadonlyMap<string, HTMLIma
   ctx.strokeStyle = ink;
   ctx.fillStyle = ink;
   ctx.lineCap = 'round';
-  for (const { end, d, angle, style } of arrowLines(board)) {
-    ctx.lineWidth = style.weight;
-    ctx.setLineDash(dashPattern(style));
-    ctx.stroke(new Path2D(d));
+  const paper = color('--app-canvas', '#f4f4f2');
+  const lines = arrowLines(board);
+  for (const line of lines) {
+    ctx.lineWidth = line.style.weight;
+    ctx.setLineDash(dashPattern(line.style));
+    ctx.stroke(new Path2D(line.d));
     ctx.setLineDash([]);
-    const head = 8 + style.weight * 2;
-    ctx.beginPath();
-    ctx.moveTo(end.x, end.y);
-    ctx.lineTo(end.x - head * Math.cos(angle - 0.4), end.y - head * Math.sin(angle - 0.4));
-    ctx.lineTo(end.x - head * Math.cos(angle + 0.4), end.y - head * Math.sin(angle + 0.4));
-    ctx.closePath();
-    ctx.fill();
+    // The ends: filled with the line, or with the paper so the line doesn't show through.
+    ctx.lineWidth = Math.min(line.style.weight, 2);
+    for (const part of arrowHeads(line)) {
+      const path = new Path2D(part.d);
+      if (part.fill !== 'none') {
+        ctx.fillStyle = part.fill === 'line' ? ink : paper;
+        ctx.fill(path);
+      }
+      ctx.stroke(path);
+    }
+    ctx.fillStyle = ink;
   }
   ctx.lineCap = 'butt';
+  // Arrow labels, in a pill over the middle of the line.
+  ctx.font = `400 13px ${font}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const { mid, label } of lines) {
+    if (!label) continue;
+    const w = Math.min(ctx.measureText(label).width, 180) + 16;
+    const pill = new Path2D();
+    pill.roundRect(mid.x - w / 2, mid.y - 12, w, 24, 12);
+    paint(pill, surface);
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 1;
+    ctx.stroke(pill);
+    ctx.fillStyle = text;
+    ctx.fillText(label, mid.x, mid.y, 180);
+  }
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
   // Notes, shapes and images in the board's stack order (see BoardDoc.restack).
   const muted = color('--tc-text-muted', '#6b6b6b');
   const colours = { surface, border, text, muted, font };
