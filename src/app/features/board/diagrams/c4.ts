@@ -201,6 +201,7 @@ export function layoutC4(data: C4Data): Layout {
       shape: KIND_SHAPE[e.kind] ?? 'rect',
       color: colourOf(e),
       label: elementLabel(e),
+      ...(e.icon ? { icon: e.icon } : {}),
       ...(home ? { x: home.x, y: home.y, w: Math.round(156 * S), h: Math.round(112 * S) } : { ...at(e.x, e.y), ...size(e.w, e.h) }),
       part: { role: 'step', key: e.id, type: e.kind, ...(Object.keys(extra).length ? { extra } : {}) },
     });
@@ -265,7 +266,7 @@ export function readC4(board: BoardDoc, diagramId: string, withPositions = true)
         kind: (C4_KINDS as readonly string[]).includes(s.part!.type ?? '') ? (s.part!.type as C4Kind) : 'system',
         ...readLabel(s.label),
         ...(group ? { group } : {}),
-        ...(xs(x['icon']) ? { icon: xs(x['icon']) } : {}),
+        ...((s.icon ?? xs(x['icon'])) ? { icon: s.icon ?? xs(x['icon']) } : {}),
         ...(xs(x['color']) ? { color: xs(x['color']) } : {}),
         ...(x['core'] === true ? { core: true } : {}),
         ...(xs(x['side']) ? { side: xs(x['side']) } : {}),

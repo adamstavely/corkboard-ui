@@ -365,3 +365,26 @@
 .item-shape.person .shape-label {
   inset: 34% 8% 6%;
 }
+
+/* A shape's icon or logo, in its top-left corner: icons in the text colour, logos on a white disc in their own colours. */
+.shape-icon {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--tc-text-primary);
+  pointer-events: none;
+}
+.shape-icon.logo {
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+.shape-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
