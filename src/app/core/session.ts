@@ -36,6 +36,8 @@ export class Session {
   });
 
   readonly orgs = computed(() => (this.me.hasValue() ? this.me.value().orgs : []));
+  /** One of Corkboard's site admins: they run the AI connections and the cloud icon library, and nothing else. */
+  readonly siteAdmin = computed(() => this.me.hasValue() && this.me.value().siteAdmin);
 
   readonly #chosen = signal<string | null>(storedOrg());
 

@@ -76,6 +76,9 @@
       @if (session.org()?.role === 'owner') {
         <tc-button variant="secondary" label="Admin" (click)="go('/admin')"></tc-button>
       }
+      @if (session.siteAdmin()) {
+        <tc-button variant="secondary" label="Site admin" (click)="go('/site')"></tc-button>
+      }
       @if (canCreate()) {
         <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="picking.set(true)"></tc-button>
       }

@@ -5,15 +5,15 @@ import { ProviderConnection } from '@adamstavely/trenchcoat/angular/provider-con
 import { SecretField } from '@adamstavely/trenchcoat/angular/secret-field';
 import type { ProviderConnectionCheck, ProviderConnectionValue } from '@adamstavely/trenchcoat/provider-connection';
 import { Api } from '../../api/generated/api';
-import { providersControllerCreate } from '../../api/generated/fn/models/providers-controller-create';
-import { providersControllerRemove } from '../../api/generated/fn/models/providers-controller-remove';
-import { providersControllerTest } from '../../api/generated/fn/models/providers-controller-test';
-import { providersControllerUpdate } from '../../api/generated/fn/models/providers-controller-update';
+import { siteModelsControllerCreate } from '../../api/generated/fn/site/site-models-controller-create';
+import { siteModelsControllerRemove } from '../../api/generated/fn/site/site-models-controller-remove';
+import { siteModelsControllerTest } from '../../api/generated/fn/site/site-models-controller-test';
+import { siteModelsControllerUpdate } from '../../api/generated/fn/site/site-models-controller-update';
 import type { ProviderDto } from '../../api/generated/models/provider-dto';
 import { baseUrlOf, checkOf, DEFAULT_MODEL, ENTERED_KEY, PROVIDERS, SAVED_KEY, valueOf, type Kind } from './connection';
 
 /**
- * One model connection for an owner to set up: its name, Trench Coat's connection panel (API, address, model, whether
+ * One of the site's AI connections for a site admin to set up: its name, Trench Coat's connection panel (API, address, model, whether
  * a key is saved, and a test), and a field to enter or replace the key. With no `provider`, it adds a new one.
  */
 @Component({
@@ -25,7 +25,6 @@ import { baseUrlOf, checkOf, DEFAULT_MODEL, ENTERED_KEY, PROVIDERS, SAVED_KEY, v
 export class ModelCard {
   readonly #api = inject(Api);
 
-  readonly orgId = input.required<string>();
   /** The saved connection; unset for a new one. */
   readonly provider = input<ProviderDto | undefined>(undefined);
   readonly changed = output<void>();
@@ -76,14 +75,12 @@ export class ModelCard {
       const baseUrl = baseUrlOf(v);
       const apiKey = this.key().trim() || undefined;
       if (saved) {
-        await this.#api.invoke(providersControllerUpdate, {
-          orgId: this.orgId(),
+        await this.#api.invoke(siteModelsControllerUpdate, {
           id: saved.id,
           body: { label, model: v.deployment.trim(), ...(baseUrl ? { baseUrl } : {}), ...(apiKey ? { apiKey } : {}) },
         });
       } else {
-        await this.#api.invoke(providersControllerCreate, {
-          orgId: this.orgId(),
+        await this.#api.invoke(siteModelsControllerCreate, {
           body: { label, kind: this.kind(), model: v.deployment.trim(), baseUrl, apiKey },
         });
         this.label.set('');
@@ -103,7 +100,7 @@ export class ModelCard {
       return;
     }
     await this.#run(async () => {
-      const result = await this.#api.invoke(providersControllerTest, { orgId: this.orgId(), id: saved.id });
+      const result = await this.#api.invoke(siteModelsControllerTest, { id: saved.id });
       this.check.set(checkOf(result));
     });
   }
@@ -112,7 +109,7 @@ export class ModelCard {
     const saved = this.provider();
     if (!saved) return;
     await this.#run(async () => {
-      await this.#api.invoke(providersControllerRemove, { orgId: this.orgId(), id: saved.id });
+      await this.#api.invoke(siteModelsControllerRemove, { id: saved.id });
       this.changed.emit();
     });
   }

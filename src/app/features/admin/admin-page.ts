@@ -12,7 +12,6 @@ import type { AuditEventDto } from '../../api/generated/models/audit-event-dto';
 import { adminControllerRemove } from '../../api/generated/fn/admin/admin-controller-remove';
 import { adminControllerUsage } from '../../api/generated/fn/admin/admin-controller-usage';
 import { providersControllerList } from '../../api/generated/fn/models/providers-controller-list';
-import { providersControllerUpdate } from '../../api/generated/fn/models/providers-controller-update';
 import { Auth } from '../../core/auth';
 import { Session } from '../../core/session';
 import { WorkspacePolicies } from './workspace-policies';
@@ -69,7 +68,7 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
           <tc-data-table heading="Boards" [columns]="boardColumns" [rows]="boardRows()" readonly></tc-data-table>
 
           <h2>Models</h2>
-          <p class="muted">Tokens each model used. Set what you pay per million tokens to see an estimated spend.</p>
+          <p class="muted">Tokens each model used, and the estimated spend at the prices Corkboard's site admins set.</p>
           @if (models().length) {
             <table class="spend">
               <thead>
@@ -83,11 +82,12 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
                     <td>{{ n(m.input) }}</td>
                     <td>{{ n(m.output) }}</td>
                     <td>
-                      @if (m.providerId) {
-                        <input type="number" min="0" step="0.01" [attr.aria-label]="'Price per million input tokens for ' + m.label" [value]="m.priceIn ?? ''" (change)="setPrice(m.providerId, 'in', $any($event.target).value)" />
-                        <input type="number" min="0" step="0.01" [attr.aria-label]="'Price per million output tokens for ' + m.label" [value]="m.priceOut ?? ''" (change)="setPrice(m.providerId, 'out', $any($event.target).value)" />
-                      } @else {
+                      @if (!m.providerId) {
                         <span class="muted">Removed</span>
+                      } @else if (m.priceIn === null && m.priceOut === null) {
+                        <span class="muted">Not set</span>
+                      } @else {
+                        {{ m.priceIn ?? '—' }} / {{ m.priceOut ?? '—' }}
                       }
                     </td>
                     <td>{{ m.cost === null ? '—' : m.cost.toFixed(2) }}</td>
@@ -106,10 +106,10 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
           <app-workspace-policies [orgId]="org.id" />
         }
 
-        <h2>Diagram logos</h2>
+        <h2>Your own logos</h2>
         <p class="muted">
-          Logos for diagrams from a vendor's own icon download, such as AWS, Azure or Google Cloud. Their terms don't let Corkboard ship them, so add
-          the SVG files from the download here. Everyone in the workspace can use them.
+          Your company's logos for diagrams, for everyone in the workspace. The cloud vendors' icons (AWS, Azure, Google Cloud and others) come from
+          Corkboard's icon library, kept up to date by its site admins.
         </p>
         @if (session.org(); as org) {
           <app-workspace-logos [orgId]="org.id" />
@@ -337,16 +337,6 @@ export class AdminPage {
   protected readonly confirming = signal(false);
   protected readonly deleting = signal(false);
   protected readonly problem = signal('');
-
-  protected async setPrice(providerId: string, which: 'in' | 'out', raw: string): Promise<void> {
-    const orgId = this.session.org()?.id;
-    if (!orgId) return;
-    const value = raw.trim() === '' ? null : Math.max(0, Number(raw));
-    if (value !== null && !Number.isFinite(value)) return;
-    await this.#api.invoke(providersControllerUpdate, { orgId, id: providerId, body: which === 'in' ? { priceInPerMillion: value } : { priceOutPerMillion: value } });
-    this.#providers.reload();
-    this.usage.reload();
-  }
 
   /** The export is an authenticated download, so it's fetched and handed to the browser as a file. */
   protected async download(): Promise<void> {

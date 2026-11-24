@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: '', title: 'Boards · Corkboard', loadComponent: () => import('./features/boards/board-list').then((m) => m.BoardList) },
       { path: 'models', title: 'AI models · Corkboard', loadComponent: () => import('./features/models/models-page').then((m) => m.ModelsPage) },
       { path: 'account', title: 'Settings · Corkboard', loadComponent: () => import('./features/account/account-page').then((m) => m.AccountPage) },
+      { path: 'site', title: 'Site admin · Corkboard', loadComponent: () => import('./features/site/site-page').then((m) => m.SitePage) },
       { path: 'admin', title: 'Workspace admin · Corkboard', loadComponent: () => import('./features/admin/admin-page').then((m) => m.AdminPage) },
       { path: 'integrations', title: 'Integrations · Corkboard', loadComponent: () => import('./features/integrations/integrations-page').then((m) => m.IntegrationsPage) },
       // Someone from outside the team, giving feedback on a board through its feedback link.
