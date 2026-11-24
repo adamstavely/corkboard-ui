@@ -1,6 +1,6 @@
 import { afterNextRender, Component, computed, effect, type ElementRef, input, output, signal, viewChild } from '@angular/core';
 import { Icon } from '../../shared/icon';
-import { GENERIC_ICONS, loadDevicon, logoPacks, logoSrc } from './diagrams/shape-icons';
+import { GENERIC_ICONS, loadDevicon, logoPacks, logoSrc, PACK_NAMES, requestWorkspaceLogos } from './diagrams/shape-icons';
 
 /**
  * Picks an icon for a shape: a search field over the generic icons (drawn with Lucide), the bundled tech logos
@@ -119,7 +119,10 @@ export class IconPicker {
 
   constructor() {
     // The tech logos load when the picker first opens, and the search field takes the keys.
-    effect(() => void loadDevicon());
+    effect(() => {
+      void loadDevicon();
+      requestWorkspaceLogos();
+    });
     afterNextRender(() => this.search()?.nativeElement.focus());
   }
 
@@ -131,7 +134,7 @@ export class IconPicker {
       choices: g.icons.filter((i) => match(i.label) || match(i.name)).map((i) => ({ name: i.name, label: i.label, icon: i.icon, src: '' })),
     }));
     const logos = [...logoPacks()].map(([pack, entries]) => ({
-      group: pack === 'devicon' ? 'Tech logos' : `Logos: ${pack}`,
+      group: PACK_NAMES[pack] ?? `Logos: ${pack}`,
       choices: Object.entries(entries)
         .filter(([name]) => match(name))
         .slice(0, 300)
