@@ -1,29 +1,25 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, input, resource, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
-import { SecretField } from '@adamstavely/trenchcoat/angular/secret-field';
-import { Select } from '@adamstavely/trenchcoat/angular/select';
 import { Switch } from '@adamstavely/trenchcoat/angular/switch';
 import { toast } from '@adamstavely/trenchcoat/toaster';
 import { Api } from '../../api/generated/api';
 import { toolsControllerGet } from '../../api/generated/fn/models/tools-controller-get';
 import { toolsControllerUpdate } from '../../api/generated/fn/models/tools-controller-update';
 
-type Service = 'brave' | 'tavily';
-
-/** The web search services a workspace can use, with where to get a key. */
-export const SEARCH_SERVICES: { value: Service; label: string }[] = [
+/** The web search services the site can use. */
+export const SEARCH_SERVICES: { value: 'brave' | 'tavily'; label: string }[] = [
   { value: 'brave', label: 'Brave Search' },
   { value: 'tavily', label: 'Tavily' },
 ];
 
 /**
- * What the workspace's assistant may use beyond the board. Owners switch web search on, pick the search service and
- * give its key; everyone else sees whether it's on.
+ * What the workspace's assistant may use beyond the board. Owners switch web search (with the site's search service,
+ * set by Corkboard's site admins) and mini-apps on or off; everyone else sees what's on.
  */
 @Component({
   selector: 'app-assistant-tools',
-  imports: [Switch, Select, SecretField, Button],
+  imports: [Switch, Button],
   template: `
     <section class="card" aria-labelledby="tools-heading">
       <h2 id="tools-heading">Assistant tools</h2>
@@ -33,17 +29,15 @@ export const SEARCH_SERVICES: { value: Service; label: string }[] = [
             label="Search the web"
             description="The assistant can search the web and read public pages when the board and its files don't say. Answers list the pages they read."
             [value]="webSearch()"
-            [disabled]="busy()"
+            [disabled]="busy() || !state.value().searchAvailable"
             (tc-value-change)="webSearch.set($event.detail.value)"
           ></tc-switch>
-          <tc-select label="Search service" [options]="services" [value]="service()" [disabled]="busy()" (tc-value-change)="service.set($any($event.detail.value))"></tc-select>
-          <tc-secret-field
-            [label]="state.value().hasSearchKey ? 'Replace the search key' : 'Search key'"
-            description="The search service's API key. Encrypted on the server and never shown again."
-            [value]="key()"
-            [disabled]="busy()"
-            (tc-value-change)="$event.preventDefault(); key.set($event.detail.value)"
-          ></tc-secret-field>
+          @if (!state.value().searchAvailable) {
+            <p class="note">
+              Web search needs the site's search service, which Corkboard's site admins haven't set
+              up yet.
+            </p>
+          }
           <tc-switch
             label="Make mini-apps"
             description="The assistant can make small apps from a board's notes, like a tally or a chart. They run sandboxed, with no network."
@@ -58,11 +52,25 @@ export const SEARCH_SERVICES: { value: Service; label: string }[] = [
             <tc-button label="Save" [loading]="busy()" (click)="save()"></tc-button>
           </div>
         } @else {
-          <p class="note">{{ state.value().webSearch ? 'The assistant can search the web with ' + serviceName(state.value().searchProvider) + '.' : "The assistant doesn't search the web. An owner can switch it on here." }}</p>
-          <p class="note">{{ state.value().miniApps ? 'It can make mini-apps on boards.' : "It doesn't make mini-apps." }}</p>
+          <p class="note">
+            {{
+              state.value().webSearch
+                ? 'The assistant can search the web.'
+                : "The assistant doesn't search the web. An owner can switch it on here."
+            }}
+          </p>
+          <p class="note">
+            {{
+              state.value().miniApps
+                ? 'It can make mini-apps on boards.'
+                : "It doesn't make mini-apps."
+            }}
+          </p>
         }
       } @else if (state.error()) {
-        <p role="alert" class="note">The assistant's tools couldn't be loaded. Refresh to try again.</p>
+        <p role="alert" class="note">
+          The assistant's tools couldn't be loaded. Refresh to try again.
+        </p>
       }
     </section>
   `,
@@ -103,12 +111,12 @@ export class AssistantTools {
   /** Owners: change the tools. */
   readonly canManage = input(false);
 
-  protected readonly state = resource({ params: () => this.orgId(), loader: ({ params: orgId }) => this.#api.invoke(toolsControllerGet, { orgId }) });
-  protected readonly services = SEARCH_SERVICES;
+  protected readonly state = resource({
+    params: () => this.orgId(),
+    loader: ({ params: orgId }) => this.#api.invoke(toolsControllerGet, { orgId }),
+  });
   protected readonly webSearch = signal(false);
   protected readonly miniApps = signal(true);
-  protected readonly service = signal<Service>('brave');
-  protected readonly key = signal('');
   protected readonly busy = signal(false);
   protected readonly problem = signal<string | null>(null);
 
@@ -118,28 +126,26 @@ export class AssistantTools {
       const saved = this.state.value();
       this.webSearch.set(saved.webSearch);
       this.miniApps.set(saved.miniApps);
-      if (saved.searchProvider) this.service.set(saved.searchProvider);
     });
-  }
-
-  protected serviceName(value: string | null | undefined): string {
-    return SEARCH_SERVICES.find((s) => s.value === value)?.label ?? 'a search service';
   }
 
   protected async save(): Promise<void> {
     this.busy.set(true);
     this.problem.set(null);
     try {
-      const key = this.key().trim();
       await this.#api.invoke(toolsControllerUpdate, {
         orgId: this.orgId(),
-        body: { webSearch: this.webSearch(), searchProvider: this.service(), miniApps: this.miniApps(), ...(key ? { searchKey: key } : {}) },
+        body: { webSearch: this.webSearch(), miniApps: this.miniApps() },
       });
-      this.key.set('');
       this.state.reload();
-      toast.success('Assistant tools saved', { description: `Web search ${this.webSearch() ? 'on' : 'off'}, mini-apps ${this.miniApps() ? 'on' : 'off'}.` });
+      toast.success('Assistant tools saved', {
+        description: `Web search ${this.webSearch() ? 'on' : 'off'}, mini-apps ${this.miniApps() ? 'on' : 'off'}.`,
+      });
     } catch (err) {
-      const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+      const message =
+        err instanceof HttpErrorResponse
+          ? (err.error as { message?: unknown } | null)?.message
+          : undefined;
       this.problem.set(typeof message === 'string' ? message : "That didn't save. Try again.");
     } finally {
       this.busy.set(false);

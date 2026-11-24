@@ -2,27 +2,51 @@
   <h1>AI models</h1>
   @if (session.org(); as org) {
     <p class="lead">
-      The models people in <strong>{{ org.name }}</strong> can ask on their boards. Bring any: Claude, or any server that
-      speaks OpenAI's Chat Completions API with tool calling (OpenAI, Azure, Gemini, OpenRouter, vLLM, Ollama, LM Studio).
+      The models people in <strong>{{ org.name }}</strong> can ask on their boards. Corkboard's site
+      admins connect them;
+      @if (isOwner()) {
+        choose which ones this workspace uses.
+      } @else {
+        this workspace's owners choose which ones it uses.
+      }
     </p>
   }
 
-  @if (list.isLoading() && !list.hasValue()) {
+  @if (isOwner()) {
+    @if (choices.isLoading() && !choices.hasValue()) {
+      <tc-skeleton height="240" radius="12"></tc-skeleton>
+    } @else if (choices.error()) {
+      <p role="alert">Models couldn't be loaded. Refresh to try again.</p>
+    } @else if (choices.value()?.length) {
+      <ul class="choices" aria-label="Models the site offers">
+        @for (m of choices.value(); track m.id) {
+          <li>
+            <tc-switch
+              [label]="m.label"
+              [description]="apiName(m.kind) + ' · ' + m.model"
+              [value]="m.enabled"
+              [disabled]="busy() === m.id"
+              (tc-value-change)="setEnabled(m.id, m.label, $event.detail.value)"
+            ></tc-switch>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="note">The site has no models yet. Corkboard's site admins add them.</p>
+    }
+  } @else if (list.isLoading() && !list.hasValue()) {
     <tc-skeleton height="240" radius="12"></tc-skeleton>
   } @else if (list.error()) {
     <p role="alert">Models couldn't be loaded. Refresh to try again.</p>
-  } @else if (isOwner()) {
-    <div class="cards">
-      @for (provider of list.value(); track provider.id) {
-        <app-model-card [orgId]="session.org()!.id" [provider]="provider" (changed)="list.reload()" />
-      }
-      <app-model-card [orgId]="session.org()!.id" (changed)="list.reload()" />
-    </div>
   } @else if (rows().length) {
-    <tc-data-table heading="Models in this workspace" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
-    <p class="note">Only owners can add or change models.</p>
+    <tc-data-table
+      heading="Models in this workspace"
+      [columns]="columns"
+      [rows]="rows()"
+      readonly
+    ></tc-data-table>
   } @else {
-    <p class="note">No models yet. An owner of this workspace can add one here.</p>
+    <p class="note">No models yet. An owner of this workspace can switch some on here.</p>
   }
 
   @if (session.org(); as org) {
