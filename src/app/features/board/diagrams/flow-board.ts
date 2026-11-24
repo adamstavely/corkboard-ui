@@ -1,6 +1,7 @@
 import type { BoardDoc, Frame, Item } from '../board-doc';
 import { plainText } from '../comments';
 import { flowEngine, layoutFlow, type ChildData, type FlowData, type FlowEdge, type FlowNode } from './flowchart';
+import { stateText } from './state';
 
 /** A diagram's outer frame, by its id, if it is one. */
 export function diagramFrame(board: BoardDoc, id: string): Frame | null {
@@ -30,7 +31,7 @@ const centreIn = (b: { x: number; y: number; w: number; h: number }, f: Frame) =
  */
 export function readFlowchart(board: BoardDoc, diagramId: string): FlowData | null {
   const diagram = diagramFrame(board, diagramId);
-  if (!diagram || diagram.part?.type !== 'flowchart') return null;
+  if (!diagram || (diagram.part?.type !== 'flowchart' && diagram.part?.type !== 'state')) return null;
   const lanes = lanesOf(board, diagram);
   const tb = diagram.part?.dir === 'TB';
   // In the order they run (along the flow, then across it), with ties by id: the layout engine's results depend on the
@@ -118,6 +119,12 @@ export function flowchartMermaid(board: BoardDoc, diagramId: string): string | n
   return data ? flowEngine().toMermaid(data, {}) : null;
 }
 
+/** A state machine on the board written as Mermaid stateDiagram-v2 (composite states with their insides). */
+export function stateMermaid(board: BoardDoc, diagramId: string): string | null {
+  const data = diagramFrame(board, diagramId)?.part?.type === 'state' ? readFlowchartTree(board, diagramId) : null;
+  return data ? stateText(data) : null;
+}
+
 /**
  * Lays a flowchart on the board out again, where it is: its frame, lanes, steps and remarks take the places the layout
  * engine gives them (one undo step). Optionally it turns to run the other way. Things the diagram doesn't know (a
@@ -128,7 +135,7 @@ export function tidyFlowchart(board: BoardDoc, diagramId: string, dir?: 'LR' | '
   const data = readFlowchart(board, diagramId);
   if (!diagram || !data || !data.nodes.length) return false;
   if (dir) data.direction = dir;
-  const layout = layoutFlow(data);
+  const layout = layoutFlow(data, diagram.part?.type === 'state' ? 'state' : 'flowchart');
   const byKey = new Map<string, string>([['diagram', diagram.id]]);
   for (const f of board.frames()) if (f.part?.of === diagram.id && f.part.role === 'lane') byKey.set(`lane:${f.part.key}`, f.id);
   for (const i of board.items()) if (i.part?.of === diagram.id && i.part.role === 'step') byKey.set(i.part.key, i.id);

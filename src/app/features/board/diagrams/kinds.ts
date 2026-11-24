@@ -1,9 +1,10 @@
 import type { BoardDoc, DiagramType, Layout } from '../board-doc';
-import { diagramFrame, flowchartMermaid, tidyFlowchart } from './flow-board';
-import { flowchartLayout, isFlowchartText, type ChildFlow } from './flowchart';
+import { diagramFrame, flowchartMermaid, stateMermaid, tidyFlowchart } from './flow-board';
+import { flowchartLayout, flowDataLayout, isFlowchartText, type ChildFlow } from './flowchart';
 import { isUsecaseText, layoutUsecase, parseUsecase, tidyUsecase, usecaseMermaid } from './usecase';
 import { c4Text, isC4Text, layoutC4, parseC4, tidyC4 } from './c4';
 import { erdMermaid, isErdText, layoutErd, parseErd, tidyErd } from './erd';
+import { isStateText, parseState } from './state';
 
 /**
  * The kinds of editable diagram, side by side: what reads each from text, lays it out again, and writes it back.
@@ -13,14 +14,21 @@ import { erdMermaid, isErdText, layoutErd, parseErd, tidyErd } from './erd';
 /** An editable diagram's kind, by its outer frame. */
 export function diagramType(board: BoardDoc, id: string): DiagramType | null {
   const type = diagramFrame(board, id)?.part?.type;
-  return type === 'flowchart' || type === 'usecase' || type === 'c4' || type === 'erd' ? type : null;
+  return type === 'flowchart' || type === 'state' || type === 'usecase' || type === 'c4' || type === 'erd' ? type : null;
 }
 
 /** Whether text is a diagram the board can make editable. */
-export const isDiagramText = (text: string): boolean => isC4Text(text) || isErdText(text) || isUsecaseText(text) || isFlowchartText(text);
+export const isDiagramText = (text: string): boolean => isStateText(text) || isC4Text(text) || isErdText(text) || isUsecaseText(text) || isFlowchartText(text);
 
 /** A diagram's text laid out as board things, by its kind; or why it can't be read. */
 export function diagramLayout(text: string): { type: DiagramType; layout: Layout; children: ChildFlow[]; notices: string[]; count: number } | { error: string } {
+  if (isStateText(text)) {
+    const parsed = parseState(text);
+    if ('error' in parsed) return parsed;
+    const result = flowDataLayout(parsed.data, parsed.warnings, 'state');
+    if ('error' in result) return result;
+    return { type: 'state', layout: result.layout, children: result.children, notices: result.notices, count: result.layout.shapes?.length ?? 0 };
+  }
   if (isC4Text(text)) {
     const parsed = parseC4(text);
     if ('error' in parsed) return parsed;
@@ -48,7 +56,7 @@ export function tidyDiagram(board: BoardDoc, id: string, dir?: 'LR' | 'TB'): boo
   if (type === 'usecase') return tidyUsecase(board, id);
   if (type === 'c4') return tidyC4(board, id);
   if (type === 'erd') return tidyErd(board, id);
-  return type === 'flowchart' ? tidyFlowchart(board, id, dir) : false;
+  return type === 'flowchart' || type === 'state' ? tidyFlowchart(board, id, dir) : false;
 }
 
 /** An editable diagram written back as text (Mermaid). */
@@ -57,11 +65,12 @@ export function diagramText(board: BoardDoc, id: string): string | null {
   if (type === 'usecase') return usecaseMermaid(board, id);
   if (type === 'c4') return c4Text(board, id);
   if (type === 'erd') return erdMermaid(board, id);
+  if (type === 'state') return stateMermaid(board, id);
   return type === 'flowchart' ? flowchartMermaid(board, id) : null;
 }
 
 /** How each kind of diagram names itself in messages. */
-export const DIAGRAM_NAMES: Record<DiagramType, string> = { flowchart: 'flowchart', usecase: 'use case diagram', c4: 'C4 diagram', erd: 'ER diagram' };
+export const DIAGRAM_NAMES: Record<DiagramType, string> = { flowchart: 'flowchart', usecase: 'use case diagram', c4: 'C4 diagram', erd: 'ER diagram', state: 'state machine' };
 
 /** What a new use case diagram starts as: a customer, a shop with three use cases, a payment system. */
 export const USECASE_STARTER = `---

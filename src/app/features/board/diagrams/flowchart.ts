@@ -1,4 +1,4 @@
-import type { Layout, NoteColor, ShapeKind } from '../board-doc';
+import type { DiagramType, Layout, NoteColor, ShapeKind } from '../board-doc';
 import { flowchartEngine } from './vendor/flowchart';
 
 /**
@@ -68,6 +68,9 @@ export const FLOW_SHAPES: Record<string, ShapeKind> = {
   connector: 'ellipse',
 };
 
+/** In a state machine, states are rounded boxes, and forks and joins bars. */
+const STATE_SHAPES: Record<string, ShapeKind> = { task: 'rounded', subprocess: 'rounded', fork: 'rect', join: 'rect' };
+
 /** The skill lays a flowchart out in its own pixels; the board draws it this much bigger, so labels read at board size. */
 export const FLOW_SCALE = 1.25;
 /** Room at the top of a lane for its name, and round the lanes inside the diagram's frame (board pixels). */
@@ -125,8 +128,12 @@ function stepBox(n: FlowNode, tb: boolean, LE: FlowEngine['LE']): { x: number; y
   // The engine works in flow terms (x along the flow, y across the lanes); top to bottom swaps them on screen.
   const slot = tb ? { x: y, y: x, w: across, h: along } : { x, y, w: along, h: across };
   if (isDot(n)) return { x: slot.x + (slot.w - DOT) / 2, y: slot.y + (slot.h - DOT) / 2, w: DOT, h: DOT };
+  // A state machine's fork or join: a bar across the flow.
+  if (n.type === 'fork' || n.type === 'join') return tb ? { x: slot.x, y: slot.y + (slot.h - BAR) / 2, w: slot.w, h: BAR } : { x: slot.x + (slot.w - BAR) / 2, y: slot.y, w: BAR, h: slot.h };
   return slot;
 }
+/** How thick a fork or join bar is (the skill's pixels). */
+const BAR = 10;
 const isDot = (n: FlowNode) => n.type === 'connector' || ((n.type === 'start' || n.type === 'end') && !n.label.trim());
 
 /**
@@ -141,13 +148,16 @@ export function flowchartLayout(source: string): FlowchartResult {
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'The flowchart could not be read.' };
   }
-  const data = parsed.data;
-  if (!data.nodes.length) return { error: 'The flowchart has no steps.' };
-  const notices = [...parsed.warnings];
+  return flowDataLayout(parsed.data, [...parsed.warnings]);
+}
+
+/** A flowchart's (or state machine's) model laid out: the main flow, and each sub-process as a flowchart of its own. */
+export function flowDataLayout(data: FlowData, notices: string[], type: DiagramType = 'flowchart'): FlowchartResult {
+  if (!data.nodes.length) return { error: type === 'state' ? 'The state diagram has no states.' : 'The flowchart has no steps.' };
   // Each sub-process becomes a flowchart of its own, linked to its step (nested ones too: they're all in one list).
   const children = Object.keys(data.children ?? {}).flatMap((slug) => {
     const flow = childFlow(data, slug);
-    return flow?.nodes.length ? [{ slug, name: flow.title ?? slug, layout: layoutFlow(flow) }] : [];
+    return flow?.nodes.length ? [{ slug, name: flow.title ?? slug, layout: layoutFlow(flow, type) }] : [];
   });
   // The main flow keeps only its own lanes (those its steps use, and any no sub-process uses).
   if (children.length) {
@@ -155,11 +165,11 @@ export function flowchartLayout(source: string): FlowchartResult {
     const theirs = new Set(Object.values(data.children as Record<string, ChildData>).flatMap((c) => [...(c.laneOrder ?? []), ...c.nodes.map((n) => n.laneId ?? '')]));
     data.lanes = data.lanes.filter((l) => own.has(l.id) || !theirs.has(l.id));
   }
-  return { layout: layoutFlow(data), children, notices };
+  return { layout: layoutFlow(data, type), children, notices };
 }
 
 /** A flowchart's model (lanes, steps, arrows, remarks) laid out afresh as board things, from the layout's top-left. */
-export function layoutFlow(data: FlowData): Layout {
+export function layoutFlow(data: FlowData, type: DiagramType = 'flowchart'): Layout {
   const eng = flowEngine();
   // Without subgraphs a flowchart has one unnamed lane: no lane frames, just the diagram.
   const named = data.swimlanes !== false && data.lanes.length > 0;
@@ -187,12 +197,12 @@ export function layoutFlow(data: FlowData): Layout {
   const diagram = { w: lanesBox.w + PAD * 2, h: DIAGRAM_TITLE + lanesBox.h + PAD };
   layout.frames!.push({
     key: 'diagram',
-    title: data.title?.trim() || 'Flowchart',
+    title: data.title?.trim() || (type === 'state' ? 'State machine' : 'Flowchart'),
     x: 0,
     y: 0,
     ...diagram,
     look: 'outline',
-    part: { role: 'diagram', key: 'diagram', type: 'flowchart', dir: tb ? 'TB' : 'LR' },
+    part: { role: 'diagram', key: 'diagram', type, dir: tb ? 'TB' : 'LR' },
   });
   const colourOf = new Map<string, NoteColor>();
   lanes.forEach((lane, i) => {
@@ -218,8 +228,8 @@ export function layoutFlow(data: FlowData): Layout {
     const y = tb ? origin.y + laneTitle + b.y * s : origin.y + lane + laneTitle + b.y * s;
     layout.shapes!.push({
       key: n.id,
-      shape: FLOW_SHAPES[n.type] ?? 'rect',
-      color: n.type === 'connector' ? 'gray' : (colourOf.get(n.laneId ?? '') ?? 'blue'),
+      shape: (type === 'state' ? STATE_SHAPES[n.type] : undefined) ?? FLOW_SHAPES[n.type] ?? 'rect',
+      color: n.type === 'connector' || n.type === 'fork' || n.type === 'join' ? 'gray' : (colourOf.get(n.laneId ?? '') ?? 'blue'),
       label: n.label,
       x: Math.round(x),
       y: Math.round(y),

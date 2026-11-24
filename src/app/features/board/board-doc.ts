@@ -49,7 +49,7 @@ export interface Note {
 export const PART_ROLES = ['diagram', 'lane', 'group', 'step', 'note', 'legend'] as const;
 export type PartRole = (typeof PART_ROLES)[number];
 /** The kinds of editable diagram. */
-export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4', 'erd'] as const;
+export const DIAGRAM_TYPES = ['flowchart', 'usecase', 'c4', 'erd', 'state'] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
 /**
@@ -130,7 +130,7 @@ export interface Media {
   z: number;
 }
 
-export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess', 'actor', 'person', 'queue'] as const;
+export const SHAPES = ['rect', 'ellipse', 'diamond', 'triangle', 'hexagon', 'star', 'arrow', 'cylinder', 'cloud', 'callout', 'pill', 'parallelogram', 'document', 'delay', 'subprocess', 'actor', 'person', 'queue', 'rounded'] as const;
 export type ShapeKind = (typeof SHAPES)[number];
 /** A shape's fill: solid, or a see-through tint (for overlapping circles such as a Venn diagram), as in corkboard-api's layout.ts. */
 export const SHAPE_FILLS = ['solid', 'tint'] as const;
