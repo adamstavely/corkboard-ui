@@ -388,3 +388,17 @@
   height: 20px;
   object-fit: contain;
 }
+
+/* A use case's requirement ids, under its name, when its diagram shows them. */
+.shape-refs {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  translate: -50% 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}

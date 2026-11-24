@@ -11,6 +11,7 @@ import { FLOWCHART_STARTER } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { tidyC4 } from './diagrams/c4';
+import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
 import { logoPacks, shapeIcon } from './diagrams/shape-icons';
 import { IconPicker } from './icon-picker';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
@@ -901,6 +902,33 @@ export class Canvas {
   protected readonly moreDiagramsOpen = signal(false);
 
   /** Puts a starter diagram of a kind in the middle of the view, selected, and opens its text. */
+  protected readonly showsSubfunctions = (id: string) => showsSubfunctions(this.board(), id);
+  protected readonly showsRefs = (id: string) => showsRefs(this.board(), id);
+
+  /** Shows the selected use case diagram at goal level (sub-functions hidden), or with them. */
+  protected toggleSubfunctions(): void {
+    const frame = this.oneFlowchart();
+    if (!frame) return;
+    const shown = !showsSubfunctions(this.board(), frame.id);
+    setSubfunctionsShown(this.board(), frame.id, shown);
+    this.announcement.set(shown ? 'Showing sub-functions' : 'Goal level: sub-functions hidden');
+  }
+
+  /** Shows or hides the requirement ids under the selected use case diagram's use cases. */
+  protected toggleRefs(): void {
+    const frame = this.oneFlowchart();
+    if (!frame) return;
+    const shown = !showsRefs(this.board(), frame.id);
+    setRefsShown(this.board(), frame.id, shown);
+    this.announcement.set(shown ? 'Showing requirement ids' : 'Requirement ids hidden');
+  }
+
+  /** The requirement ids a use case shows under its name, when its diagram shows them. */
+  protected readonly refsOf = (item: { part?: { of: string; extra?: Record<string, unknown> } }): string | null => {
+    const refs = item.part?.extra?.['refs'];
+    return Array.isArray(refs) && refs.length && item.part && showsRefs(this.board(), item.part.of) ? refs.join(', ') : null;
+  };
+
   /** Adds an editable C4 system landscape in the middle of the view. */
   protected addC4(): void {
     this.createOpen.set(false);
