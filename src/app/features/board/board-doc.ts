@@ -64,6 +64,10 @@ export interface Part {
   type?: string;
   /** On the diagram: the way it runs, left to right or top to bottom. */
   dir?: 'LR' | 'TB';
+  /** On the diagram: false when it doesn't lay itself out again after each change (Auto-Tidy is on unless this is false). */
+  auto?: boolean;
+  /** On a step: the key of the lane it's in, kept as lanes are dragged about. */
+  lane?: string;
 }
 
 /** A titled area of the board. It holds the notes whose centres are inside it: they move when it does. */
@@ -1237,6 +1241,19 @@ export class BoardDoc {
     }, this);
   }
 
+  /** Gives things a part in a diagram, or takes it away (null), in one step. */
+  setParts(parts: ReadonlyMap<string, Part | null>): void {
+    this.doc.transact(() => {
+      for (const [id, part] of parts) {
+        const node = this.#writable(id);
+        if (!node) continue;
+        const read = part && partOf(part);
+        if (read) node.set('part', read);
+        else node.delete('part');
+      }
+    }, this);
+  }
+
   /**
    * What moves with these frames because it's part of their diagram: everything in a diagram moves with its outer
    * frame, and a lane's steps move with the lane (notes in frames already move with them; see notesIn).
@@ -1248,7 +1265,12 @@ export class BoardDoc {
     const lanes = chosen.filter((f) => f.part!.role === 'lane');
     const things: { id: string; part?: Part; x: number; y: number; w: number; h: number }[] = [...this.frames(), ...this.items(), ...this.notes()];
     return things
-      .filter((t) => t.part && (diagrams.has(t.part.of) || (t.part.role === 'step' && lanes.some((l) => l.part!.of === t.part!.of && inFrame(t, l)))))
+      .filter(
+        (t) =>
+          t.part &&
+          (diagrams.has(t.part.of) ||
+            (t.part.role === 'step' && lanes.some((l) => l.part!.of === t.part!.of && (t.part!.lane ? t.part!.lane === l.part!.key : inFrame(t, l))))),
+      )
       .map((t) => t.id);
   }
 
@@ -1683,6 +1705,8 @@ export function partOf(value: unknown): Part | null {
     key: p['key'],
     ...(typeof p['type'] === 'string' && p['type'].length <= 40 ? { type: p['type'] } : {}),
     ...(p['dir'] === 'LR' || p['dir'] === 'TB' ? { dir: p['dir'] } : {}),
+    ...(p['auto'] === false ? { auto: false } : {}),
+    ...(typeof p['lane'] === 'string' && p['lane'].length <= 200 ? { lane: p['lane'] } : {}),
   };
 }
 const partField = (node: Y.Map<unknown>): { part?: Part } => {

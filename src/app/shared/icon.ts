@@ -106,6 +106,8 @@ import {
   Hourglass,
   Columns3,
   Waypoints,
+  Rows3,
+  WandSparkles,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -218,6 +220,8 @@ export const ICONS = {
   delay: Hourglass,
   subprocess: Columns3,
   flowchart: Waypoints,
+  addLane: Rows3,
+  autoTidy: WandSparkles,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;
