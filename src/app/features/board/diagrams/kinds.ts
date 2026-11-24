@@ -103,7 +103,10 @@ flowchart LR
   pay --- psp
 `;
 
-/** What a new C4 diagram starts as: a customer, a shop's order platform (open, at level 2) and a payment provider. */
+/**
+ * What a new C4 diagram starts as, with all four levels to open: a customer, a shop's order platform (open, at level 2)
+ * whose API opens to its components (level 3), one of which opens to its code (level 4), and a payment provider.
+ */
 export const C4_STARTER = JSON.stringify(
   {
     diagramType: 'c4',
@@ -113,20 +116,30 @@ export const C4_STARTER = JSON.stringify(
     groups: [
       { id: 'shop', name: 'Shop', kind: 'boundary' },
       { id: 'platform', name: 'Order Platform', kind: 'system', parent: 'shop', collapsed: false },
+      { id: 'api', name: 'API', kind: 'container', parent: 'platform', collapsed: true },
+      { id: 'ordering', name: 'Ordering', kind: 'component', parent: 'api', collapsed: true },
       { id: 'outside', name: 'Third-party services', kind: 'boundary' },
     ],
     elements: [
       { id: 'customer', kind: 'person', name: 'Customer', description: 'Buys products online', color: '1' },
       { id: 'web', kind: 'container', name: 'Web App', tech: 'React', group: 'platform' },
-      { id: 'api', kind: 'container', name: 'API', tech: 'Node.js, REST', group: 'platform' },
+      { id: 'orders-api', kind: 'component', name: 'Orders Controller', tech: 'REST', description: 'Takes and lists orders', group: 'api' },
+      { id: 'payments-client', kind: 'component', name: 'Payments Client', tech: 'HTTP client', description: 'Charges cards', group: 'api' },
+      { id: 'order-service', kind: 'code', name: 'OrderService', tech: 'class', description: '+place(cart): Order\n+cancel(id): void', group: 'ordering' },
+      { id: 'order-repo', kind: 'code', name: 'OrderRepository', tech: 'interface', description: '+save(order): void\n+find(id): Order', group: 'ordering' },
+      { id: 'order-status', kind: 'code', name: 'OrderStatus', tech: 'enum', description: 'PLACED\nPAID\nSHIPPED', group: 'ordering' },
       { id: 'orders', kind: 'database', name: 'Order DB', tech: 'PostgreSQL', group: 'platform' },
       { id: 'payments', kind: 'external', name: 'Payment Provider', group: 'outside' },
     ],
     relations: [
       { from: 'customer', to: 'web', label: 'Browses and orders', tech: 'HTTPS' },
-      { from: 'web', to: 'api', label: 'Calls', tech: 'JSON/HTTPS' },
-      { from: 'api', to: 'orders', label: 'Reads and writes', tech: 'SQL' },
-      { from: 'api', to: 'payments', label: 'Charges cards', tech: 'REST' },
+      { from: 'web', to: 'orders-api', label: 'Calls', tech: 'JSON/HTTPS' },
+      { from: 'orders-api', to: 'order-service', label: 'Places orders' },
+      { from: 'order-service', to: 'order-repo', label: 'Uses' },
+      { from: 'order-service', to: 'order-status', label: 'Sets' },
+      { from: 'order-repo', to: 'orders', label: 'Reads and writes', tech: 'SQL' },
+      { from: 'order-service', to: 'payments-client', label: 'Asks to charge' },
+      { from: 'payments-client', to: 'payments', label: 'Charges cards', tech: 'REST' },
     ],
   },
   null,
