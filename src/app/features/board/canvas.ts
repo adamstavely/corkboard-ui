@@ -12,6 +12,7 @@ import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { tidyC4 } from './diagrams/c4';
 import { isSequenceText, parseSequence, SEQUENCE_STARTER } from './diagrams/sequence';
+import { isStateText, STATE_STARTER } from './diagrams/state';
 import { SequenceView } from './sequence-view';
 import { columnsText, ERD_STARTER, erdDisplay, erdRows, readColumns, tidyErd, visibleColumns } from './diagrams/erd';
 import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
@@ -92,6 +93,7 @@ const SHAPE_NAMES: Record<ShapeKind, string> = {
   actor: 'Actor',
   person: 'Person',
   queue: 'Queue',
+  rounded: 'Rounded box',
 };
 const TEXT_SIZE_NAMES: { id: TextSize; label: string; name: string }[] = [
   { id: 'sm', label: 'S', name: 'Small' },
@@ -321,6 +323,7 @@ export class Canvas {
     actor: 'actor',
     person: 'user',
     queue: 'queue',
+    rounded: 'rounded',
   };
   /** The colour of the first selected note or shape, for the selection bar's swatch. */
   protected readonly barColour = computed<NoteColor>(() => {
@@ -500,7 +503,7 @@ export class Canvas {
   protected readonly oneTextFlowchart = computed(() => {
     const [id, ...more] = this.selection();
     const item = more.length ? null : this.board().items().find((i) => i.id === id);
-    return item?.kind === 'diagram' && (diagramKind(item.source) === 'flowchart' || isSequenceText(item.source)) ? item.id : null;
+    return item?.kind === 'diagram' && (diagramKind(item.source) === 'flowchart' || isStateText(item.source) || isSequenceText(item.source)) ? item.id : null;
   });
   /** The one editable diagram selected (its outer frame), for its bar: lay it out again, turn it, copy it as text. */
   protected readonly oneFlowchart = computed(() => {
@@ -1040,6 +1043,12 @@ export class Canvas {
   ] as const;
   protected readonly arrangeOpen = signal(false);
 
+  /** Adds an editable state machine in the middle of the view. */
+  protected addStateMachine(): void {
+    this.createOpen.set(false);
+    this.#placeFlowchart(STATE_STARTER, this.#viewCentre());
+  }
+
   /** Adds an editable sequence diagram in the middle of the view. */
   protected addSequence(): void {
     this.createOpen.set(false);
@@ -1100,8 +1109,11 @@ export class Canvas {
           ? `a C4 diagram with ${steps} element${steps === 1 ? '' : 's'}`
           : result.type === 'erd'
             ? `an ER diagram with ${steps} table${steps === 1 ? '' : 's'}`
-            : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
-    const more = subs.length ? `, and ${subs.length} sub-process${subs.length === 1 ? '' : 'es'} under it` : '';
+            : result.type === 'state'
+              ? `a state machine with ${steps} state${steps === 1 ? '' : 's'}`
+              : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
+    const inner = result.type === 'state' ? ['composite state', 'composite states'] : ['sub-process', 'sub-processes'];
+    const more = subs.length ? `, and ${subs.length} ${inner[subs.length === 1 ? 0 : 1]} under it` : '';
     // After the selection's own announcement, which would otherwise replace this one.
     setTimeout(() => this.announcement.set([`Added ${what}${more}`, ...result.notices].join('. ')));
     return diagram;

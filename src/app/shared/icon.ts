@@ -138,6 +138,8 @@ import {
   TextCursorInput,
   Split,
   Reply,
+  SquareRoundCorner,
+  Shuffle,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -284,6 +286,8 @@ export const ICONS = {
   rename: TextCursorInput,
   split: Split,
   reply: Reply,
+  rounded: SquareRoundCorner,
+  stateMachine: Shuffle,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

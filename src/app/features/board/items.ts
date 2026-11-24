@@ -61,6 +61,11 @@ export function shapePath(shape: ShapeKind, w: number, h: number): string {
       const rx = Math.min(w * 0.12, h / 4);
       return `M ${rx} 0 H ${w - rx} A ${rx} ${h / 2} 0 0 1 ${w - rx} ${h} H ${rx} A ${rx} ${h / 2} 0 0 1 ${rx} 0 Z`;
     }
+    case 'rounded': {
+      // A state: a box with rounded corners.
+      const r = Math.min(16, h / 2, w / 2);
+      return `M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} H ${r} A ${r} ${r} 0 0 1 0 ${h - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z`;
+    }
     case 'pill': {
       // A start or end: a box with fully rounded ends.
       const r = Math.min(h / 2, w / 2);
