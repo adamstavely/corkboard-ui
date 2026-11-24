@@ -1,7 +1,8 @@
 import type { BoardDoc, Frame, Item } from '../board-doc';
 import { plainText } from '../comments';
-import { flowEngine, layoutFlow, type ChildData, type FlowData, type FlowEdge, type FlowNode } from './flowchart';
+import { flowEngine, isFlowKind, layoutFlow, type ChildData, type FlowData, type FlowEdge, type FlowNode } from './flowchart';
 import { stateText } from './state';
+import { bpmnText, type BpmnBoxes } from './bpmn';
 
 /** A diagram's outer frame, by its id, if it is one. */
 export function diagramFrame(board: BoardDoc, id: string): Frame | null {
@@ -31,7 +32,7 @@ const centreIn = (b: { x: number; y: number; w: number; h: number }, f: Frame) =
  */
 export function readFlowchart(board: BoardDoc, diagramId: string): FlowData | null {
   const diagram = diagramFrame(board, diagramId);
-  if (!diagram || (diagram.part?.type !== 'flowchart' && diagram.part?.type !== 'state')) return null;
+  if (!diagram || !isFlowKind(diagram.part?.type)) return null;
   const lanes = lanesOf(board, diagram);
   const tb = diagram.part?.dir === 'TB';
   // In the order they run (along the flow, then across it), with ties by id: the layout engine's results depend on the
@@ -56,12 +57,12 @@ export function readFlowchart(board: BoardDoc, diagramId: string): FlowData | nu
     const type = s.part!.type ?? 'task';
     return type === 'start' || type === 'end' ? (leaves.has(s.id) ? 'start' : 'end') : type;
   };
-  const nodes: FlowNode[] = steps.map((s) => ({ id: s.part!.key, laneId: laneOf(s), type: kind(s), label: s.label }));
+  const nodes: FlowNode[] = steps.map((s) => ({ id: s.part!.key, laneId: laneOf(s), type: kind(s), label: s.label, ...(s.part!.extra ? { extra: s.part!.extra } : {}) }));
   const edges: FlowEdge[] = board
     .connectors()
     .filter((c) => keyOf.has(c.from) && keyOf.has(c.to))
     .sort((a, b) => rank.get(a.from)! - rank.get(b.from)! || rank.get(a.to)! - rank.get(b.to)!)
-    .map((c) => ({ id: c.id, from: keyOf.get(c.from)!, to: keyOf.get(c.to)!, label: c.label, ...(c.weight >= 4 ? { feedback: true } : {}) }));
+    .map((c) => ({ id: c.id, from: keyOf.get(c.from)!, to: keyOf.get(c.to)!, label: c.label, ...(c.weight >= 4 ? { feedback: true } : {}), ...(c.dash === 'dashed' ? { message: true } : {}) }));
   const remarks = board
     .notes()
     .filter((n) => n.part?.of === diagram.id && n.part.role === 'note')
@@ -119,6 +120,19 @@ export function flowchartMermaid(board: BoardDoc, diagramId: string): string | n
   return data ? flowEngine().toMermaid(data, {}) : null;
 }
 
+/** A BPMN process on the board written as BPMN 2.0 XML, with where its steps and lanes are (so other tools show it as laid out). */
+export function bpmnBoard(board: BoardDoc, diagramId: string): string | null {
+  const diagram = diagramFrame(board, diagramId);
+  const data = diagram?.part?.type === 'bpmn' ? readFlowchartTree(board, diagramId) : null;
+  if (!diagram || !data) return null;
+  // Measured from the diagram's top-left corner: BPMN tools expect places from the origin.
+  const boxes = new Map<string, { x: number; y: number; w: number; h: number }>();
+  const at = (b: { x: number; y: number; w: number; h: number }) => ({ x: b.x - diagram.x, y: b.y - diagram.y, w: b.w, h: b.h });
+  for (const i of board.items()) if (i.part?.of === diagramId && i.part.role === 'step') boxes.set(i.part.key, at(i));
+  for (const f of board.frames()) if (f.part?.of === diagramId && f.part.role === 'lane') boxes.set(`lane:${f.part.key}`, at(f));
+  return bpmnText(data, boxes as BpmnBoxes);
+}
+
 /** A state machine on the board written as Mermaid stateDiagram-v2 (composite states with their insides). */
 export function stateMermaid(board: BoardDoc, diagramId: string): string | null {
   const data = diagramFrame(board, diagramId)?.part?.type === 'state' ? readFlowchartTree(board, diagramId) : null;
@@ -135,7 +149,7 @@ export function tidyFlowchart(board: BoardDoc, diagramId: string, dir?: 'LR' | '
   const data = readFlowchart(board, diagramId);
   if (!diagram || !data || !data.nodes.length) return false;
   if (dir) data.direction = dir;
-  const layout = layoutFlow(data, diagram.part?.type === 'state' ? 'state' : 'flowchart');
+  const layout = layoutFlow(data, isFlowKind(diagram.part?.type) ? diagram.part.type : 'flowchart');
   const byKey = new Map<string, string>([['diagram', diagram.id]]);
   for (const f of board.frames()) if (f.part?.of === diagram.id && f.part.role === 'lane') byKey.set(`lane:${f.part.key}`, f.id);
   for (const i of board.items()) if (i.part?.of === diagram.id && i.part.role === 'step') byKey.set(i.part.key, i.id);

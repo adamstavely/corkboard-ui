@@ -7,12 +7,13 @@ import { ChartView } from './chart-view';
 import { PdfPages } from './pdf-pages';
 import { CHART_NAMES, STARTER_ROWS, type ChartRow } from './chart';
 import { DIAGRAM_MENU, DIAGRAM_STARTERS, diagramKind, diagramTitle, type DiagramImages, type DiagramKind } from './diagram';
-import { FLOWCHART_STARTER } from './diagrams/flowchart';
+import { FLOWCHART_STARTER, isFlowKind } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { tidyC4 } from './diagrams/c4';
 import { isSequenceText, parseSequence, SEQUENCE_STARTER } from './diagrams/sequence';
 import { isStateText, STATE_STARTER } from './diagrams/state';
+import { BPMN_STARTER } from './diagrams/bpmn';
 import { SequenceView } from './sequence-view';
 import { columnsText, ERD_STARTER, erdDisplay, erdRows, readColumns, tidyErd, visibleColumns } from './diagrams/erd';
 import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
@@ -1043,6 +1044,15 @@ export class Canvas {
   ] as const;
   protected readonly arrangeOpen = signal(false);
 
+  /** Whether a diagram is drawn by the flowchart engine (a flowchart, state machine or BPMN process). */
+  protected readonly flowKind = isFlowKind;
+
+  /** Adds an editable BPMN process in the middle of the view. */
+  protected addBpmn(): void {
+    this.createOpen.set(false);
+    this.#placeFlowchart(BPMN_STARTER, this.#viewCentre());
+  }
+
   /** Adds an editable state machine in the middle of the view. */
   protected addStateMachine(): void {
     this.createOpen.set(false);
@@ -1111,6 +1121,8 @@ export class Canvas {
             ? `an ER diagram with ${steps} table${steps === 1 ? '' : 's'}`
             : result.type === 'state'
               ? `a state machine with ${steps} state${steps === 1 ? '' : 's'}`
+              : result.type === 'bpmn'
+                ? `a BPMN process with ${steps} step${steps === 1 ? '' : 's'}`
               : `a flowchart with ${steps} step${steps === 1 ? '' : 's'}`;
     const inner = result.type === 'state' ? ['composite state', 'composite states'] : ['sub-process', 'sub-processes'];
     const more = subs.length ? `, and ${subs.length} ${inner[subs.length === 1 ? 0 : 1]} under it` : '';
@@ -1276,7 +1288,8 @@ export class Canvas {
       document.removeEventListener('copy', put);
     }
     if (!copied) copied = await navigator.clipboard.writeText(text).then(() => true, () => false);
-    this.announcement.set(copied ? 'Copied the diagram as Mermaid' : "The diagram couldn't be copied: the browser didn't allow it");
+    const as = frame.part?.type === 'bpmn' ? 'BPMN XML' : frame.part?.type === 'c4' ? 'C4 JSON' : 'Mermaid';
+    this.announcement.set(copied ? `Copied the diagram as ${as}` : "The diagram couldn't be copied: the browser didn't allow it");
   }
 
   protected addDiagram(kind: DiagramKind): void {

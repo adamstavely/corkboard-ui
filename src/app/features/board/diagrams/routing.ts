@@ -1,5 +1,5 @@
 import type { Connector, Frame, Item, ShapeKind } from '../board-doc';
-import { FLOW_SCALE, flowEngine, type FlowEdge, type FlowNode } from './flowchart';
+import { FLOW_SCALE, flowEngine, isFlowKind, type FlowEdge, type FlowNode } from './flowchart';
 
 type Box = { x: number; y: number; w: number; h: number };
 type Point = { x: number; y: number };
@@ -64,7 +64,7 @@ const routeCache = new Map<string, { key: string; routes: Map<string, RoutedArro
  */
 export function routeDiagramArrows(frames: readonly Frame[], items: readonly Item[], connectors: readonly Connector[]): Map<string, RoutedArrow> {
   const out = new Map<string, RoutedArrow>();
-  const diagrams = frames.filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && (f.part.type === 'flowchart' || f.part.type === 'state'));
+  const diagrams = frames.filter((f) => f.part?.role === 'diagram' && f.part.of === f.id && isFlowKind(f.part.type));
   if (!diagrams.length) return out;
   for (const diagram of diagrams) {
     const steps = items.filter((i) => i.part?.of === diagram.id && i.part.role === 'step');

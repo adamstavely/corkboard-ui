@@ -691,12 +691,12 @@
       }
       @if (!readOnly() && can('diagrams') && oneFlowchart(); as f) {
         <button type="button" class="icon-btn" aria-label="Tidy: lay the flowchart out again" data-tip="Tidy" (click)="tidyDiagram()"><app-icon name="arrange" /></button>
-        @if ((f.part?.type === 'flowchart' || f.part?.type === 'state') && f.part?.dir === 'TB') {
+        @if (flowKind(f.part?.type) && f.part?.dir === 'TB') {
           <button type="button" class="icon-btn" aria-label="Run left to right" data-tip="Run left to right" (click)="tidyDiagram('LR')"><app-icon name="arrowRight" /></button>
-        } @else if (f.part?.type === 'flowchart' || f.part?.type === 'state') {
+        } @else if (flowKind(f.part?.type)) {
           <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="backward" /></button>
         }
-        <button type="button" class="icon-btn" aria-label="Copy as Mermaid text" data-tip="Copy as Mermaid" (click)="copyDiagramText()"><app-icon name="code" /></button>
+        <button type="button" class="icon-btn" [attr.aria-label]="f.part?.type === 'bpmn' ? 'Copy as BPMN XML' : f.part?.type === 'c4' ? 'Copy as C4 JSON' : 'Copy as Mermaid text'" [attr.data-tip]="f.part?.type === 'bpmn' ? 'Copy as BPMN' : 'Copy as text'" (click)="copyDiagramText()"><app-icon name="code" /></button>
         @if (f.part?.type === 'flowchart') {
           <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
         }
@@ -925,6 +925,7 @@
               <button type="button" class="app-menu-item" role="menuitem" (click)="addC4()"><app-icon name="landscape" /><span class="app-menu-label">C4 system landscape</span><span class="app-menu-hint">People, systems, containers</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addSequence()"><app-icon name="sequence" /><span class="app-menu-label">Sequence diagram</span><span class="app-menu-hint">Who calls whom, in order</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addStateMachine()"><app-icon name="stateMachine" /><span class="app-menu-label">State machine</span><span class="app-menu-hint">States and what moves between them</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addBpmn()"><app-icon name="flowchart" /><span class="app-menu-label">BPMN process</span><span class="app-menu-hint">Events, tasks, gateways, pools</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addErd()"><app-icon name="database" /><span class="app-menu-label">ER diagram</span><span class="app-menu-hint">Tables, keys and relationships</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart as text</span><span class="app-menu-hint">Written in Mermaid</span></button>
               <button
