@@ -11,6 +11,8 @@ import { FLOWCHART_STARTER } from './diagrams/flowchart';
 import { diagramFrame } from './diagrams/flow-board';
 import { C4_STARTER, DIAGRAM_NAMES, diagramLayout, diagramText, diagramType, isDiagramText, tidyDiagram, USECASE_STARTER } from './diagrams/kinds';
 import { tidyC4 } from './diagrams/c4';
+import { logoPacks, shapeIcon } from './diagrams/shape-icons';
+import { IconPicker } from './icon-picker';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
@@ -173,7 +175,7 @@ export const GUEST_CAPABILITIES: ReadonlySet<CanvasCapability> = new Set();
 
 @Component({
   selector: 'app-canvas',
-  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView, PdfPages],
+  imports: [NoteView, Button, SelectionToolbar, MenuMorph, Icon, ArrowStyleBar, PenStyleBar, NgTemplateOutlet, DiagramView, ChartView, PdfPages, IconPicker],
   templateUrl: './canvas.html',
   styleUrls: ['./canvas.css', './canvas-frames.css', './canvas-items.css', './canvas-find.css', './canvas-rail.css'],
 })
@@ -284,6 +286,14 @@ export class Canvas {
   protected readonly createOpen = signal(false);
   protected readonly colourOpen = signal(false);
   protected readonly shapeOpen = signal(false);
+  protected readonly iconOpen = signal(false);
+  /** What an icon name on a shape draws (a logo pack loads on first use). */
+  protected readonly shapeIconOf = (name: string | undefined) => shapeIcon(name, logoPacks());
+  /** The icon the selected shapes share, if they share one. */
+  protected readonly selectedShapeIcon = computed(() => {
+    const icons = new Set(this.board().items().flatMap((i) => (i.kind === 'shape' && this.selection().has(i.id) ? [i.icon ?? ''] : [])));
+    return icons.size === 1 ? [...icons][0] || undefined : undefined;
+  });
   protected readonly sizeOpen = signal(false);
   protected readonly tagOpen = signal(false);
   protected readonly reactOpen = signal(false);

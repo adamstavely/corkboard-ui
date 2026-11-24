@@ -4,6 +4,7 @@ import { FILE_CARD, TEXT_SIZES, VIEW_NAMES, type ArrowHead, type ArrowStyle, typ
 import { routeDiagramArrows } from './diagrams/routing';
 import { routeUsecase } from './diagrams/usecase';
 import { routeC4 } from './diagrams/c4';
+import { loadDevicon, shapeIcon, shapeIconSrc } from './diagrams/shape-icons';
 import { shapeDetail, shapePath } from './items';
 import { fileSize } from './file-cache';
 import { noteLines } from './tasks';
@@ -304,10 +305,15 @@ export async function loadImages(board: BoardDoc, urls: ReadonlyMap<string, stri
       img.onerror = () => resolve();
       img.src = src;
     });
-  // Diagrams and charts, drawn as SVG, under their item's id.
+  // Diagrams and charts, drawn as SVG, under their item's id; a shape's icon or logo under the shape's id.
+  if (board.items().some((i) => i.kind === 'shape' && i.icon?.startsWith('logo:devicon/'))) await loadDevicon();
+  const ink = color('--tc-text-primary', '#1a1a1a');
   await Promise.all(
     board.items().map(async (item) => {
-      if (item.kind === 'diagram') {
+      if (item.kind === 'shape' && item.icon) {
+        const src = shapeIconSrc(item.icon, ink);
+        if (src) await image(item.id, src);
+      } else if (item.kind === 'diagram') {
         const drawn = await renderDiagram(item.source, diagramImages);
         if ('svg' in drawn) await image(item.id, svgUrl(drawn.svg));
       } else if (item.kind === 'chart' && item.rows.length) {
@@ -591,7 +597,27 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
           ctx.stroke(new Path2D(detail));
         }
       }
-      if (item.label) centred(item.label, 15);
+      // Its icon or logo in the corner (a logo on a white disc), then its words, line by line.
+      if (image) {
+        const logo = shapeIcon(item.icon)?.kind === 'logo';
+        if (logo) {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(20, 20, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.drawImage(image, logo ? 10 : 8, logo ? 10 : 8, logo ? 20 : 24, logo ? 20 : 24);
+      }
+      if (item.label) {
+        const lines = item.label.split('\n');
+        lines.forEach((line, i) => {
+          ctx.fillStyle = c.text;
+          ctx.font = `${i === 0 ? 600 : 400} ${i === 0 ? 15 : 13}px ${c.font}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(line, item.w / 2, item.h / 2 + (i - (lines.length - 1) / 2) * 18, item.w - 16);
+        });
+      }
       break;
     case 'text':
       ctx.fillStyle = c.text;

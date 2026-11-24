@@ -209,6 +209,15 @@
                 <path class="shape-detail" [attr.d]="detail" />
               }
             </svg>
+            @if (shapeIconOf(item.icon); as icon) {
+              <span class="shape-icon" [class.logo]="icon.kind === 'logo'" aria-hidden="true">
+                @if (icon.kind === 'icon') {
+                  <app-icon [name]="icon.icon" />
+                } @else {
+                  <img [src]="icon.src" alt="" />
+                }
+              </span>
+            }
             @if (itemEditing()?.id !== item.id) {
               <span class="shape-label">{{ item.label }}</span>
             }
@@ -540,6 +549,14 @@
             <button type="button" class="app-menu-item" role="menuitemcheckbox" [attr.aria-checked]="shapesSeeThrough()" (click)="shapeOpen.set(false); board().setShapeFill(selectedShapes(), shapesSeeThrough() ? 'solid' : 'tint')">
               <app-icon name="seeThrough" /><span class="app-menu-label">See-through</span>
             </button>
+          </div>
+        </tc-menu-morph>
+        <tc-menu-morph [open]="iconOpen()" (tc-open-change)="iconOpen.set($event.detail.open)">
+          <button type="button" class="icon-btn" data-menu-trigger aria-label="Icon or logo" data-tip="Icon"><app-icon name="iconPicker" /></button>
+          <div data-menu class="app-menu icon-menu">
+            @if (iconOpen()) {
+              <app-icon-picker [value]="selectedShapeIcon()" (picked)="iconOpen.set(false); board().setShapeIcon(selectedShapes(), $event)" (closed)="iconOpen.set(false)" />
+            }
           </div>
         </tc-menu-morph>
       }

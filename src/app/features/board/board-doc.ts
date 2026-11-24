@@ -164,6 +164,8 @@ export interface ShapeItem extends Placed {
   color: NoteColor;
   fill: ShapeFill;
   label: string;
+  /** A small picture in its corner: a generic icon (database, server…) or a logo (logo:devicon/postgresql). */
+  icon?: string;
 }
 /** Free text on the board, a heading or a label. */
 export interface TextItem extends Placed {
@@ -287,7 +289,7 @@ export interface Layout {
   notes?: { key?: string; text: string; rich?: readonly object[]; color?: string; x: number; y: number; w?: number; h?: number; part?: LayoutPart }[];
   texts?: { key?: string; text: string; size?: string; x: number; y: number; w?: number; part?: LayoutPart }[];
   /** Tinted shapes go under the notes; solid ones on top with the rest. */
-  shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; x: number; y: number; w: number; h: number; part?: LayoutPart }[];
+  shapes?: { key?: string; shape: string; color?: string; fill?: string; label?: string; icon?: string; x: number; y: number; w: number; h: number; part?: LayoutPart }[];
   tables?: { key?: string; x: number; y: number; rows?: number; cols?: number; cells: string[][]; colWidth?: number }[];
   views?: { key?: string; view: string; x: number; y: number }[];
   arrows?: { from: string; to: string; route?: string; dash?: string; weight?: number; start?: string; end?: string; label?: string }[];
@@ -574,6 +576,7 @@ export class BoardDoc {
           n.set('color', color(s.color, 'blue'));
           n.set('label', s.label ?? '');
           if (s.fill === 'tint') n.set('fill', 'tint');
+          if (s.icon) n.set('icon', s.icon.slice(0, 120));
         }, s.part);
       for (const s of layout.shapes ?? []) if (s.fill === 'tint') shape(s);
       for (const note of layout.notes ?? [])
@@ -1039,6 +1042,19 @@ export class BoardDoc {
         if (node?.get('kind') !== 'shape') continue;
         if (fill === 'tint') node.set('fill', 'tint');
         else node.delete('fill');
+      }
+    }, this);
+  }
+
+  /** Puts an icon or logo in shapes' corners, or takes it away (null). */
+  setShapeIcon(ids: Iterable<string>, icon: string | null): void {
+    this.undo.stopCapturing();
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const node = this.#writable(id);
+        if (node?.get('kind') !== 'shape') continue;
+        if (icon) node.set('icon', icon.slice(0, 120));
+        else node.delete('icon');
       }
     }, this);
   }
@@ -1750,7 +1766,16 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
   switch (node.get('kind')) {
     case 'shape': {
       const shape = node.get('shape') as ShapeKind;
-      return { ...box, kind: 'shape', shape: SHAPES.includes(shape) ? shape : 'rect', color: NOTE_COLORS.includes(color) ? color : 'blue', fill: node.get('fill') === 'tint' ? 'tint' : 'solid', label: str(node.get('label')) };
+      const icon = node.get('icon');
+      return {
+        ...box,
+        kind: 'shape',
+        shape: SHAPES.includes(shape) ? shape : 'rect',
+        color: NOTE_COLORS.includes(color) ? color : 'blue',
+        fill: node.get('fill') === 'tint' ? 'tint' : 'solid',
+        label: str(node.get('label')),
+        ...(typeof icon === 'string' && icon.length <= 120 ? { icon } : {}),
+      };
     }
     case 'text': {
       const size = node.get('size') as TextSize;
