@@ -50,6 +50,7 @@ interface ErEngine {
   toMermaid(data: ErData, opts?: object): string;
   erVisibleColumns(entity: ErEntity, data: { detail?: string }): { cols: { col: EntityColumn; index: number }[]; more: number };
   ER: { HEAD_H: number; ROW_H: number; MORE_H: number };
+  mmdErDerive(child: ErEntity, parent: ErEntity, label: string): string[];
 }
 let engine: ErEngine | undefined;
 const er = (): ErEngine => (engine ??= erdEngine(TOKENS) as ErEngine);
@@ -167,18 +168,24 @@ export function readErd(board: BoardDoc, diagramId: string, withPositions = true
       color: colourSlot(t.color),
       ...(withPositions ? { x: (t.x - ox) / S, y: (t.y - oy) / S, box: { x: (t.x - ox) / S, y: (t.y - oy) / S, w: t.w / S, h: t.h / S } } : {}),
     }));
+  const byKey = new Map(entities.map((e) => [e.id, e]));
   const relationships: ErRelationship[] = board
     .connectors()
     .filter((c) => keyOf.has(c.from) && keyOf.has(c.to))
-    .map((c) => ({
-      ...(withPositions ? { id: c.id } : {}),
-      from: keyOf.get(c.from)!,
-      to: keyOf.get(c.to)!,
-      fromEnd: END[c.start] ?? 'zeroOrMany',
-      toEnd: END[c.end] ?? 'one',
-      identifying: c.dash === 'solid',
-      ...(c.label ? { label: c.label } : {}),
-    }));
+    .map((c) => {
+      // Its join columns, found as the skill's reader finds them (customer_id joins customer).
+      const columns = er().mmdErDerive(byKey.get(keyOf.get(c.from)!)!, byKey.get(keyOf.get(c.to)!)!, c.label);
+      return {
+        ...(withPositions ? { id: c.id } : {}),
+        from: keyOf.get(c.from)!,
+        to: keyOf.get(c.to)!,
+        fromEnd: END[c.start] ?? 'zeroOrMany',
+        toEnd: END[c.end] ?? 'one',
+        identifying: c.dash === 'solid',
+        ...(c.label ? { label: c.label } : {}),
+        ...(columns.length ? { columns } : {}),
+      };
+    });
   const colorKey: Record<string, string> = {};
   for (const swatch of board.items().filter((i) => i.part?.of === diagramId && i.part.role === 'legend' && i.kind === 'shape')) {
     const slot = swatch.part!.key.replace(/^legend:/, '');

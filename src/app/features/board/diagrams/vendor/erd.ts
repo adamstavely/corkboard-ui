@@ -3810,5 +3810,5 @@ function toMermaid(data, opts) {
   return out.join('\n') + '\n';
 }
 
-return { layoutDiagram, routeDiagram, fromMermaid, toMermaid, erVisibleColumns, ER };
+return { layoutDiagram, routeDiagram, fromMermaid, toMermaid, erVisibleColumns, ER, mmdErDerive };
 }

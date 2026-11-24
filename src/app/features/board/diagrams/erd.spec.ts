@@ -33,6 +33,8 @@ describe('ER diagrams', () => {
     expect(data.entities.map((e) => e.id).sort()).toEqual(['customer', 'order', 'order_item', 'product']);
     expect(data.colorKey).toEqual({ '1': 'Sales', '3': 'Catalogue' });
     expect(diagramText(board, id)).toMatch(/erDiagram[\s\S]*order_item/);
+    // Join columns are found again, so labels come back as written, without an empty [].
+    expect(diagramText(board, id)).toContain('customer ||..o{ order : "places"');
     board.destroy();
   });
 
