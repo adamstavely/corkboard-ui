@@ -72,7 +72,7 @@
           </div>
         }
         @if (commentCounts().get(frame.id); as count) {
-          <span class="frame-comments" [attr.aria-label]="count + (count === 1 ? ' comment' : ' comments')">
+          <span class="frame-comments" [style.scale]="badgeScale()" [attr.aria-label]="count + (count === 1 ? ' comment' : ' comments')">
             <app-icon name="comments" />{{ count }}
           </span>
         }
@@ -99,6 +99,9 @@
         [style.z-index]="board().stack().get(m.id)"
         (dblclick)="m.kind === 'image' && can('assistant') ? askImage.emit(m) : openFile.emit(m)"
       >
+        @if (commentCounts().get(m.id); as count) {
+          <span class="frame-comments media-comments" [style.scale]="badgeScale()" [attr.aria-label]="count + (count === 1 ? ' comment' : ' comments')"><app-icon name="comments" />{{ count }}</span>
+        }
         @if (m.kind === 'image') {
           @if (fileUrls().get(m.fileId); as src) {
             <img [src]="src" [alt]="m.name" draggable="false" />
@@ -167,7 +170,7 @@
         [style.width.px]="item.w"
         [style.height.px]="item.h"
         [style.z-index]="board().stack().get(item.id)"
-        [attr.aria-label]="itemLabel(item)"
+        [attr.aria-label]="itemLabel(item) + commentsSaid(item.id)"
         [attr.role]="item.kind === 'view' || item.kind === 'app' || item.kind === 'chart' ? 'region' : item.kind === 'diagram' || item.kind === 'sequence' ? 'figure' : 'img'"
       >
         @switch (item.kind) {
@@ -322,6 +325,9 @@
             (blur)="finishItemEdit(item.id, $any($event.target).value)"
             [attr.data-autofocus]="true"
           ></textarea>
+        }
+        @if (commentCounts().get(item.id); as count) {
+          <span class="frame-comments item-comments" aria-hidden="true" [style.scale]="badgeScale()"><app-icon name="comments" />{{ count }}</span>
         }
         @if (selection().has(item.id) && selection().size === 1 && !readOnly() && item.kind !== 'sequence') {
           <div class="item-resize" aria-hidden="true"></div>
