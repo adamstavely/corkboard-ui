@@ -82,6 +82,12 @@ const BPMN_COLOURS: Partial<Record<string, NoteColor>> = { start: 'green', end: 
 /** In a state machine, states are rounded boxes, and forks and joins bars. */
 const STATE_SHAPES: Record<string, ShapeKind> = { task: 'rounded', subprocess: 'rounded', fork: 'rect', join: 'rect' };
 
+/** The shape a step of a kind is drawn as, in a flowchart, state machine or BPMN process. */
+export const stepShape = (type: FlowKind, kind: string): ShapeKind => (type === 'state' ? STATE_SHAPES[kind] : type === 'bpmn' ? BPMN_SHAPES[kind] : undefined) ?? FLOW_SHAPES[kind] ?? 'rect';
+/** The colour a kind of step always has (bars, data and stores grey; BPMN events by where they are), else none. */
+export const stepColour = (type: FlowKind, kind: string): NoteColor | undefined =>
+  kind === 'connector' || kind === 'fork' || kind === 'join' || kind === 'data' || kind === 'store' ? 'gray' : type === 'bpmn' ? BPMN_COLOURS[kind] : undefined;
+
 /** The skill lays a flowchart out in its own pixels; the board draws it this much bigger, so labels read at board size. */
 export const FLOW_SCALE = 1.25;
 /** Room at the top of a lane for its name, and round the lanes inside the diagram's frame (board pixels). */
@@ -239,8 +245,8 @@ export function layoutFlow(data: FlowData, type: FlowKind = 'flowchart'): Layout
     const y = tb ? origin.y + laneTitle + b.y * s : origin.y + lane + laneTitle + b.y * s;
     layout.shapes!.push({
       key: n.id,
-      shape: (type === 'state' ? STATE_SHAPES[n.type] : type === 'bpmn' ? BPMN_SHAPES[n.type] : undefined) ?? FLOW_SHAPES[n.type] ?? 'rect',
-      color: n.type === 'connector' || n.type === 'fork' || n.type === 'join' || n.type === 'data' || n.type === 'store' ? 'gray' : ((type === 'bpmn' ? BPMN_COLOURS[n.type] : undefined) ?? colourOf.get(n.laneId ?? '') ?? 'blue'),
+      shape: stepShape(type, n.type),
+      color: stepColour(type, n.type) ?? colourOf.get(n.laneId ?? '') ?? 'blue',
       ...(type === 'bpmn' && typeof n.extra?.['marker'] === 'string' ? { icon: `bpmn-${n.extra['marker']}` } : {}),
       label: n.label,
       x: Math.round(x),

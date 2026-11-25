@@ -194,6 +194,8 @@ import {
   VenetianMask,
   ZoomIn,
   ZoomOut,
+  Replace,
+  Stamp,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -412,6 +414,8 @@ export const ICONS = {
   workshop: CalendarDays,
   premortem: TriangleAlert,
   journey: Footprints,
+  stepKind: Replace,
+  marker: Stamp,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

@@ -763,6 +763,31 @@
       @if (!readOnly() && can('diagrams') && oneStep(); as s) {
         <button type="button" class="icon-btn" aria-label="Draw an arrow from this step" data-tip="Connect" (click)="connectFromStep()"><app-icon name="arrow" /></button>
         <button type="button" class="icon-btn" aria-label="Add a note to this step" data-tip="Add note" (click)="addStepRemark()"><app-icon name="sticky" /></button>
+        <button type="button" class="icon-btn" aria-label="Add the next step, joined to this one" data-tip="Add next" (click)="addNextStep()"><app-icon name="plus" /></button>
+        @if (kindsOf(s).length) {
+          <tc-menu-morph [open]="kindOpen()" (tc-open-change)="kindOpen.set($event.detail.open)">
+            <button type="button" class="icon-btn" data-menu-trigger aria-label="Kind: what this step is" data-tip="Kind"><app-icon name="stepKind" /></button>
+            <div data-menu class="app-menu" aria-label="Kind">
+              @for (k of kindsOf(s); track k.kind) {
+                <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="kindIs(s, k.kind)" (click)="kindOpen.set(false); changeStepKind(k.kind)">
+                  <span class="app-menu-label">{{ k.label }}</span>
+                </button>
+              }
+            </div>
+          </tc-menu-morph>
+        }
+        @if (markersOf(s).length) {
+          <tc-menu-morph [open]="markerOpen()" (tc-open-change)="markerOpen.set($event.detail.open)">
+            <button type="button" class="icon-btn" data-menu-trigger aria-label="Marker: the task's kind, event's trigger or gateway's kind" data-tip="Marker"><app-icon name="marker" /></button>
+            <div data-menu class="app-menu" aria-label="Marker">
+              @for (m of markersOf(s); track m.kind) {
+                <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="(s.part?.extra?.['marker'] ?? '') === m.kind" (click)="markerOpen.set(false); changeMarker(m.kind)">
+                  <span class="app-menu-label">{{ m.label }}</span>
+                </button>
+              }
+            </div>
+          </tc-menu-morph>
+        }
         @if (subOf(s); as sub) {
           <button type="button" class="icon-btn" [attr.aria-label]="'Open the sub-process ' + sub.title" data-tip="Open sub-process" (click)="openSubprocess()"><app-icon name="openSub" /></button>
           <button type="button" class="icon-btn" aria-label="Put the sub-process's steps back here" data-tip="Put steps back" (click)="expandStep()"><app-icon name="unfold" /></button>

@@ -134,6 +134,19 @@ export function elementLabel(e: C4Element): string {
   const kind = KIND_NAMES[e.kind] ?? 'Software System';
   return [e.name, `[${kind}${e.tech ? `: ${e.tech}` : ''}]`, e.description ?? ''].filter(Boolean).join('\n');
 }
+/** An element's words with its kind changed: its name, technology and description kept. */
+export const relabelC4 = (label: string, kind: C4Kind): string => elementLabel({ id: '', kind, ...readLabel(label) });
+/** An element's look by kind: its shape, and its colour when the diagram gives none. */
+export const c4Look = (kind: C4Kind): { shape: 'person' | 'rect' | 'cylinder' | 'queue'; color: NoteColor } => ({ shape: KIND_SHAPE[kind] ?? 'rect', color: KIND_COLOUR[kind] ?? 'blue' });
+/** The kind an element's bracket line names ("[Component: Spring]"), if it names one. */
+export function bracketKind(label: string): C4Kind | undefined {
+  const line = label.split('\n').slice(1).find((l) => /^\[.*\]$/.test(l.trim()));
+  const name = line && /^\[([^:\]]*)/.exec(line.trim())?.[1]?.trim().toLowerCase();
+  return name ? (Object.entries(KIND_NAMES).find(([, n]) => n.toLowerCase() === name)?.[0] as C4Kind | undefined) : undefined;
+}
+/** The names kinds go by on the board. */
+export const C4_KIND_NAMES = KIND_NAMES as Record<C4Kind, string>;
+
 /** An element's name, technology and description, read back from its words. */
 function readLabel(label: string): { name: string; tech?: string; description?: string } {
   const [name = '', ...rest] = label.split('\n');
@@ -271,7 +284,8 @@ export function readC4(board: BoardDoc, diagramId: string, withPositions = true)
       const group = hidden ? xs(x['group']) : (inside?.part!.key ?? (xs(x['group']) && groupFrames.some((g) => g.part!.key === xs(x['group']) && g.part!.extra?.['collapsed'] === true) ? xs(x['group']) : undefined));
       return {
         id: s.part!.key,
-        kind: (C4_KINDS as readonly string[]).includes(s.part!.type ?? '') ? (s.part!.type as C4Kind) : 'system',
+        // Its kind: what its bracket line says, where someone has retyped it, else what it was made as.
+        kind: bracketKind(s.label) ?? ((C4_KINDS as readonly string[]).includes(s.part!.type ?? '') ? (s.part!.type as C4Kind) : 'system'),
         ...readLabel(s.label),
         ...(group ? { group } : {}),
         ...((s.icon ?? xs(x['icon'])) ? { icon: s.icon ?? xs(x['icon']) } : {}),
