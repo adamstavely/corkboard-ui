@@ -64,18 +64,20 @@ describe('diagrams', () => {
     expect(diagramKind('requirementDiagram\n')).toBe('requirement');
     expect(diagramKind('%% a note first\nsequenceDiagram\n A->>B: hi')).toBe('sequence');
     expect(diagramKind('---\ntitle: T\n---\npie\n "a" : 1')).toBe('pie');
-    for (const text of ['flowchart-elk TD\n a --> b', 'architecture-beta', 'C4Context', 'zenuml', 'flowcharts', 'hello']) expect(diagramKind(text)).toBeNull();
+    expect(diagramKind('architecture-beta\n service db(database)[DB]')).toBe('architecture');
+    expect(diagramKind('C4Context\n Person(a, "A")')).toBe('c4');
+    // Anything else goes to Mermaid, which says so if it doesn't know it.
+    for (const text of ['flowchart-elk TD\n a --> b', 'zenuml', 'flowcharts', 'hello']) expect(diagramKind(text)).toBe('mermaid');
+    expect(diagramKind('---\ntitle: never closed')).toBeNull();
   });
 
-  it("refuse Mermaid's settings and anything but a title in front matter", () => {
-    expect(diagramProblem("%%{init: {'securityLevel': 'loose'}}%%\nflowchart TD\n a --> b")).toMatch(/settings/);
-    expect(diagramProblem("flowchart TD\n %%{init: {'theme': 'dark'}}%%\n a --> b")).toMatch(/settings/);
+  it("leave Mermaid's settings to Mermaid, and want front matter closed", () => {
+    expect(diagramProblem("%%{init: {'theme': 'dark'}}%%\nflowchart TD\n a --> b")).toBeNull();
     expect(diagramProblem('---\ntitle: The plan\n---\nflowchart TD\n a --> b')).toBeNull();
-    expect(diagramProblem('---\nconfig:\n  securityLevel: loose\n---\nflowchart TD\n a --> b')).toMatch(/Only a title/);
-    expect(diagramProblem('---\ntitle: never closed\nflowchart TD')).toMatch(/Only a title/);
+    expect(diagramProblem('---\nconfig:\n  theme: forest\n---\nflowchart TD\n a --> b')).toBeNull();
+    expect(diagramProblem('---\ntitle: never closed\nflowchart TD')).toMatch(/closing/);
     expect(diagramProblem('pie')).toBeNull();
     expect(diagramProblem('')).toMatch(/Write a diagram/);
-    expect(diagramProblem('hello')).toMatch(/Start with the kind/);
   });
 
   it('read links from click lines, web pages and emails only, and leave them out of what Mermaid draws', () => {

@@ -111,6 +111,15 @@ const KINDS = {
   sankey: { name: 'Sankey diagram', test: /^sankey(?:-beta)?(?=[\s;]|$)/ },
   block: { name: 'Block diagram', test: /^block(?:-beta)?(?=[\s;:]|$)/ },
   packet: { name: 'Packet diagram', test: /^packet(?:-beta)?(?=[\s;:]|$)/ },
+  c4: { name: 'C4 diagram', test: /^C4(?:Context|Container|Component|Dynamic|Deployment)(?=[\s;]|$)/ },
+  architecture: { name: 'Architecture diagram', test: /^architecture(?:-beta)?(?=[\s;]|$)/ },
+  radar: { name: 'Radar chart', test: /^radar(?:-beta)?(?=[\s;]|$)/ },
+  treemap: { name: 'Treemap', test: /^treemap(?:-beta)?(?=[\s;]|$)/ },
+  venn: { name: 'Venn diagram', test: /^venn(?:-beta)?(?=[\s;]|$)/ },
+  ishikawa: { name: 'Fishbone diagram', test: /^ishikawa(?:-beta)?(?=[\s;]|$)/ },
+  wardley: { name: 'Wardley map', test: /^wardley(?:-beta)?(?=[\s;]|$)/ },
+  // Anything else Mermaid knows: it says so itself if it doesn't.
+  mermaid: { name: 'Mermaid diagram', test: /^\S/ },
 } satisfies Record<string, Kind>;
 
 type AnyKind = keyof typeof KINDS;
@@ -210,9 +219,9 @@ export function diagramImages(source: string): string[] {
 export function diagramProblem(source: string): string | null {
   const text = source.trim();
   if (!text) return 'Write a diagram: start with its kind, like “flowchart TD”.';
-  if (text.includes('%%{')) return 'A diagram can’t change Mermaid’s settings (%%{init}%%).';
+  // Settings (%%{init}%% or config: at the top) are Mermaid's to read: it keeps the ones that matter to safety its own.
   const split = splitFrontMatter(text);
-  if (!split || split.head.length > 1 || split.head.some((line) => !/^\s*title\s*:\s*\S/.test(line))) return 'Only a title (title: …) can go between the --- lines at the top.';
+  if (!split) return 'The --- lines at the top need closing with another ---.';
   if (!diagramKind(text))
     return 'Start with the kind of diagram: “flowchart TD”, “sequenceDiagram”, “stateDiagram-v2”, “classDiagram”, “erDiagram”, “gantt”, “pie”, “journey”, “timeline”, “mindmap” and so on.';
   for (const line of split.body.split('\n')) {
@@ -310,6 +319,9 @@ function mermaid(): Promise<Mermaid> {
     m.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
+      // What a diagram's own settings (%%{init}%%, config: in front matter) may never change, at any depth: Mermaid's
+      // own safety settings, and ours, so labels stay SVG text (an image and the PNG export need that) and its CSS ours.
+      secure: ['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'suppressErrorRendering', 'maxEdges', 'htmlLabels', 'themeCSS', 'useMaxWidth', 'useWidth'],
       theme: 'neutral',
       fontFamily: 'system-ui, sans-serif',
       // Labels as SVG text, not HTML: an image doesn't always draw HTML, and the PNG export can't.

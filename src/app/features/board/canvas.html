@@ -941,7 +941,7 @@
               <button type="button" class="app-menu-item" role="menuitem" (click)="addStateMachine()"><app-icon name="stateMachine" /><span class="app-menu-label">State machine</span><span class="app-menu-hint">States and what moves between them</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addBpmn()"><app-icon name="flowchart" /><span class="app-menu-label">BPMN process</span><span class="app-menu-hint">Events, tasks, gateways, pools</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addErd()"><app-icon name="database" /><span class="app-menu-label">ER diagram</span><span class="app-menu-hint">Tables, keys and relationships</span></button>
-              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="diagram" /><span class="app-menu-label">Flowchart as text</span><span class="app-menu-hint">Written in Mermaid</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="mermaid" /><span class="app-menu-label">Mermaid diagram</span><span class="app-menu-hint">Any Mermaid code</span></button>
               <button
                 type="button"
                 class="app-menu-item"
@@ -951,10 +951,10 @@
                 [attr.aria-expanded]="moreDiagramsOpen()"
                 (click)="moreDiagramsOpen.set(!moreDiagramsOpen())"
               >
-                <app-icon name="diagram" /><span class="app-menu-label">More diagrams</span><span class="app-menu-hint">State, class, Gantt, pie…</span><app-icon [name]="moreDiagramsOpen() ? 'up' : 'chevron'" />
+                <app-icon name="mermaid" /><span class="app-menu-label">More Mermaid starters</span><span class="app-menu-hint">Class, Gantt, pie…</span><app-icon [name]="moreDiagramsOpen() ? 'up' : 'chevron'" />
               </button>
               @if (moreDiagramsOpen()) {
-                <div id="more-diagrams" class="more-diagrams" role="group" aria-label="More diagrams">
+                <div id="more-diagrams" class="more-diagrams" role="group" aria-label="More Mermaid starters">
                   @for (d of moreDiagrams; track d.kind) {
                     <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram(d.kind)"><span class="app-menu-label">{{ d.name }}</span></button>
                   }
