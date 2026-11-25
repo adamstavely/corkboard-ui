@@ -888,7 +888,7 @@ export class Canvas {
       case 'link':
         return `Link: ${item.title}`;
       case 'view':
-        return VIEW_NAMES[item.view];
+        return item.matrix?.heading ?? VIEW_NAMES[item.view];
       case 'app':
         return `App: ${item.title}`;
       case 'diagram':

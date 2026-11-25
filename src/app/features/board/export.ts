@@ -746,7 +746,7 @@ function drawItem(ctx: CanvasRenderingContext2D, item: Item, c: { surface: strin
       ctx.stroke();
       ctx.fillStyle = c.text;
       ctx.font = `600 16px ${c.font}`;
-      ctx.fillText(item.kind === 'view' ? VIEW_NAMES[item.view] : item.title, 16, 30, item.w - 32);
+      ctx.fillText(item.kind === 'view' ? (item.matrix?.heading ?? VIEW_NAMES[item.view]) : item.title, 16, 30, item.w - 32);
       break;
     case 'link':
       ctx.fillStyle = c.surface;
