@@ -1,7 +1,7 @@
 import { savedTemplatesControllerList } from '../../api/generated/fn/boards/saved-templates-controller-list';
 import { savedTemplatesControllerRemove } from '../../api/generated/fn/boards/saved-templates-controller-remove';
 import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
-import { Component, computed, inject, resource, signal } from '@angular/core';
+import { Component, computed, effect, type ElementRef, inject, resource, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
@@ -66,6 +66,35 @@ export class BoardList {
     const f = this.filter();
     return f.kind === 'folder' ? this.folderList().find((x) => x.id === f.id) : undefined;
   });
+  /** A workspace's name being typed: a new workspace ('new') or renaming this one ('this'). */
+  protected readonly orgNaming = signal<{ id: 'new' | 'this'; name: string } | null>(null);
+  protected readonly savingOrg = signal(false);
+  private readonly orgName = viewChild<ElementRef<HTMLInputElement>>('orgName');
+  /** Typing starts in the name field as soon as it opens. */
+  readonly #focusOrgName = effect(() => this.orgName()?.nativeElement.focus());
+
+  protected async saveOrg(): Promise<void> {
+    const naming = this.orgNaming();
+    const name = naming?.name.trim();
+    if (!naming || !name || this.savingOrg()) return;
+    this.savingOrg.set(true);
+    try {
+      if (naming.id === 'new') {
+        await this.session.createOrg(name);
+        this.filter.set({ kind: 'all' });
+        toast.success(`${name} is ready: invite people to it from Members.`);
+      } else {
+        const orgId = this.session.org()?.id;
+        if (orgId) await this.session.renameOrg(orgId, name);
+      }
+      this.orgNaming.set(null);
+    } catch {
+      toast.error(naming.id === 'new' ? "The workspace couldn't be made. Try again." : "The workspace couldn't be renamed. Try again.");
+    } finally {
+      this.savingOrg.set(false);
+    }
+  }
+
   /** A folder's name being typed: a new folder ('new') or a rename. */
   protected readonly naming = signal<{ id: string | 'new'; name: string } | null>(null);
 
