@@ -195,6 +195,7 @@ import {
   ZoomOut,
   Replace,
   Stamp,
+  PackagePlus,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -414,6 +415,7 @@ export const ICONS = {
   journey: Footprints,
   stepKind: Replace,
   marker: Stamp,
+  addGroup: PackagePlus,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

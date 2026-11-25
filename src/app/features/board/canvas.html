@@ -705,8 +705,23 @@
           <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="runDown" /></button>
         }
         <button type="button" class="icon-btn" [attr.aria-label]="f.part?.type === 'bpmn' ? 'Copy as BPMN XML' : f.part?.type === 'c4' ? 'Copy as C4 JSON' : 'Copy as Mermaid text'" [attr.data-tip]="f.part?.type === 'bpmn' ? 'Copy as BPMN' : 'Copy as text'" (click)="copyDiagramText()"><app-icon name="copy" /></button>
-        @if (f.part?.type === 'flowchart') {
+        @if (f.part?.type === 'flowchart' || f.part?.type === 'bpmn') {
           <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
+        }
+        @if (f.part?.type === 'usecase') {
+          <button type="button" class="icon-btn" aria-label="Add a system boundary, with a use case in it" data-tip="Add boundary" (click)="addBoundary()"><app-icon name="addGroup" /></button>
+        }
+        @if (f.part?.type === 'c4') {
+          <tc-menu-morph [open]="boundaryOpen()" (tc-open-change)="boundaryOpen.set($event.detail.open)">
+            <button type="button" class="icon-btn" data-menu-trigger aria-label="Add a boundary" data-tip="Add boundary"><app-icon name="addGroup" /></button>
+            <div data-menu class="app-menu" aria-label="Add a boundary">
+              @for (b of c4Boundaries; track b.kind) {
+                <button type="button" class="app-menu-item" role="menuitem" (click)="boundaryOpen.set(false); addBoundary(b.kind)">
+                  <span class="app-menu-label">{{ b.label }}</span>
+                </button>
+              }
+            </div>
+          </tc-menu-morph>
         }
         @if (f.part?.type === 'usecase') {
           <button type="button" class="icon-btn text-btn" aria-label="Show sub-functions" data-tip="Sub-functions" [attr.aria-pressed]="showsSubfunctions(f.id)" (click)="toggleSubfunctions()">Sub</button>

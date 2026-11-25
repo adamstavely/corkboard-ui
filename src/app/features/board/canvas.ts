@@ -22,6 +22,7 @@ import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from
 import { logoPacks, shapeIcon } from './diagrams/shape-icons';
 import { IconPicker } from './icon-picker';
 import { addNextStep as addNextStepTo, bpmnMarkers, followC4Bracket, setBpmnMarker, setStepKind, stepKinds } from './diagrams/step-kinds';
+import { addC4Boundary, addUsecaseBoundary, C4_BOUNDARIES } from './diagrams/group-edit';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, freshKey, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
@@ -1204,6 +1205,23 @@ export class Canvas {
   }
 
   /** Adds a lane to the selected flowchart and names it. */
+  protected readonly boundaryOpen = signal(false);
+  protected readonly c4Boundaries = C4_BOUNDARIES;
+
+  /**
+   * Adds a boundary to the selected diagram, with one thing in it to name: a C4 boundary of a kind (inside the selected
+   * open group, when the diagram's own frame isn't what's selected), or a use case diagram's system boundary.
+   */
+  protected addBoundary(kind?: (typeof C4_BOUNDARIES)[number]['kind']): void {
+    const frame = this.oneFlowchart();
+    if (!frame) return;
+    const added = kind ? addC4Boundary(this.board(), frame.id, kind) : addUsecaseBoundary(this.board(), frame.id);
+    if (!added) return;
+    this.announcement.set('Boundary added, with one thing in it: name it');
+    this.selection.set(new Set([added.element]));
+    this.#editItem(added.element);
+  }
+
   protected addLaneToDiagram(): void {
     const frame = this.oneFlowchart();
     const id = frame && addLane(this.board(), frame.id);
