@@ -1,6 +1,8 @@
 import { savedTemplatesControllerList } from '../../api/generated/fn/boards/saved-templates-controller-list';
 import { savedTemplatesControllerRemove } from '../../api/generated/fn/boards/saved-templates-controller-remove';
 import type { SavedTemplateDto } from '../../api/generated/models/saved-template-dto';
+import { html } from 'lit';
+import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
 import { Component, computed, effect, type ElementRef, inject, resource, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { Dialog } from '@adamstavely/trenchcoat/angular/dialog';
@@ -26,7 +28,7 @@ import { organiseControllerUnstar } from '../../api/generated/fn/organise/organi
 import { filterBoards, type BoardFilter } from './organise';
 import { Session } from '../../core/session';
 import { edited } from './edited';
-import { Icon } from '../../shared/icon';
+import { Icon, iconMarkup, type IconName } from '../../shared/icon';
 import { templateCards } from '../board/template-cards';
 
 const INTRO_HIDDEN = 'cb-intro-hidden';
@@ -39,6 +41,11 @@ function readIntroOpen(): boolean {
 }
 
 /** The workspace's boards, most recently changed first, and the way to start a new one. */
+/** Focuses a field once the dialog that opened it has closed and handed focus back to its button. */
+function focusSoon(el: HTMLElement | undefined): void {
+  if (el) setTimeout(() => el.focus(), 60);
+}
+
 @Component({
   selector: 'app-board-list',
   imports: [Button, CollectionCard, Dialog, FirstUse, Select, Skeleton, Icon],
@@ -60,7 +67,7 @@ export class BoardList {
     loader: ({ params: orgId }) => this.#api.invoke(organiseControllerFolders, { orgId }),
   });
   protected readonly folderList = computed(() => (this.folders.hasValue() ? this.folders.value() : []));
-  protected readonly folderOptions = computed(() => [{ value: '', label: 'No folder' }, ...this.folderList().map((f) => ({ value: f.id, label: f.name }))]);
+  protected readonly folderOptions = computed(() => [{ value: '', label: 'No project' }, ...this.folderList().map((f) => ({ value: f.id, label: f.name }))]);
   protected readonly filter = signal<BoardFilter>({ kind: 'all' });
   protected readonly currentFolder = computed(() => {
     const f = this.filter();
@@ -71,7 +78,7 @@ export class BoardList {
   protected readonly savingOrg = signal(false);
   private readonly orgName = viewChild<ElementRef<HTMLInputElement>>('orgName');
   /** Typing starts in the name field as soon as it opens. */
-  readonly #focusOrgName = effect(() => this.orgName()?.nativeElement.focus());
+  readonly #focusOrgName = effect(() => focusSoon(this.orgName()?.nativeElement));
 
   protected async saveOrg(): Promise<void> {
     const naming = this.orgNaming();
@@ -95,7 +102,7 @@ export class BoardList {
     }
   }
 
-  /** A folder's name being typed: a new folder ('new') or a rename. */
+  /** A project's name being typed: a new project ('new') or a rename. (Projects are the API's folders.) */
   protected readonly naming = signal<{ id: string | 'new'; name: string } | null>(null);
 
   protected isFilter(kind: BoardFilter['kind'], id?: string): boolean {
@@ -118,7 +125,7 @@ export class BoardList {
       this.naming.set(null);
       this.folders.reload();
     } catch {
-      toast.error("The folder couldn't be saved. Try again.");
+      toast.error("The project couldn't be saved. Try again.");
     }
   }
 
@@ -129,7 +136,7 @@ export class BoardList {
     this.filter.set({ kind: 'all' });
     this.folders.reload();
     this.boards.reload();
-    toast.success(`Deleted “${name}”`, { description: 'Its boards are still here, in no folder.' });
+    toast.success(`Deleted “${name}”`, { description: 'Its boards are still here, in no project.' });
   }
 
   protected async toggleStar(id: string, starred: boolean): Promise<void> {
@@ -173,6 +180,38 @@ export class BoardList {
 
   protected readonly creating = signal(false);
   protected readonly picking = signal(false);
+  /** The Create new chooser: a board, a project or a workspace. */
+  protected readonly choosing = signal(false);
+  private readonly folderName = viewChild<ElementRef<HTMLInputElement>>('folderName');
+  /** Typing a project's name starts in its field. */
+  readonly #focusFolderName = effect(() => focusSoon(this.folderName()?.nativeElement));
+
+  /** The chooser's options: a board and a project for those who can make them, a workspace for anyone. */
+  protected readonly createChoices = computed(() => {
+    const canCreate = this.canCreate() && !!this.session.org();
+    const choices: { id: 'project' | 'board' | 'workspace'; icon: IconName; label: string; hint: string }[] = [
+      ...(canCreate ? [{ id: 'project' as const, icon: 'project' as const, label: 'Project', hint: 'Keep boards together' }] : []),
+      ...(canCreate ? [{ id: 'board' as const, icon: 'board' as const, label: 'Board', hint: 'Blank or from a template' }] : []),
+      { id: 'workspace' as const, icon: 'workspace' as const, label: 'Workspace', hint: 'For another team' },
+    ];
+    return html`<div class="cb-create-choices">
+      ${choices.map(
+        (c) => html`<button type="button" class="cb-create-choice" @click=${() => this.chooseNew(c.id)}>
+          <span class="cb-create-icon">${unsafeSVG(iconMarkup(c.icon, 36))}</span>
+          <span class="cb-create-label">${c.label}</span>
+          <span class="cb-create-hint">${c.hint}</span>
+        </button>`,
+      )}
+    </div>`;
+  });
+
+  /** Starts making what was chosen: the template picker for a board, a name to type for a project or a workspace. */
+  protected chooseNew(what: 'project' | 'board' | 'workspace'): void {
+    this.choosing.set(false);
+    if (what === 'board') this.picking.set(true);
+    else if (what === 'project') this.naming.set({ id: 'new', name: '' });
+    else this.orgNaming.set({ id: 'new', name: '' });
+  }
 
   /** The intro above the boards: open until this person hides it, remembered in this browser only. */
   protected readonly introOpen = signal(readIntroOpen());
