@@ -150,6 +150,21 @@ import {
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
+/**
+ * Mermaid's own logo (Simple Icons, CC0), for the menu item that makes a Mermaid diagram: a brand mark Lucide doesn't
+ * have. Filled rather than outlined, as a logo is.
+ */
+const MERMAID: IconNode = [
+  [
+    'path',
+    {
+      d: 'M23.99 2.115A12.223 12.223 0 0 0 12 10.149 12.223 12.223 0 0 0 .01 2.115a12.23 12.23 0 0 0 5.32 10.604 6.562 6.562 0 0 1 2.845 5.423v3.743h7.65v-3.743a6.561 6.561 0 0 1 2.844-5.43 12.215 12.215 0 0 0 5.32-10.597Z',
+      fill: 'currentColor',
+      stroke: 'none',
+    },
+  ],
+];
+
 export const ICONS = {
   menu: Menu,
   more: EllipsisVertical,
@@ -304,6 +319,7 @@ export const ICONS = {
   bpmnComplex: Asterisk,
   bpmnTerminate: CircleDot,
   bpmnSend: Send,
+  mermaid: MERMAID,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;
