@@ -20,6 +20,9 @@
 /* Icons in the rail's menus. */
 .app-menu .app-menu-item app-icon {
   --icon-size: 18px;
+}
+/* Muted beside their words, except a destructive item's, which is red like its words. */
+.app-menu .app-menu-item:not(.danger) app-icon:not([name='trash']) {
   color: var(--tc-text-secondary, var(--tc-text-muted));
 }
 
