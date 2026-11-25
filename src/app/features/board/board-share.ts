@@ -1,3 +1,4 @@
+import { SegmentedControl } from '@adamstavely/trenchcoat/angular/segmented-control';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ShareLinkManager } from '@adamstavely/trenchcoat/angular/share-link-manager';
 import type { ShareLinksChange } from '@adamstavely/trenchcoat/share-link-manager';
@@ -40,7 +41,7 @@ const COLUMNS: DataColumn[] = [
  */
 @Component({
   selector: 'app-board-share',
-  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch, Select, SecretField, BoardFeedback, Icon],
+  imports: [SharePanel, ShareLinkManager, DataTable, Button, Switch, Select, SecretField, BoardFeedback, Icon, SegmentedControl],
   templateUrl: './board-share.html',
   styleUrl: './board-share.css',
 })
@@ -55,6 +56,13 @@ export class BoardShare {
   protected readonly links = computed(() => shareLinks(this.#links.hasValue() ? this.#links.value() : []));
 
   /** Whether the next link made lets people edit. */
+  /** Which tab shows: the people on the board, links and embeds, or feedback from outside the team. */
+  protected readonly tab = signal<'people' | 'links' | 'feedback'>('people');
+  protected readonly tabs = [
+    { value: 'people', label: 'People', controls: 'share-people' },
+    { value: 'links', label: 'Links and embeds', controls: 'share-links' },
+    { value: 'feedback', label: 'Outside feedback', controls: 'share-feedback' },
+  ];
   protected readonly editableLinks = signal(false);
   /** How long the next link lasts, in days ("" for never), as picked; the workspace's longest until something is. */
   protected readonly expiryPick = signal<string | null>(null);
