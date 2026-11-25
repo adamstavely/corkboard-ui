@@ -126,7 +126,7 @@ export function auditCsv(events: readonly AuditEventDto[]): string {
           <div>
             <strong>Download a data export</strong>
             <p class="muted">
-              Members, boards (notes, frames, tasks, chat and comments), folders, models and trackers, as one JSON file. Keys and tokens are never
+              Members, boards (notes, frames, tasks, chat and comments), projects, models and trackers, as one JSON file. Keys and tokens are never
               included. It isn't a backup and can't be restored from: attached images and files are listed but not included, and neither are
               board-by-board sharing, saved versions or rich text formatting.
             </p>

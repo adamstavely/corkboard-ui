@@ -334,3 +334,43 @@ app-board-list .grid > li tc-collection-card .ui-clc__meta {
 app-board-list .grid > li tc-collection-card .ui-clc__action {
   margin-top: auto;
 }
+
+/* Create new: three big choices side by side, an icon above each name. */
+.cb-create-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--tc-space-3);
+}
+.cb-create-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--tc-space-2);
+  padding: var(--tc-space-6) var(--tc-space-3);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-lg);
+  background: var(--tc-surface-raised);
+  color: var(--tc-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.cb-create-choice:hover {
+  border-color: var(--tc-accent-text);
+  background: var(--tc-accent-subtle);
+}
+.cb-create-choice:focus-visible {
+  outline: 2px solid var(--tc-focus-ring, var(--tc-accent-text));
+  outline-offset: 2px;
+}
+.cb-create-icon {
+  display: inline-flex;
+  color: var(--tc-accent-text);
+}
+.cb-create-label {
+  font-size: var(--tc-font-size-md);
+  font-weight: var(--tc-font-weight-semibold);
+}
+.cb-create-hint {
+  color: var(--tc-text-muted);
+  font-size: var(--tc-font-size-sm);
+}

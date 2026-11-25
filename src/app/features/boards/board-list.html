@@ -88,7 +88,6 @@
           @if (session.org()?.role === 'owner') {
             <tc-button size="sm" variant="secondary" label="Rename" (click)="orgNaming.set({ id: 'this', name: session.org()?.name ?? '' })"></tc-button>
           }
-          <tc-button size="sm" variant="secondary" label="New workspace" (click)="orgNaming.set({ id: 'new', name: '' })"></tc-button>
         }
       </div>
     </div>
@@ -102,13 +101,11 @@
       @if (session.siteAdmin()) {
         <tc-button variant="secondary" label="Site admin" (click)="go('/site')"></tc-button>
       }
-      @if (canCreate()) {
-        <tc-button label="New board" [loading]="creating()" [disabled]="!session.org()" (click)="picking.set(true)"></tc-button>
-      }
+      <tc-button label="Create new" [loading]="creating()" (click)="choosing.set(true)"><app-icon slot="icon" name="plus" /></tc-button>
     </div>
   </div>
 
-  <!-- All, starred, recent, and the workspace's folders. -->
+  <!-- All, starred, recent, and the workspace's projects. -->
   <div class="filters" role="group" aria-label="Show boards">
     <tc-button size="sm" [variant]="isFilter('all') ? 'secondary' : 'ghost'" label="All boards" (click)="filter.set({ kind: 'all' })"></tc-button>
     <tc-button size="sm" [variant]="isFilter('starred') ? 'secondary' : 'ghost'" label="Starred" (click)="filter.set({ kind: 'starred' })"></tc-button>
@@ -122,7 +119,8 @@
     @if (naming(); as n) {
       <input
         class="folder-name"
-        aria-label="Folder name"
+        [attr.aria-label]="naming()?.id === 'new' ? 'New project name' : 'Project name'"
+        #folderName
         maxlength="80"
         [value]="n.name"
         (input)="naming.set({ id: n.id, name: $any($event.target).value })"
@@ -132,15 +130,13 @@
       <tc-button size="sm" label="Save" (click)="saveFolder()"></tc-button>
       <tc-button size="sm" variant="ghost" label="Cancel" (click)="naming.set(null)"></tc-button>
     } @else if (canCreate()) {
-      <!-- Folder actions at the row's end, apart from the filters, so they don't read as one. -->
-      <span class="folder-actions">
-        @if (currentFolder(); as f) {
-          <tc-button size="sm" variant="secondary" label="Rename folder" (click)="naming.set({ id: f.id, name: f.name })"></tc-button>
-          <tc-button size="sm" variant="secondary" label="Delete folder" (click)="deleteFolder(f.id, f.name)"></tc-button>
-          <span class="divider" aria-hidden="true"></span>
-        }
-        <tc-button size="sm" variant="secondary" label="New folder" (click)="naming.set({ id: 'new', name: '' })"></tc-button>
-      </span>
+      <!-- The open project's actions at the row's end, apart from the filters, so they don't read as one. -->
+      @if (currentFolder(); as f) {
+        <span class="folder-actions">
+          <tc-button size="sm" variant="secondary" label="Rename project" (click)="naming.set({ id: f.id, name: f.name })"></tc-button>
+          <tc-button size="sm" variant="secondary" label="Delete project" (click)="deleteFolder(f.id, f.name)"></tc-button>
+        </span>
+      }
     }
   </div>
 
@@ -149,7 +145,7 @@
   } @else if (boards.error()) {
     <p role="alert">Boards couldn't be loaded. Refresh to try again.</p>
   } @else if (cards().length === 0 && !isFilter('all')) {
-    <p class="note">{{ isFilter('starred') ? 'No starred boards yet: star one from its card.' : isFilter('recent') ? "Boards you open show up here." : 'No boards in this folder yet: choose it under a board’s card.' }}</p>
+    <p class="note">{{ isFilter('starred') ? 'No starred boards yet: star one from its card.' : isFilter('recent') ? "Boards you open show up here." : 'No boards in this project yet: choose it under a board’s card.' }}</p>
   } @else if (cards().length === 0) {
     <div class="empty">
       @if (canCreate()) {
@@ -177,7 +173,7 @@
           </div>
           @if (board.canFile && folderList().length) {
             <div class="card-actions">
-              <tc-select label="Folder" [labelVisible]="false" [options]="folderOptions()" [value]="board.folderId ?? ''" (tc-value-change)="moveTo(board.id, $event.detail.value)"></tc-select>
+              <tc-select label="Project" [labelVisible]="false" [options]="folderOptions()" [value]="board.folderId ?? ''" (tc-value-change)="moveTo(board.id, $event.detail.value)"></tc-select>
             </div>
           }
         </li>
@@ -194,4 +190,15 @@
   [open]="picking()"
   [content]="templateCards()"
   (tc-open-change)="picking.set($event.detail.open)"
+></tc-dialog>
+
+<!-- Create new: what to make, a big button each. -->
+<tc-dialog
+  size="md"
+  label="Create new"
+  description="A board to work on, a project to keep boards together, or a workspace for another team."
+  close-label="Cancel"
+  [open]="choosing()"
+  [content]="createChoices()"
+  (tc-open-change)="choosing.set($event.detail.open)"
 ></tc-dialog>

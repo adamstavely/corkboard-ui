@@ -196,6 +196,9 @@ import {
   Replace,
   Stamp,
   PackagePlus,
+  FolderKanban,
+  LayoutDashboard,
+  Briefcase,
 } from 'lucide';
 
 /** The Lucide icons the app uses, by the names its templates use. */
@@ -416,6 +419,9 @@ export const ICONS = {
   stepKind: Replace,
   marker: Stamp,
   addGroup: PackagePlus,
+  project: FolderKanban,
+  board: LayoutDashboard,
+  workspace: Briefcase,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;
