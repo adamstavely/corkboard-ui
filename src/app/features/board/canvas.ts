@@ -21,6 +21,7 @@ import { columnsText, ERD_STARTER, erdDisplay, erdRows, readColumns, tidyErd, vi
 import { setRefsShown, setSubfunctionsShown, showsRefs, showsSubfunctions } from './diagrams/usecase';
 import { logoPacks, shapeIcon } from './diagrams/shape-icons';
 import { IconPicker } from './icon-picker';
+import { addNextStep as addNextStepTo, bpmnMarkers, followC4Bracket, setBpmnMarker, setStepKind, stepKinds } from './diagrams/step-kinds';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, freshKey, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
@@ -1210,6 +1211,35 @@ export class Canvas {
   }
 
   /** Adds a remark to the selected step and opens it to write. */
+  protected readonly kindOpen = signal(false);
+  protected readonly markerOpen = signal(false);
+  /** What the selected step could be instead, in its kind of diagram. */
+  protected readonly kindsOf = (step: Item) => (step.part ? stepKinds(diagramType(this.board(), step.part.of) ?? undefined) : []);
+  /** The kind a step is: a start or end both read as "Start or end", wherever the menu has one for both. */
+  protected readonly kindIs = (step: Item, kind: string) => step.part?.type === kind || (kind === 'start' && step.part?.type === 'end' && diagramType(this.board(), step.part.of) !== 'bpmn');
+  /** The markers the selected BPMN step can carry. */
+  protected readonly markersOf = (step: Item) => (step.part ? bpmnMarkers(diagramType(this.board(), step.part.of) ?? undefined, step.part.type) : []);
+
+  protected changeStepKind(kind: string): void {
+    const step = this.oneStep();
+    if (!step || !setStepKind(this.board(), step.id, kind)) return;
+    this.announcement.set(`Now a ${this.kindsOf(step).find((k) => k.kind === kind)?.label.toLowerCase() ?? kind}`);
+  }
+
+  protected changeMarker(marker: string): void {
+    const step = this.oneStep();
+    if (step && setBpmnMarker(this.board(), step.id, marker)) this.announcement.set(this.markersOf(step).find((m) => m.kind === marker)?.label ?? 'Marker changed');
+  }
+
+  /** Adds the next step after the selected one, joined to it, and opens it to be named. */
+  protected addNextStep(): void {
+    const step = this.oneStep();
+    const id = step && addNextStepTo(this.board(), step.id);
+    if (!id) return;
+    this.selection.set(new Set([id]));
+    this.#editItem(id);
+  }
+
   protected addStepRemark(): void {
     const step = this.oneStep();
     const id = step && addRemark(this.board(), step.id);
@@ -1420,6 +1450,8 @@ export class Canvas {
       this.board().setText(id, value.trim());
       // A step named for the first time takes an id from its name, for its diagram's text.
       nameStep(this.board(), id);
+      // A C4 element whose bracket line now names another kind becomes that kind.
+      followC4Bracket(this.board(), id);
     }
     this.itemEditing.set(null);
   }
