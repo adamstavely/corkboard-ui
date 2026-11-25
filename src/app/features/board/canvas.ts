@@ -72,7 +72,7 @@ type Gesture =
  */
 export type Tool = 'select' | 'note' | 'text' | ShapeKind | 'frame' | 'table' | 'pen' | 'connect' | 'comment';
 type PlacingTool = Extract<Tool, 'note' | 'text' | ShapeKind | 'frame' | 'table'>;
-const PLACING: ReadonlySet<Tool> = new Set<Tool>(['note', 'text', 'rect', 'ellipse', 'diamond', 'triangle', 'frame', 'table']);
+const PLACING: ReadonlySet<Tool> = new Set<Tool>(['note', 'text', ...SHAPES, 'frame', 'table']);
 /** Single keys that pick a tool, as the rail shows them. N adds a note straight away (see onKeyDown). */
 const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: 'rect', o: 'ellipse', f: 'frame', p: 'pen', l: 'connect' };
 /** A drag smaller than this, on screen, is a click: the thing gets its usual size. */
@@ -82,12 +82,12 @@ const BAR_TOP = 64;
 
 const SHAPE_NAMES: Record<ShapeKind, string> = {
   rect: 'Rectangle',
-  ellipse: 'Ellipse',
-  diamond: 'Diamond',
+  ellipse: 'Oval',
+  diamond: 'Rhombus',
   triangle: 'Triangle',
   hexagon: 'Hexagon',
   star: 'Star',
-  arrow: 'Arrow',
+  arrow: 'Block arrow',
   cylinder: 'Cylinder',
   cloud: 'Cloud',
   callout: 'Speech bubble',
@@ -275,6 +275,8 @@ export class Canvas {
   readonly #api = inject(Api);
   protected readonly textSizes = TEXT_SIZES;
   protected readonly shapes = SHAPES;
+  /** The keys that pick a shape tool, shown beside it in the Shapes menu. */
+  protected readonly shapeKeys: Partial<Record<ShapeKind, string>> = { rect: 'R', ellipse: 'O' };
   protected readonly shapeNames = SHAPE_NAMES;
   protected readonly textSizeNames = TEXT_SIZE_NAMES;
   protected readonly shapePath = shapePath;
@@ -288,7 +290,7 @@ export class Canvas {
   readonly tool = signal<Tool>('select');
   protected readonly pen = computed(() => this.tool() === 'pen');
   protected readonly placing = computed(() => PLACING.has(this.tool()));
-  protected readonly shapeTool = computed(() => ['rect', 'ellipse', 'diamond', 'triangle', 'connect'].includes(this.tool()));
+  protected readonly shapeTool = computed(() => this.tool() === 'connect' || (SHAPES as readonly string[]).includes(this.tool()));
   /** ⌘ on Apple devices, Ctrl elsewhere, for the shortcuts shown. */
   protected readonly modKey = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl ';
   /** The colour new notes get: the one last picked. */
