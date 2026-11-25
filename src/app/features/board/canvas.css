@@ -149,9 +149,14 @@
   justify-content: space-between;
   padding: 0 0 2px 8px;
 }
+/* The map's icon before its title, as on the button that opens it, so the two read as one thing. */
 .minimap-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tc-space-2);
   color: var(--tc-text-muted);
   font-size: var(--tc-font-size-sm);
+  --icon-size: 14px;
 }
 .minimap-head .icon-btn {
   width: 28px;
