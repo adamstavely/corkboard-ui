@@ -146,8 +146,7 @@ app-note .note-caret__label {
 }
 
 /* Open comments: a badge on the top-right corner. */
-app-note .note-comments,
-.frame-comments {
+app-note .note-comments {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -165,8 +164,7 @@ app-note .note-comments {
   top: -8px;
   right: -8px;
 }
-.note-comments svg path,
-.frame-comments svg path {
+.note-comments svg path {
   fill: currentColor;
 }
 

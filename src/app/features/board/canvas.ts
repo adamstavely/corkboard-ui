@@ -866,6 +866,15 @@ export class Canvas {
     if (first) this.#reveal(first);
   }
 
+  /** Comment badges stay readable zoomed out: they grow against the zoom, up to four times their size. */
+  protected readonly badgeScale = computed(() => Math.min(4, Math.max(1, 1 / this.viewport().zoom)));
+
+  /** ", 2 comments" for an item with open comments, so its name says so as its badge does. */
+  protected commentsSaid(id: string): string {
+    const count = this.commentCounts().get(id);
+    return count ? `, ${count} ${count === 1 ? 'comment' : 'comments'}` : '';
+  }
+
   protected itemLabel(item: Item): string {
     switch (item.kind) {
       case 'shape':

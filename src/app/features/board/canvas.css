@@ -103,13 +103,33 @@
 
 .frame-comments app-icon {
   --icon-size: 12px;
-  vertical-align: -2px;
-  margin-right: 3px;
 }
+/* Open comments on a frame, an item or a file: a badge on its top-right corner, as a note has. */
 .frame-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--tc-accent-text);
+  color: var(--tc-surface-raised);
+  font-size: 11px;
+  font-weight: var(--tc-font-weight-semibold);
+  line-height: 16px;
+  pointer-events: none;
   position: absolute;
   top: -9px;
-  right: -9px;
+  right: -9px;  transform-origin: top right;
+}
+/* Shapes, tables and the rest: the same badge on their top-right corner, above what they hold. */
+.item-comments {
+  z-index: 1;
+}
+/* Files clip what overflows them, so theirs sits just inside the corner. */
+.media-comments {
+  z-index: 1;
+  top: 4px;
+  right: 4px;
 }
 
 /* Everything on the board in a small box in the bottom-left corner, when the map is on; the outlined box is what's in view. */
