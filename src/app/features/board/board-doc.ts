@@ -229,6 +229,39 @@ export const VIEW_NAMES: Record<BoardView, string> = { matrix: 'Value vs effort'
 export interface ViewItem extends Placed {
   kind: 'view';
   view: BoardView;
+  /** A matrix's own names, where people have changed them; anything left out keeps the value-vs-effort default. */
+  matrix?: MatrixNames;
+}
+
+/** What a matrix calls itself, its axes and its quadrants. Up is how a note's `value` is read, across its `effort`. */
+export interface MatrixNames {
+  heading?: string;
+  /** The across axis (effort, by default). */
+  x?: string;
+  /** The up axis (value, by default). */
+  y?: string;
+  /** Top left: high up, low across. */
+  quickWins?: string;
+  /** Top right: high up, high across. */
+  bigBets?: string;
+  /** Bottom left: low up, low across. */
+  fillIns?: string;
+  /** Bottom right: low up, high across. */
+  moneyPits?: string;
+}
+export const MATRIX_NAME_KEYS = ['heading', 'x', 'y', 'quickWins', 'bigBets', 'fillIns', 'moneyPits'] as const;
+/** Long enough for a phrase, short enough to fit a quadrant's corner. */
+export const MATRIX_NAME_CHARS = 40;
+
+/** Only the names a matrix may carry, trimmed and cut short; empty ones are left out so the defaults show. */
+export function cleanMatrixNames(raw: unknown): MatrixNames | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const names: MatrixNames = {};
+  for (const key of MATRIX_NAME_KEYS) {
+    const v = (raw as Record<string, unknown>)[key];
+    if (typeof v === 'string' && v.trim()) names[key] = v.trim().slice(0, MATRIX_NAME_CHARS);
+  }
+  return Object.keys(names).length ? names : undefined;
 }
 
 /**
@@ -1096,6 +1129,15 @@ export class BoardDoc {
   }
 
   /** A chart's kind, title and rows, as one undoable change. */
+  /** Renames a placed matrix, its axes and quadrants; empty names go back to the defaults. */
+  setMatrixNames(id: string, names: MatrixNames): void {
+    const node = this.#writable(id);
+    if (node?.get('kind') !== 'view' || node.get('view') !== 'matrix') return;
+    this.undo.stopCapturing();
+    const clean = cleanMatrixNames(names);
+    this.doc.transact(() => (clean ? node.set('matrix', clean) : node.delete('matrix')), this);
+  }
+
   setChart(id: string, chart: { chart: ChartKind; title: string; rows: readonly ChartRow[] }): void {
     const node = this.#writable(id);
     if (node?.get('kind') !== 'chart') return;
@@ -1922,7 +1964,9 @@ function itemOf(id: string, node: Y.Map<unknown>): Item | null {
     }
     case 'view': {
       const view = node.get('view') as BoardView;
-      return BOARD_VIEWS.includes(view) ? { ...box, kind: 'view', view } : null;
+      if (!BOARD_VIEWS.includes(view)) return null;
+      const matrix = view === 'matrix' ? cleanMatrixNames(node.get('matrix')) : undefined;
+      return { ...box, kind: 'view', view, ...(matrix ? { matrix } : {}) };
     }
     case 'app': {
       const appId = node.get('appId');

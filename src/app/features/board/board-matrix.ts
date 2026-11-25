@@ -1,14 +1,32 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, input, output, signal } from '@angular/core';
 import { Button } from '@adamstavely/trenchcoat/angular/button';
 import { PrioritisationMatrix } from '@adamstavely/trenchcoat/angular/prioritisation-matrix';
-import type { PrioritisationItem, PrioritisationItemsChange } from '@adamstavely/trenchcoat/prioritisation-matrix';
-import type { BoardDoc } from './board-doc';
+import { defaultPrioritisationLabels, type PrioritisationItem, type PrioritisationItemsChange } from '@adamstavely/trenchcoat/prioritisation-matrix';
+import { MATRIX_NAME_CHARS, type BoardDoc, type MatrixNames } from './board-doc';
 import { plainText } from './comments';
 
 /** Where a note starts on the matrix before anyone has placed it: the middle. */
 const UNSCORED = 5;
 /** Item names stay short: they show in a small tip on the plot. */
 const LABEL_CHARS = 60;
+
+/** A matrix's names as it starts: value up, effort across, Trench Coat's quadrants. */
+export const MATRIX_DEFAULTS: Required<MatrixNames> = {
+  heading: 'Value vs effort',
+  x: 'Effort',
+  y: 'Value',
+  ...defaultPrioritisationLabels,
+};
+/** The name fields, laid out as the matrix is: its heading and axes, then the quadrants where they sit. */
+const NAME_FIELDS: { key: keyof MatrixNames; label: string }[] = [
+  { key: 'heading', label: 'Heading' },
+  { key: 'y', label: 'Up axis' },
+  { key: 'x', label: 'Across axis' },
+  { key: 'quickWins', label: 'Top left' },
+  { key: 'bigBets', label: 'Top right' },
+  { key: 'fillIns', label: 'Bottom left' },
+  { key: 'moneyPits', label: 'Bottom right' },
+];
 
 /** The notes as matrix items, numbered in board order; unscored notes start in the middle. */
 export function matrixItems(notes: readonly { id: string; text: string; value?: number; effort?: number }[]): PrioritisationItem[] {
@@ -35,13 +53,41 @@ export function matrixItems(notes: readonly { id: string; text: string; value?: 
         @if (canEdit() && unplaced() > 0) {
           <tc-button size="sm" variant="ghost" label="Ask the model to place them" (click)="ask.emit()"></tc-button>
         }
+        @if (canEdit() && viewId() && !naming()) {
+          <tc-button size="sm" variant="ghost" label="Axes and quadrants" (click)="startNaming()"></tc-button>
+        }
         @if (!placed()) {
           <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
         }
       </div>
+      @if (naming(); as draft) {
+        <!-- Its own names: heading and axes, then the four quadrants in the corners they label. -->
+        <form class="names" aria-label="Axes and quadrants" (submit)="$event.preventDefault(); saveNames()" (keydown.escape)="naming.set(null)" (pointerdown)="$event.stopPropagation()">
+          @for (f of nameFields; track f.key) {
+            <label class="name" [class.quadrant]="$index > 2">
+              <span>{{ f.label }}</span>
+              <input
+                type="text"
+                [attr.maxlength]="maxChars"
+                [placeholder]="defaults[f.key]"
+                [value]="draft[f.key] ?? ''"
+                (input)="setDraft(f.key, $any($event.target).value)"
+              />
+            </label>
+          }
+          <p class="hint">Up is high to low, across is low to high. Leave a name empty to keep its default.</p>
+          <div class="actions">
+            <tc-button size="sm" label="Save" (click)="saveNames()"></tc-button>
+            <tc-button size="sm" variant="ghost" label="Cancel" (click)="naming.set(null)"></tc-button>
+          </div>
+        </form>
+      }
       @if (items().length) {
         <tc-prioritisation-matrix
-          heading="Value vs effort"
+          [heading]="names().heading"
+          [xLabel]="names().x"
+          [yLabel]="names().y"
+          [labels]="quadrantNames()"
           [description]="canEdit() ? 'Drag a note, or focus it and use the arrow keys.' : 'Only updaters and owners can move notes.'"
           [items]="items()"
           [readonly]="!canEdit()"
@@ -85,6 +131,44 @@ export function matrixItems(notes: readonly { id: string; text: string; value?: 
       color: var(--tc-text-muted);
       font-size: var(--tc-font-size-sm);
     }
+    .names {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--tc-space-2) var(--tc-space-3);
+      padding: var(--tc-space-3);
+      border: 1px solid var(--tc-border-subtle);
+      border-radius: var(--tc-radius-lg);
+      background: var(--tc-surface-raised);
+    }
+    .name {
+      display: flex;
+      flex-direction: column;
+      gap: var(--tc-space-1);
+      font-size: var(--tc-font-size-sm);
+      color: var(--tc-text-muted);
+    }
+    .name:first-child {
+      grid-column: 1 / -1;
+    }
+    .name input {
+      padding: var(--tc-space-1) var(--tc-space-2);
+      border: 1px solid var(--tc-border-default);
+      border-radius: var(--tc-radius-sm);
+      background: var(--tc-surface-base);
+      color: var(--tc-text-primary);
+      font: inherit;
+    }
+    .hint {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--tc-text-muted);
+      font-size: var(--tc-font-size-sm);
+    }
+    .actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: var(--tc-space-2);
+    }
     .empty {
       margin: 0;
       padding: var(--tc-space-4);
@@ -102,6 +186,8 @@ export class BoardMatrix {
   readonly canEdit = input(false);
   /** On the board as an element of its own, rather than opened beside it: no Close, and it fills its box. */
   readonly placed = input(false);
+  /** The placed matrix this is, whose names it shows and edits. */
+  readonly viewId = input<string>();
   readonly closed = output<void>();
   /** Ask the model to place the notes that aren't placed yet. */
   readonly ask = output<void>();
@@ -117,6 +203,37 @@ export class BoardMatrix {
     const n = this.#notes().length;
     return this.selection().length ? `The ${n} selected note${n === 1 ? '' : 's'}` : `Every note on the board (${n})`;
   });
+
+  protected readonly nameFields = NAME_FIELDS;
+  protected readonly defaults = MATRIX_DEFAULTS;
+  protected readonly maxChars = MATRIX_NAME_CHARS;
+  /** The names being typed, while the form is open. */
+  protected readonly naming = signal<MatrixNames | null>(null);
+
+  readonly #own = computed<MatrixNames>(() => {
+    const id = this.viewId();
+    const item = id ? this.board().items().find((i) => i.id === id) : undefined;
+    return (item?.kind === 'view' && item.matrix) || {};
+  });
+  protected readonly names = computed(() => ({ ...MATRIX_DEFAULTS, ...this.#own() }));
+  protected readonly quadrantNames = computed(() => {
+    const { quickWins, bigBets, fillIns, moneyPits } = this.names();
+    return { quickWins, bigBets, fillIns, moneyPits };
+  });
+
+  protected startNaming(): void {
+    this.naming.set({ ...this.#own() });
+  }
+  protected setDraft(key: keyof MatrixNames, value: string): void {
+    this.naming.update((d) => (d ? { ...d, [key]: value } : d));
+  }
+  protected saveNames(): void {
+    const draft = this.naming();
+    const id = this.viewId();
+    if (!draft || !id) return;
+    this.board().setMatrixNames(id, draft);
+    this.naming.set(null);
+  }
 
   protected onChange(e: CustomEvent<PrioritisationItemsChange>): void {
     const { id, value, effort } = e.detail.change;

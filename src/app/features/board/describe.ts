@@ -52,7 +52,7 @@ export function describeThing(board: BoardDoc, id: string): string {
       case 'link':
         return `link to ${item.title || item.url}`;
       case 'view':
-        return `${VIEW_NAMES[item.view].toLowerCase()} view`;
+        return item.matrix?.heading ? `matrix “${clip(item.matrix.heading)}”` : `${VIEW_NAMES[item.view].toLowerCase()} view`;
       case 'app':
         return `mini-app “${clip(item.title)}”`;
       case 'diagram':

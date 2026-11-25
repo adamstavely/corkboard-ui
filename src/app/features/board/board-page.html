@@ -261,7 +261,7 @@
         <ng-template #boardView let-view>
           @switch (view.view) {
             @case ('matrix') {
-              <app-board-matrix [placed]="true" [board]="board()!" [canEdit]="canEdit()" (ask)="askAssistant('Place these notes on the value-vs-effort matrix')" />
+              <app-board-matrix [placed]="true" [viewId]="view.id" [board]="board()!" [canEdit]="canEdit()" (ask)="askAssistant('Place these notes on the value-vs-effort matrix')" />
             }
             @case ('kanban') {
               @if (tasks() && meta.hasValue()) {
