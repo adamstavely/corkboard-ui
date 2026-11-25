@@ -302,3 +302,31 @@ tc-dialog.pinned-actions .tc-dialog-body {
   min-height: 0;
   overflow: auto;
 }
+
+/* The boards page's cards are all one size, whatever their titles: the edited time always under the title, a title
+   two lines at most, and Open board (with the star beside it) along the bottom. */
+app-board-list .grid > li tc-collection-card {
+  display: block;
+  height: 100%;
+}
+app-board-list .grid > li tc-collection-card .ui-clc__card {
+  box-sizing: border-box;
+  height: 100%;
+}
+app-board-list .grid > li tc-collection-card .ui-clc__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--tc-space-1);
+}
+app-board-list .grid > li tc-collection-card .ui-clc__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+app-board-list .grid > li tc-collection-card .ui-clc__meta {
+  margin: 0;
+}
+app-board-list .grid > li tc-collection-card .ui-clc__action {
+  margin-top: auto;
+}

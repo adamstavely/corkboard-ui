@@ -245,6 +245,7 @@ h1 {
 
 .grid {
   list-style: none;
+  align-items: start;
   margin: 0;
   padding: 0;
   display: grid;
@@ -292,6 +293,13 @@ h1 {
 /* The star sits in each card's top right; the folder picker goes under the card. */
 .grid > li {
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+/* The card fills a fixed height, room for a two-line title; a folder picker sits under it. */
+.grid > li > .card {
+  height: 168px;
+  flex: none;
 }
 .card-actions {
   display: flex;
@@ -303,6 +311,7 @@ h1 {
    leaves that side free at any width (at the top it would cover the edited time beside the title). */
 .card {
   position: relative;
+  height: 100%;
 }
 .star {
   position: absolute;
