@@ -286,3 +286,19 @@ body {
   background-color: var(--tc-accent-subtle);
   color: var(--tc-accent-text);
 }
+
+/* A dialog whose body can run long (the board templates): only the body scrolls, so its heading and its actions (Cancel)
+   stay in view. */
+tc-dialog.pinned-actions dialog[open] {
+  overflow: hidden;
+}
+tc-dialog.pinned-actions .tc-settings-card {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+tc-dialog.pinned-actions .tc-dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
