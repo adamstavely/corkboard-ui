@@ -1,11 +1,14 @@
 <aside class="share" aria-label="Sharing">
   <div class="head">
-    <span class="spacer"></span>
+    <tc-segmented-control kind="tabs" size="sm" [fullWidth]="true" aria-label="Sharing" [options]="tabs" [value]="tab()" (tc-value-change)="tab.set($any($event.detail.value))"></tc-segmented-control>
     <tc-button size="sm" variant="secondary" label="Close" (click)="closed.emit()"></tc-button>
   </div>
   @if (problem(); as problem) {
     <p class="problem" role="alert">{{ problem }}</p>
   }
+  <!-- One tab at a time: the people on the board, links and embeds, or feedback from outside the team. -->
+  @if (tab() === 'people') {
+  <div class="panel" id="share-people" role="tabpanel" aria-label="People">
   @if (list.error()) {
     <p class="problem" role="alert">Who's on this board couldn't be loaded. Try again.</p>
   } @else if (canShare()) {
@@ -25,6 +28,9 @@
     <tc-data-table heading="Who can open this board" [columns]="columns" [rows]="rows()" readonly></tc-data-table>
     <p class="note">{{ shareRefusal() ?? "Only owners of the board can change who's on it." }}</p>
   }
+  </div>
+  } @else if (tab() === 'links') {
+  <div class="panel" id="share-links" role="tabpanel" aria-label="Links and embeds">
   @if (canLinks()) {
     <div class="link-edit" role="group" aria-label="The next link you make">
       <tc-switch
@@ -77,5 +83,10 @@
       <div class="row"><tc-button size="sm" variant="secondary" label="Get embed code" [loading]="embedding()" (click)="makeEmbed()"></tc-button></div>
     }
   </section>
-  <app-board-feedback [boardId]="boardId()" [canManage]="canManageFeedback()" [openRefusal]="feedbackRefusal()" />
+  </div>
+  } @else {
+  <div class="panel" id="share-feedback" role="tabpanel" aria-label="Outside feedback">
+    <app-board-feedback [boardId]="boardId()" [canManage]="canManageFeedback()" [openRefusal]="feedbackRefusal()" />
+  </div>
+  }
 </aside>
