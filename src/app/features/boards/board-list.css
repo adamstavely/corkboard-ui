@@ -271,6 +271,12 @@ h1 {
   gap: var(--tc-space-1);
   margin-bottom: var(--tc-space-4);
 }
+.folder-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-1);
+  margin-left: auto;
+}
 .divider {
   width: 1px;
   height: 20px;

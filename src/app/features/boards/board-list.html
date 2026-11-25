@@ -86,9 +86,9 @@
             <p class="workspace">{{ org.name }}</p>
           }
           @if (session.org()?.role === 'owner') {
-            <tc-button size="sm" variant="ghost" label="Rename" (click)="orgNaming.set({ id: 'this', name: session.org()?.name ?? '' })"></tc-button>
+            <tc-button size="sm" variant="secondary" label="Rename" (click)="orgNaming.set({ id: 'this', name: session.org()?.name ?? '' })"></tc-button>
           }
-          <tc-button size="sm" variant="ghost" label="New workspace" (click)="orgNaming.set({ id: 'new', name: '' })"></tc-button>
+          <tc-button size="sm" variant="secondary" label="New workspace" (click)="orgNaming.set({ id: 'new', name: '' })"></tc-button>
         }
       </div>
     </div>
@@ -132,12 +132,15 @@
       <tc-button size="sm" label="Save" (click)="saveFolder()"></tc-button>
       <tc-button size="sm" variant="ghost" label="Cancel" (click)="naming.set(null)"></tc-button>
     } @else if (canCreate()) {
-      <tc-button size="sm" variant="ghost" label="New folder" (click)="naming.set({ id: 'new', name: '' })"></tc-button>
-      @if (currentFolder(); as f) {
-        <span class="divider" aria-hidden="true"></span>
-        <tc-button size="sm" variant="ghost" label="Rename folder" (click)="naming.set({ id: f.id, name: f.name })"></tc-button>
-        <tc-button size="sm" variant="ghost" label="Delete folder" (click)="deleteFolder(f.id, f.name)"></tc-button>
-      }
+      <!-- Folder actions at the row's end, apart from the filters, so they don't read as one. -->
+      <span class="folder-actions">
+        @if (currentFolder(); as f) {
+          <tc-button size="sm" variant="secondary" label="Rename folder" (click)="naming.set({ id: f.id, name: f.name })"></tc-button>
+          <tc-button size="sm" variant="secondary" label="Delete folder" (click)="deleteFolder(f.id, f.name)"></tc-button>
+          <span class="divider" aria-hidden="true"></span>
+        }
+        <tc-button size="sm" variant="secondary" label="New folder" (click)="naming.set({ id: 'new', name: '' })"></tc-button>
+      </span>
     }
   </div>
 
