@@ -58,7 +58,7 @@ import { noteExtensions, renderNoteText } from './note-text';
           <span class="vote-count" [attr.aria-label]="'Your votes: ' + v.mine">{{ v.mine }}</span>
           <button type="button" class="vote-more" [disabled]="!canVoteMore()" aria-label="Vote for this note" (click)="vote.emit(true)"><app-icon name="plus" /></button>
         } @else if (v.total !== null) {
-          <span class="vote-count" [attr.aria-label]="v.total + (v.total === 1 ? ' vote' : ' votes')"><app-icon name="thumbsUp" />{{ v.total }}</span>
+          <span class="vote-count" [attr.aria-label]="v.total + (v.total === 1 ? ' vote' : ' votes')"><app-icon name="vote" />{{ v.total }}</span>
         }
       </span>
     }

@@ -20,7 +20,7 @@ export const GENERIC_ICONS: { group: string; icons: { name: string; icon: IconNa
   {
     group: 'Devices and apps',
     icons: [
-      { name: 'browser', icon: 'app', label: 'Browser' },
+      { name: 'browser', icon: 'browser', label: 'Browser' },
       { name: 'mobile', icon: 'mobile', label: 'Mobile' },
       { name: 'monitor', icon: 'monitor', label: 'Desktop' },
     ],
@@ -76,9 +76,9 @@ export const GENERIC_ICONS: { group: string; icons: { name: string; icon: IconNa
     icons: [
       { name: 'bpmn-timer', icon: 'timer', label: 'Timer' },
       { name: 'bpmn-message', icon: 'mail', label: 'Message' },
-      { name: 'bpmn-signal', icon: 'triangle', label: 'Signal' },
+      { name: 'bpmn-signal', icon: 'bpmnSignal', label: 'Signal' },
       { name: 'bpmn-error', icon: 'bpmnError', label: 'Error' },
-      { name: 'bpmn-conditional', icon: 'doc', label: 'Condition' },
+      { name: 'bpmn-conditional', icon: 'bpmnConditional', label: 'Condition' },
       { name: 'bpmn-terminate', icon: 'bpmnTerminate', label: 'Terminate' },
       { name: 'bpmn-user', icon: 'user', label: 'User task' },
       { name: 'bpmn-service', icon: 'bpmnService', label: 'Service task' },
@@ -86,9 +86,9 @@ export const GENERIC_ICONS: { group: string; icons: { name: string; icon: IconNa
       { name: 'bpmn-send', icon: 'bpmnSend', label: 'Send task' },
       { name: 'bpmn-receive', icon: 'mail', label: 'Receive task' },
       { name: 'bpmn-manual', icon: 'bpmnManual', label: 'Manual task' },
-      { name: 'bpmn-rule', icon: 'table', label: 'Business rule' },
-      { name: 'bpmn-exclusive', icon: 'close', label: 'Exclusive gateway' },
-      { name: 'bpmn-parallel', icon: 'plus', label: 'Parallel gateway' },
+      { name: 'bpmn-rule', icon: 'bpmnRule', label: 'Business rule' },
+      { name: 'bpmn-exclusive', icon: 'bpmnExclusive', label: 'Exclusive gateway' },
+      { name: 'bpmn-parallel', icon: 'bpmnParallel', label: 'Parallel gateway' },
       { name: 'bpmn-inclusive', icon: 'bpmnInclusive', label: 'Inclusive gateway' },
       { name: 'bpmn-event', icon: 'bpmnEvent', label: 'Event-based gateway' },
       { name: 'bpmn-complex', icon: 'bpmnComplex', label: 'Complex gateway' },

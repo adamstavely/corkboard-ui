@@ -33,7 +33,7 @@ export const feedbackUrl = (token: string) => `${location.origin}/feedback/${tok
   imports: [Button, Select, Icon],
   template: `
     <section class="feedback" aria-labelledby="feedback-heading">
-      <h2 id="feedback-heading"><app-icon name="comments" /> Feedback from outside the team</h2>
+      <h2 id="feedback-heading"><app-icon name="feedback" /> Feedback from outside the team</h2>
       @if (state.hasValue()) {
         @if (state.value().link; as link) {
           <p class="hint">Anyone signed in to Corkboard with this link can comment, add notes, react, vote and answer polls. They never see the board's chat or history, and the team always sees who wrote what.</p>

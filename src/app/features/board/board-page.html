@@ -40,7 +40,7 @@
         <a class="brand" href="/" (click)="$event.preventDefault(); back()"><app-logo />Corkboard</a>
         <span class="sep" aria-hidden="true"></span>
         <span class="sync" [class.offline]="status() === 'offline' || status() === 'stuck'" role="status" [attr.aria-label]="statusText()" [attr.data-tip]="statusText()" tabindex="0">
-          <app-icon [name]="status() === 'offline' || status() === 'stuck' ? 'cloudOff' : 'cloud'" />
+          <app-icon [name]="status() === 'offline' || status() === 'stuck' ? 'cloudOff' : 'saved'" />
         </span>
         <input
           class="title"
@@ -120,7 +120,7 @@
         }
         @if (canRun()) {
           <button type="button" class="icon-btn" aria-label="Facilitate" data-tip="Facilitate: timer, voting, writing, breakouts" [attr.aria-pressed]="facilitating()" [disabled]="!connection()" (click)="toggleFacilitating()">
-            <app-icon name="timer" />
+            <app-icon name="facilitator" />
           </button>
         }
         <button type="button" class="icon-btn" aria-label="Chat" data-tip="Chat" [attr.aria-pressed]="chatOpen()" [disabled]="!connection()" (click)="chatOpen.set(!chatOpen())">
@@ -188,16 +188,16 @@
             </button>
             <div data-menu class="app-menu" aria-label="Present">
               <button type="button" class="app-menu-item" role="menuitem" (click)="presentOpen.set(false); startSlides()">
-                <app-icon name="frame" /><span class="app-menu-label">Present as slides</span><span class="app-menu-hint">Each frame, full screen</span>
+                <app-icon name="slides" /><span class="app-menu-label">Present as slides</span><span class="app-menu-hint">Each frame, full screen</span>
               </button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="presentOpen.set(false); togglePresenting()">
-                <app-icon name="users" /><span class="app-menu-label">Share my view</span><span class="app-menu-hint">Others can follow</span>
+                <app-icon name="shareView" /><span class="app-menu-label">Share my view</span><span class="app-menu-hint">Others can follow</span>
               </button>
             </div>
           </tc-menu-morph>
         }
         <button type="button" class="share" [attr.aria-pressed]="panel() === 'share'" [disabled]="!meta.hasValue()" (click)="togglePanel('share')">
-          <app-icon name="users" />Share
+          <app-icon name="share" />Share
         </button>
       </div>
       @if (status() === 'denied' || meta.error()) {
@@ -245,10 +245,10 @@
         />
         @if (slides(); as sl) {
           <div class="slide-bar app-island" role="toolbar" aria-label="Slides">
-            <button type="button" class="icon-btn" aria-label="Previous slide" data-tip="Back  ←" data-tip-side="top" [disabled]="sl.at === 0" (click)="slideTo(sl.at - 1)"><app-icon name="back" /></button>
+            <button type="button" class="icon-btn" aria-label="Previous slide" data-tip="Back  ←" data-tip-side="top" [disabled]="sl.at === 0" (click)="slideTo(sl.at - 1)"><app-icon name="arrowLeft" /></button>
             <span class="slide-count" aria-live="polite">{{ sl.at + 1 }} / {{ sl.ids.length }}</span>
             <span class="slide-title">{{ slideTitle() }}</span>
-            <button type="button" class="icon-btn" aria-label="Next slide" data-tip="Next  →" data-tip-side="top" [disabled]="sl.at === sl.ids.length - 1" (click)="slideTo(sl.at + 1)"><app-icon name="next" /></button>
+            <button type="button" class="icon-btn" aria-label="Next slide" data-tip="Next  →" data-tip-side="top" [disabled]="sl.at === sl.ids.length - 1" (click)="slideTo(sl.at + 1)"><app-icon name="arrowRight" /></button>
             <span class="sep" aria-hidden="true"></span>
             <button type="button" class="icon-btn" aria-label="End slides" data-tip="End  Esc" data-tip-side="top" (click)="endSlides()"><app-icon name="close" /></button>
           </div>

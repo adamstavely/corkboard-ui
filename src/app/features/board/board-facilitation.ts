@@ -76,7 +76,7 @@ const TOOLS: { id: Exclude<DockTool, 'room'>; label: string; icon: IconName }[] 
   { id: 'poll', label: 'Poll', icon: 'poll' },
   { id: 'poker', label: 'Planning poker', icon: 'poker' },
   { id: 'writing', label: 'Hidden writing', icon: 'hidden' },
-  { id: 'breakouts', label: 'Breakouts', icon: 'users' },
+  { id: 'breakouts', label: 'Breakouts', icon: 'breakouts' },
   { id: 'participation', label: 'Participation', icon: 'participation' },
 ];
 
