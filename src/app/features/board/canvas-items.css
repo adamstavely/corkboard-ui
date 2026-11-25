@@ -478,3 +478,57 @@
 .item.in-diagram .entity {
   border-radius: var(--diagram-radius, var(--tc-radius-sm));
 }
+
+/* A use case diagram's arrow: what it means, in a small bar under its style bar. */
+.arrow-relation {
+  position: absolute;
+  z-index: 7;
+  transform: translateX(-50%);
+}
+
+/* An editable diagram as its text, docked at the right: the text to change, Apply and Cancel. */
+.diagram-text {
+  position: absolute;
+  top: calc(var(--tc-space-3) + 52px);
+  right: var(--tc-space-4);
+  bottom: calc(var(--tc-space-4) + 56px);
+  z-index: 8;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--tc-space-2);
+  width: min(520px, calc(100% - 2 * var(--tc-space-4)));
+  padding: var(--tc-space-3);
+}
+.diagram-text-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tc-space-2);
+}
+.diagram-text-title {
+  flex: 1;
+  font-weight: var(--tc-font-weight-semibold);
+  color: var(--tc-text-strong);
+}
+.diagram-text textarea {
+  flex: 1;
+  min-height: 200px;
+  padding: var(--tc-space-2);
+  border: 1px solid var(--tc-border-default);
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-surface-base);
+  color: var(--tc-text-primary);
+  font-family: var(--tc-font-mono, ui-monospace, monospace);
+  font-size: var(--tc-font-size-sm);
+  resize: none;
+}
+.diagram-text-error,
+.diagram-text-hint {
+  margin: 0;
+  font-size: var(--tc-font-size-sm);
+}
+.diagram-text-error {
+  color: var(--tc-status-danger-fg);
+}
+.diagram-text-hint {
+  color: var(--tc-text-muted);
+}

@@ -23,6 +23,7 @@ import { logoPacks, shapeIcon } from './diagrams/shape-icons';
 import { IconPicker } from './icon-picker';
 import { addNextStep as addNextStepTo, bpmnMarkers, followC4Bracket, setBpmnMarker, setStepKind, stepKinds } from './diagrams/step-kinds';
 import { addC4Boundary, addUsecaseBoundary, C4_BOUNDARIES } from './diagrams/group-edit';
+import { relationLabels, replaceDiagram, setUsecaseRelation, USECASE_RELATIONS, usecaseArrow, type UsecaseRelation } from './diagrams/text-edit';
 import { addLane, addRemark, autoTidies, autoTidy, collapseToSubprocess, diagramOf, expandSubprocess, freshKey, nameStep, placeChildren, setAutoTidy, settleSteps } from './diagrams/flow-edit';
 import { HIGHLIGHTS, type HighlightColor } from './note-text';
 import { MenuMorph } from '@adamstavely/trenchcoat/angular/menu-morph';
@@ -508,7 +509,7 @@ export class Canvas {
   protected readonly oneTextFlowchart = computed(() => {
     const [id, ...more] = this.selection();
     const item = more.length ? null : this.board().items().find((i) => i.id === id);
-    return item?.kind === 'diagram' && (diagramKind(item.source) === 'flowchart' || isStateText(item.source) || isSequenceText(item.source)) ? item.id : null;
+    return item?.kind === 'diagram' && (diagramKind(item.source) === 'flowchart' || isDiagramText(item.source) || isSequenceText(item.source)) ? item.id : null;
   });
   /** The one editable diagram selected (its outer frame), for its bar: lay it out again, turn it, copy it as text. */
   protected readonly oneFlowchart = computed(() => {
@@ -2331,6 +2332,43 @@ export class Canvas {
   /** The arrows selected, for their style bar. */
   protected readonly selectedArrows = computed(() => this.board().connectors().filter((c) => this.selection().has(c.id)).map((c) => c.id));
   /** The style bar over a selected arrow: at the middle of the first one, in screen space, with its style. */
+  protected readonly relationOpen = signal(false);
+  protected readonly usecaseRelations = USECASE_RELATIONS;
+  protected readonly relationLabel = (r: UsecaseRelation) => relationLabels[r];
+  /** The one arrow selected, when it's a use case diagram's: what it means. */
+  protected readonly relationOf = computed(() => {
+    const arrows = this.selectedArrows();
+    return arrows.length === 1 ? usecaseArrow(this.board(), arrows[0]) : null;
+  });
+  protected setRelation(relation: UsecaseRelation): void {
+    const rel = this.relationOf();
+    if (rel && setUsecaseRelation(this.board(), rel.id, relation)) this.announcement.set(`Now ${relationLabels[relation]}`);
+  }
+
+  /** The editable diagram being edited as its text, with why the last try couldn't be used. */
+  protected readonly textEdit = signal<{ id: string; what: string; text: string; error?: string } | null>(null);
+  protected startTextEdit(): void {
+    const frame = this.oneFlowchart();
+    const text = frame && diagramText(this.board(), frame.id);
+    if (!frame || text == null) return;
+    const type = diagramType(this.board(), frame.id);
+    const what = type ? DIAGRAM_NAMES[type] : 'diagram';
+    this.textEdit.set({ id: frame.id, what: what.charAt(0).toUpperCase() + what.slice(1), text });
+    this.#focusSoon();
+  }
+  protected applyTextEdit(): void {
+    const t = this.textEdit();
+    if (!t) return;
+    const result = replaceDiagram(this.board(), t.id, t.text);
+    if ('error' in result) {
+      this.textEdit.set({ ...t, error: result.error });
+      return;
+    }
+    this.textEdit.set(null);
+    this.selection.set(new Set([result.id]));
+    this.announcement.set(['Diagram drawn again from its text', ...result.notices].join('. '));
+  }
+
   protected readonly arrowBar = computed(() => {
     const [id] = this.selectedArrows();
     if (!id || this.readOnly() || this.marquee()) return null;
