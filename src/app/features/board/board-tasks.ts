@@ -50,7 +50,7 @@ const LABELS: TaskLabel[] = [{ id: ACTION_LABEL, label: 'Action item', color: 'v
           <ul class="linked" aria-label="Tasks sent to issue trackers">
             @for (t of linked(); track t.id) {
               <li>
-                <a [href]="t.url" target="_blank" rel="noopener noreferrer">{{ t.key }} <app-icon name="arrowRight" /> {{ t.issue }}</a>
+                <a [href]="t.url" target="_blank" rel="noopener noreferrer">{{ t.key }} <app-icon name="becomes" /> {{ t.issue }}</a>
                 <span class="when">{{ t.synced }}</span>
                 @if (t.trackerAssignee) {
                   <span class="who">Assigned to {{ t.trackerAssignee }} in {{ t.tracker }}</span>

@@ -661,7 +661,7 @@
             </form>
             @for (tag of selectedTags(); track tag) {
               <button type="button" class="app-menu-item" role="menuitem" [attr.aria-label]="'Remove tag ' + tag" (click)="board().removeTag(selectedNoteIds(), tag)">
-                <span class="app-menu-label">#{{ tag }}</span><app-icon name="close" />
+                <span class="app-menu-label">#{{ tag }}</span><app-icon name="trash" />
               </button>
             }
           </div>
@@ -694,17 +694,17 @@
       @if (!readOnly() && can('diagrams') && oneDiagram(); as d) {
         <button type="button" class="icon-btn" aria-label="Edit diagram" data-tip="Edit diagram" (click)="editDiagram.emit(d)"><app-icon name="diagram" /></button>
         @if (oneTextFlowchart()) {
-          <button type="button" class="icon-btn" aria-label="Make editable: parts you can change in place" data-tip="Make editable" (click)="makeEditable()"><app-icon name="flowchart" /></button>
+          <button type="button" class="icon-btn" aria-label="Make editable: parts you can change in place" data-tip="Make editable" (click)="makeEditable()"><app-icon name="makeEditable" /></button>
         }
       }
       @if (!readOnly() && can('diagrams') && oneFlowchart(); as f) {
         <button type="button" class="icon-btn" aria-label="Tidy: lay the flowchart out again" data-tip="Tidy" (click)="tidyDiagram()"><app-icon name="arrange" /></button>
         @if (flowKind(f.part?.type) && f.part?.dir === 'TB') {
-          <button type="button" class="icon-btn" aria-label="Run left to right" data-tip="Run left to right" (click)="tidyDiagram('LR')"><app-icon name="arrowRight" /></button>
+          <button type="button" class="icon-btn" aria-label="Run left to right" data-tip="Run left to right" (click)="tidyDiagram('LR')"><app-icon name="runAcross" /></button>
         } @else if (flowKind(f.part?.type)) {
-          <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="backward" /></button>
+          <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="runDown" /></button>
         }
-        <button type="button" class="icon-btn" [attr.aria-label]="f.part?.type === 'bpmn' ? 'Copy as BPMN XML' : f.part?.type === 'c4' ? 'Copy as C4 JSON' : 'Copy as Mermaid text'" [attr.data-tip]="f.part?.type === 'bpmn' ? 'Copy as BPMN' : 'Copy as text'" (click)="copyDiagramText()"><app-icon name="code" /></button>
+        <button type="button" class="icon-btn" [attr.aria-label]="f.part?.type === 'bpmn' ? 'Copy as BPMN XML' : f.part?.type === 'c4' ? 'Copy as C4 JSON' : 'Copy as Mermaid text'" [attr.data-tip]="f.part?.type === 'bpmn' ? 'Copy as BPMN' : 'Copy as text'" (click)="copyDiagramText()"><app-icon name="copy" /></button>
         @if (f.part?.type === 'flowchart') {
           <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
         }
@@ -714,7 +714,7 @@
         }
         @if (f.part?.type === 'erd') {
           <tc-menu-morph [open]="columnsOpen()" (tc-open-change)="columnsOpen.set($event.detail.open)">
-            <button type="button" class="icon-btn" data-menu-trigger aria-label="Columns shown" data-tip="Columns"><app-icon name="table" /></button>
+            <button type="button" class="icon-btn" data-menu-trigger aria-label="Columns shown" data-tip="Columns"><app-icon name="columns" /></button>
             <div data-menu class="app-menu" aria-label="Columns shown">
               @for (d of erdDetails; track d.id) {
                 <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="(erdDisplayOf(f.id).detail ?? 'all') === d.id" (click)="columnsOpen.set(false); setErdDetail(d.id)">
@@ -747,7 +747,7 @@
           </tc-menu-morph>
         }
         @if (parentOf(f); as parent) {
-          <button type="button" class="icon-btn" [attr.aria-label]="'Back to ' + parent.title" data-tip="Back to its flowchart" (click)="backToParent()"><app-icon name="back" /></button>
+          <button type="button" class="icon-btn" [attr.aria-label]="'Back to ' + parent.title" data-tip="Back to its flowchart" (click)="backToParent()"><app-icon name="toParent" /></button>
         }
         <button
           type="button"
@@ -764,7 +764,7 @@
         <button type="button" class="icon-btn" aria-label="Draw an arrow from this step" data-tip="Connect" (click)="connectFromStep()"><app-icon name="arrow" /></button>
         <button type="button" class="icon-btn" aria-label="Add a note to this step" data-tip="Add note" (click)="addStepRemark()"><app-icon name="sticky" /></button>
         @if (subOf(s); as sub) {
-          <button type="button" class="icon-btn" [attr.aria-label]="'Open the sub-process ' + sub.title" data-tip="Open sub-process" (click)="openSubprocess()"><app-icon name="external" /></button>
+          <button type="button" class="icon-btn" [attr.aria-label]="'Open the sub-process ' + sub.title" data-tip="Open sub-process" (click)="openSubprocess()"><app-icon name="openSub" /></button>
           <button type="button" class="icon-btn" aria-label="Put the sub-process's steps back here" data-tip="Put steps back" (click)="expandStep()"><app-icon name="unfold" /></button>
         }
       }
@@ -801,7 +801,7 @@
         <tc-menu-morph align="end" [open]="moreOpen()" (tc-open-change)="moreOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="More" data-tip="More"><app-icon name="more" /></button>
           <div data-menu class="app-menu" aria-label="More">
-            <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="copy" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
+            <button type="button" class="app-menu-item" role="menuitem" (click)="moreOpen.set(false); duplicateSelection()"><app-icon name="duplicate" /><span class="app-menu-label">Duplicate</span><kbd>{{ modKey }}D</kbd></button>
             @if (selectedNoteIds().length > 1) {
               @if (mindMapNotes() > 1) {
                 <button type="button" class="app-menu-item" role="menuitem" (click)="makeMindMap()"><app-icon name="mindmap" /><span class="app-menu-label">Make a mind map</span></button>
@@ -886,12 +886,12 @@
   <div class="app-island zoom-panel" role="toolbar" aria-label="View">
     <button type="button" class="icon-btn" aria-label="Fit everything" data-tip="Fit everything  ⇧1" data-tip-side="top" (click)="fitAll()"><app-icon name="fit" /></button>
     <span class="sep" aria-hidden="true"></span>
-    <button type="button" class="icon-btn" aria-label="Zoom out" data-tip="Zoom out" data-tip-side="top" (click)="zoomBy(1 / 1.25)"><app-icon name="minus" /></button>
+    <button type="button" class="icon-btn" aria-label="Zoom out" data-tip="Zoom out" data-tip-side="top" (click)="zoomBy(1 / 1.25)"><app-icon name="zoomOut" /></button>
     <button type="button" class="zoom-level" aria-label="Reset zoom to 100%" data-tip="Reset to 100%" data-tip-side="top" (click)="resetZoom()">{{ zoomPercent() }}</button>
-    <button type="button" class="icon-btn" aria-label="Zoom in" data-tip="Zoom in" data-tip-side="top" (click)="zoomBy(1.25)"><app-icon name="plus" /></button>
+    <button type="button" class="icon-btn" aria-label="Zoom in" data-tip="Zoom in" data-tip-side="top" (click)="zoomBy(1.25)"><app-icon name="zoomIn" /></button>
     <span class="sep" aria-hidden="true"></span>
     <tc-menu-morph side="top" align="end" [open]="keysOpen()" (tc-open-change)="keysOpen.set($event.detail.open)">
-      <button type="button" class="icon-btn" data-menu-trigger aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts" data-tip-side="top"><app-icon name="help" /></button>
+      <button type="button" class="icon-btn" data-menu-trigger aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts" data-tip-side="top"><app-icon name="shortcuts" /></button>
       <div data-menu class="app-menu" aria-label="Keyboard shortcuts">
         @for (k of shortcuts; track k.label) {
           <div class="app-menu-item" role="menuitem" tabindex="-1"><span class="app-menu-label">{{ k.label }}</span><kbd>{{ k.keys }}</kbd></div>
@@ -939,8 +939,8 @@
               <button type="button" class="app-menu-item" role="menuitem" (click)="addC4()"><app-icon name="landscape" /><span class="app-menu-label">C4 system landscape</span><span class="app-menu-hint">People, systems, containers</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addSequence()"><app-icon name="sequence" /><span class="app-menu-label">Sequence diagram</span><span class="app-menu-hint">Who calls whom, in order</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addStateMachine()"><app-icon name="stateMachine" /><span class="app-menu-label">State machine</span><span class="app-menu-hint">States and what moves between them</span></button>
-              <button type="button" class="app-menu-item" role="menuitem" (click)="addBpmn()"><app-icon name="flowchart" /><span class="app-menu-label">BPMN process</span><span class="app-menu-hint">Events, tasks, gateways, pools</span></button>
-              <button type="button" class="app-menu-item" role="menuitem" (click)="addErd()"><app-icon name="database" /><span class="app-menu-label">ER diagram</span><span class="app-menu-hint">Tables, keys and relationships</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addBpmn()"><app-icon name="bpmn" /><span class="app-menu-label">BPMN process</span><span class="app-menu-hint">Events, tasks, gateways, pools</span></button>
+              <button type="button" class="app-menu-item" role="menuitem" (click)="addErd()"><app-icon name="erd" /><span class="app-menu-label">ER diagram</span><span class="app-menu-hint">Tables, keys and relationships</span></button>
               <button type="button" class="app-menu-item" role="menuitem" (click)="addDiagram('flowchart')"><app-icon name="mermaid" /><span class="app-menu-label">Mermaid diagram</span><span class="app-menu-hint">Any Mermaid code</span></button>
               <button
                 type="button"
@@ -951,7 +951,7 @@
                 [attr.aria-expanded]="moreDiagramsOpen()"
                 (click)="moreDiagramsOpen.set(!moreDiagramsOpen())"
               >
-                <app-icon name="mermaid" /><span class="app-menu-label">More Mermaid starters</span><span class="app-menu-hint">Class, Gantt, pie…</span><app-icon [name]="moreDiagramsOpen() ? 'up' : 'chevron'" />
+                <app-icon name="mermaid" /><span class="app-menu-label">More Mermaid starters</span><span class="app-menu-hint">Class, Gantt, pie…</span><app-icon [name]="moreDiagramsOpen() ? 'collapse' : 'expand'" />
               </button>
               @if (moreDiagramsOpen()) {
                 <div id="more-diagrams" class="more-diagrams" role="group" aria-label="More Mermaid starters">

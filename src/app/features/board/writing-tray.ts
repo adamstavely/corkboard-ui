@@ -41,7 +41,7 @@ import type { Writing } from './facilitation';
               } @else {
                 <button type="button" class="text" [attr.aria-label]="'Edit: ' + d.text" (click)="editing.set(d.id)">{{ d.text }}</button>
               }
-              <button type="button" class="remove" [attr.aria-label]="'Delete: ' + d.text" (click)="remove(d)"><app-icon name="close" /></button>
+              <button type="button" class="remove" [attr.aria-label]="'Delete: ' + d.text" (click)="remove(d)"><app-icon name="trash" /></button>
             </li>
           }
         </ul>

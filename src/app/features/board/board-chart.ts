@@ -34,7 +34,7 @@ interface DraftRow {
           <div class="row">
             <input type="text" class="text-input grow" maxlength="80" [attr.aria-label]="'Row ' + (i + 1) + ' label'" placeholder="Label" [value]="r.label" (input)="setRow(i, { label: $any($event.target).value })" />
             <input type="text" inputmode="decimal" class="text-input number" [attr.aria-label]="'Row ' + (i + 1) + ' value'" placeholder="0" [value]="r.value" (input)="setRow(i, { value: $any($event.target).value })" />
-            <button type="button" class="icon-btn" [attr.aria-label]="'Remove row ' + (i + 1)" data-tip="Remove" (click)="removeRow(i)"><app-icon name="close" /></button>
+            <button type="button" class="icon-btn" [attr.aria-label]="'Remove row ' + (i + 1)" data-tip="Remove" (click)="removeRow(i)"><app-icon name="trash" /></button>
           </div>
         }
       </div>

@@ -20,7 +20,7 @@ import type { BoardChanges as Changes } from './versions';
       <h3>{{ c.edited.length }} note{{ c.edited.length === 1 ? '' : 's' }} edited</h3>
       <ul>
         @for (e of c.edited; track $index) {
-          <li><del>{{ e.before }}</del> <app-icon name="arrowRight" /><span class="sr-only">now</span> <ins>{{ e.after }}</ins></li>
+          <li><del>{{ e.before }}</del> <app-icon name="becomes" /><span class="sr-only">now</span> <ins>{{ e.after }}</ins></li>
         }
       </ul>
     }

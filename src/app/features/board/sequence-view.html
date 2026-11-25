@@ -144,7 +144,7 @@
           [attr.aria-expanded]="!f.collapsed"
           (click)="$event.stopPropagation(); toggleCollapsed(f.id)"
         >
-          <app-icon [name]="f.collapsed ? 'unfold' : 'chevron'" />
+          <app-icon [name]="f.collapsed ? 'unfold' : 'fold'" />
         </button>
       }
       @if (f.kind !== 'group') {
@@ -359,7 +359,7 @@
               aria-label="Send a message to…"
               data-tip="Message to…"
             >
-              <app-icon name="arrowRight" />
+              <app-icon name="message" />
             </button>
             <button
               type="button"
@@ -378,7 +378,7 @@
               [disabled]="model().participants[0]?.id === p.id"
               (click)="moveParticipant(-1)"
             >
-              <app-icon name="arrowLeft" />
+              <app-icon name="moveLeft" />
             </button>
             <button
               type="button"
@@ -388,7 +388,7 @@
               [disabled]="model().participants.at(-1)?.id === p.id"
               (click)="moveParticipant(1)"
             >
-              <app-icon name="arrowRight" />
+              <app-icon name="moveRight" />
             </button>
             <button
               type="button"
@@ -472,7 +472,7 @@
               [disabled]="model().messages[0]?.id === m.id"
               (click)="moveMessage(-1)"
             >
-              <app-icon name="up" />
+              <app-icon name="moveUp" />
             </button>
             <button
               type="button"
@@ -482,7 +482,7 @@
               [disabled]="model().messages.at(-1)?.id === m.id"
               (click)="moveMessage(1)"
             >
-              <app-icon name="chevron" />
+              <app-icon name="moveDown" />
             </button>
             <button
               type="button"

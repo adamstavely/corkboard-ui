@@ -26,7 +26,7 @@
 
     @if (privacy().on) {
       <div class="item" role="status">
-        <app-icon name="hidden" />
+        <app-icon name="privateMode" />
         <span>Private mode: pointers and names are hidden</span>
         @if (canRun() && !othersSeat()) {
           <tc-button size="sm" variant="ghost" label="Turn off" (click)="setPrivacy(false)"></tc-button>
@@ -242,7 +242,7 @@
                 <div class="row">
                   <input type="text" class="text-input grow" maxlength="80" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1)" [value]="o" (input)="setPollOption(i, $any($event.target).value)" />
                   @if (pollOptions().length > 2) {
-                    <button type="button" class="icon-btn" [attr.aria-label]="'Remove option ' + (i + 1)" data-tip="Remove" (click)="pollOptions.set(pollOptions().filter((_, at) => at !== i))"><app-icon name="close" /></button>
+                    <button type="button" class="icon-btn" [attr.aria-label]="'Remove option ' + (i + 1)" data-tip="Remove" (click)="pollOptions.set(pollOptions().filter((_, at) => at !== i))"><app-icon name="trash" /></button>
                   }
                 </div>
               }
@@ -305,7 +305,7 @@
           }
         }
         @case ('participation') {
-          <p class="hint private-note"><app-icon name="hidden" /> For the facilitator only: participants never see this.</p>
+          <p class="hint private-note"><app-icon name="facilitatorOnly" /> For the facilitator only: participants never see this.</p>
           @if (participation(); as p) {
             <p class="hint">{{ sessionLine(p) }}.</p>
             @for (line of summary(); track $index) {
@@ -333,7 +333,7 @@
           <div class="row"><tc-button size="sm" variant="ghost" label="Refresh" (click)="refreshParticipation()"></tc-button></div>
         }
         @case ('room') {
-          <h4><app-icon name="facilitator" /> Lead the session</h4>
+          <h4><app-icon name="room" /> Lead the session</h4>
           @if (facilitating()) {
             <p class="hint">You're facilitating. Bring everyone to what you're looking at.</p>
             <div class="row">
@@ -352,7 +352,7 @@
               <tc-button size="sm" variant="ghost" label="Bring everyone here" (click)="bringEveryone.emit()"></tc-button>
             </div>
           }
-          <h4><app-icon name="hidden" /> Private mode</h4>
+          <h4><app-icon name="privateMode" /> Private mode</h4>
           <p class="hint">Hides everyone's pointers, selections and names (yours stays, as facilitator) so people vote and write without following the crowd.</p>
           @if (!othersSeat()) {
             <div class="row">
@@ -459,7 +459,7 @@
                   @if (frames().length) {
                     <tc-select class="grow" [label]="'Step ' + (i + 1) + ' frame'" [labelVisible]="false" [options]="stepFrames()" [value]="st.frameId" (tc-value-change)="updateStep(i, { frameId: $event.detail.value })"></tc-select>
                   }
-                  <button type="button" class="icon-btn" [attr.aria-label]="'Remove step ' + (i + 1)" data-tip="Remove" (click)="removeStep(i)"><app-icon name="close" /></button>
+                  <button type="button" class="icon-btn" [attr.aria-label]="'Remove step ' + (i + 1)" data-tip="Remove" (click)="removeStep(i)"><app-icon name="trash" /></button>
                 </div>
                 <!-- What the step runs when it starts; moving on wraps it up. -->
                 <div class="row">
