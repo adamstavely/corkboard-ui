@@ -299,7 +299,6 @@ export class Canvas {
   readonly #connectFrom = signal<string | null>(null);
   protected readonly createOpen = signal(false);
   protected readonly colourOpen = signal(false);
-  protected readonly shapeOpen = signal(false);
   protected readonly iconOpen = signal(false);
   /** What an icon name on a shape draws (a logo pack loads on first use). */
   protected readonly shapeIconOf = (name: string | undefined) => shapeIcon(name, logoPacks());

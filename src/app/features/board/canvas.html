@@ -580,20 +580,17 @@
         </tc-menu-morph>
       }
       @if (!readOnly() && selectedShapes().length) {
-        <tc-menu-morph [open]="shapeOpen()" (tc-open-change)="shapeOpen.set($event.detail.open)">
-          <button type="button" class="icon-btn" data-menu-trigger aria-label="Shape" data-tip="Shape"><app-icon name="shapes" /></button>
-          <div data-menu class="app-menu" aria-label="Shape">
-            @for (shape of shapes; track shape) {
-              <button type="button" class="app-menu-item" role="menuitem" (click)="shapeOpen.set(false); board().setShape(selectedShapes(), shape)">
-                <app-icon [name]="shapeIcons[shape]" /><span class="app-menu-label">{{ shapeNames[shape] }}</span>
-              </button>
-            }
-            <hr />
-            <button type="button" class="app-menu-item" role="menuitemcheckbox" [attr.aria-checked]="shapesSeeThrough()" (click)="shapeOpen.set(false); board().setShapeFill(selectedShapes(), shapesSeeThrough() ? 'solid' : 'tint')">
-              <app-icon name="seeThrough" /><span class="app-menu-label">See-through</span>
-            </button>
-          </div>
-        </tc-menu-morph>
+        <!-- See-through or solid: the one thing a placed shape's bar changes about it (a diagram step's kind is its Kind menu). -->
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="See-through"
+          data-tip="See-through"
+          [attr.aria-pressed]="shapesSeeThrough()"
+          (click)="board().setShapeFill(selectedShapes(), shapesSeeThrough() ? 'solid' : 'tint')"
+        >
+          <app-icon name="seeThrough" />
+        </button>
         <tc-menu-morph [open]="iconOpen()" (tc-open-change)="iconOpen.set($event.detail.open)">
           <button type="button" class="icon-btn" data-menu-trigger aria-label="Icon or logo" data-tip="Icon"><app-icon name="iconPicker" /></button>
           <div data-menu class="app-menu icon-menu">
