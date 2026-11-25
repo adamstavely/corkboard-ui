@@ -160,16 +160,18 @@
     <ul class="grid">
       @for (board of cards(); track board.id) {
         <li>
-          <tc-collection-card
-            [heading]="board.title"
-            [meta]="board.meta"
-            [href]="board.href"
-            action-label="Open board"
-            (tc-open)="open($event, board.href)"
-          ></tc-collection-card>
-          <button type="button" class="star" [class.on]="board.starred" [attr.aria-pressed]="board.starred" [attr.aria-label]="(board.starred ? 'Unstar ' : 'Star ') + board.title" (click)="toggleStar(board.id, board.starred)">
-            <app-icon name="star" />
-          </button>
+          <div class="card">
+            <tc-collection-card
+              [heading]="board.title"
+              [meta]="board.meta"
+              [href]="board.href"
+              action-label="Open board"
+              (tc-open)="open($event, board.href)"
+            ></tc-collection-card>
+            <button type="button" class="star" [class.on]="board.starred" [attr.aria-pressed]="board.starred" [attr.aria-label]="(board.starred ? 'Unstar ' : 'Star ') + board.title" (click)="toggleStar(board.id, board.starred)">
+              <app-icon name="star" />
+            </button>
+          </div>
           @if (board.canFile && folderList().length) {
             <div class="card-actions">
               <tc-select label="Folder" [labelVisible]="false" [options]="folderOptions()" [value]="board.folderId ?? ''" (tc-value-change)="moveTo(board.id, $event.detail.value)"></tc-select>
@@ -181,7 +183,7 @@
   }
 </div>
 
-<tc-dialog
+<tc-dialog class="pinned-actions"
   size="xl"
   label="New board"
   description="Start blank, or from a template for a retro, ideas, a plan and more."

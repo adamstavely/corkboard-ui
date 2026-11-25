@@ -299,10 +299,15 @@ h1 {
   gap: var(--tc-space-2);
   margin-top: var(--tc-space-1);
 }
+/* The card and its star: the star sits in the card's bottom right corner, on the row of its "Open board" link, which
+   leaves that side free at any width (at the top it would cover the edited time beside the title). */
+.card {
+  position: relative;
+}
 .star {
   position: absolute;
-  top: var(--tc-space-2);
-  right: var(--tc-space-2);
+  bottom: var(--tc-space-3);
+  right: var(--tc-space-3);
   z-index: 1;
   width: 28px;
   height: 28px;
