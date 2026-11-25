@@ -58,16 +58,39 @@
       @if (!introOpen()) {
         <button type="button" class="link" (click)="setIntro(true)">What's Corkboard?</button>
       }
-      @if (orgOptions().length > 1) {
-        <tc-select
-          label="Workspace"
-          [options]="orgOptions()"
-          [value]="session.org()?.id ?? ''"
-          (tc-value-change)="session.selectOrg($event.detail.value)"
-        ></tc-select>
-      } @else if (session.org(); as org) {
-        <p class="workspace">{{ org.name }}</p>
-      }
+      <!-- Which workspace: pick one, start a new one, or (owners) rename this one. -->
+      <div class="workspace-row">
+        @if (orgNaming(); as n) {
+          <input
+            class="folder-name"
+            [attr.aria-label]="n.id === 'new' ? 'New workspace name' : 'Workspace name'"
+            maxlength="80"
+            [placeholder]="n.id === 'new' ? 'e.g. Technical Directors' : ''"
+            [value]="n.name"
+            (input)="orgNaming.set({ id: n.id, name: $any($event.target).value })"
+            (keydown.enter)="saveOrg()"
+            (keydown.escape)="orgNaming.set(null)"
+            #orgName
+          />
+          <tc-button size="sm" [label]="n.id === 'new' ? 'Create' : 'Save'" [loading]="savingOrg()" (click)="saveOrg()"></tc-button>
+          <tc-button size="sm" variant="ghost" label="Cancel" (click)="orgNaming.set(null)"></tc-button>
+        } @else {
+          @if (orgOptions().length > 1) {
+            <tc-select
+              label="Workspace"
+              [options]="orgOptions()"
+              [value]="session.org()?.id ?? ''"
+              (tc-value-change)="session.selectOrg($event.detail.value)"
+            ></tc-select>
+          } @else if (session.org(); as org) {
+            <p class="workspace">{{ org.name }}</p>
+          }
+          @if (session.org()?.role === 'owner') {
+            <tc-button size="sm" variant="ghost" label="Rename" (click)="orgNaming.set({ id: 'this', name: session.org()?.name ?? '' })"></tc-button>
+          }
+          <tc-button size="sm" variant="ghost" label="New workspace" (click)="orgNaming.set({ id: 'new', name: '' })"></tc-button>
+        }
+      </div>
     </div>
     <div class="actions">
       <tc-button variant="secondary" label="AI models" (click)="go('/models')"></tc-button>

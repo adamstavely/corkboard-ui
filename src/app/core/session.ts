@@ -5,6 +5,8 @@ import { membersControllerAccept } from '../api/generated/fn/members/members-con
 import { membersControllerAcceptLink } from '../api/generated/fn/members/members-controller-accept-link';
 import { membersControllerDecline } from '../api/generated/fn/members/members-controller-decline';
 import { membersControllerMine } from '../api/generated/fn/members/members-controller-mine';
+import { orgsControllerCreate } from '../api/generated/fn/orgs/orgs-controller-create';
+import { orgsControllerRename } from '../api/generated/fn/orgs/orgs-controller-rename';
 import type { OrgDto } from '../api/generated/models/org-dto';
 import { Auth } from './auth';
 
@@ -54,6 +56,20 @@ export class Session {
     } catch {
       // Blocked storage: the choice lasts for this page only.
     }
+  }
+
+  /** Starts a workspace they own, and switches to it. */
+  async createOrg(name: string): Promise<OrgDto> {
+    const org = await this.#api.invoke(orgsControllerCreate, { body: { name } });
+    this.selectOrg(org.id);
+    this.me.reload();
+    return org;
+  }
+
+  /** Owners: renames a workspace. */
+  async renameOrg(orgId: string, name: string): Promise<void> {
+    await this.#api.invoke(orgsControllerRename, { orgId, body: { name } });
+    this.me.reload();
   }
 
   /** Joins a workspace they were invited to, and switches to it. */

@@ -231,6 +231,17 @@ h1 {
   margin: var(--tc-space-1) 0 0;
   color: var(--tc-text-muted);
 }
+.workspace-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--tc-space-2);
+  margin-top: var(--tc-space-1);
+}
+.workspace-row .workspace {
+  margin: 0;
+  align-self: center;
+}
 
 .grid {
   list-style: none;
