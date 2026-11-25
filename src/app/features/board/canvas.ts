@@ -72,7 +72,7 @@ export type Tool = 'select' | 'note' | 'text' | ShapeKind | 'frame' | 'table' | 
 type PlacingTool = Extract<Tool, 'note' | 'text' | ShapeKind | 'frame' | 'table'>;
 const PLACING: ReadonlySet<Tool> = new Set<Tool>(['note', 'text', 'rect', 'ellipse', 'diamond', 'triangle', 'frame', 'table']);
 /** Single keys that pick a tool, as the rail shows them. N adds a note straight away (see onKeyDown). */
-const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: 'rect', o: 'ellipse', f: 'frame', p: 'pen', l: 'connect', c: 'comment' };
+const TOOL_KEYS: Readonly<Record<string, Tool>> = { v: 'select', t: 'text', r: 'rect', o: 'ellipse', f: 'frame', p: 'pen', l: 'connect' };
 /** A drag smaller than this, on screen, is a click: the thing gets its usual size. */
 const DRAG_MIN = 8;
 /** The highest a bar over the selection goes on screen: just under the board's header. */
@@ -2496,7 +2496,6 @@ export class Canvas {
     { label: 'Arrow', keys: 'L' },
     { label: 'Pen', keys: 'P' },
     { label: 'Frame', keys: 'F' },
-    { label: 'Comment', keys: 'C' },
     { label: 'Put the tool down', keys: 'Esc' },
     { label: 'Search and commands', keys: `${this.modKey}K` },
     { label: 'Find on this board', keys: `${this.modKey}F` },

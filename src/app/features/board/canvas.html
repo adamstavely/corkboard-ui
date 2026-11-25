@@ -688,7 +688,7 @@
           [attr.aria-pressed]="pinning()"
           (click)="commentOnSelection()"
         >
-          <app-icon name="comment" />
+          <app-icon name="comments" />
         </button>
       }
       @if (!readOnly() && can('diagrams') && oneDiagram(); as d) {
@@ -1043,7 +1043,6 @@
         </button>
       }
       @if (canReact()) {
-        <button type="button" class="icon-btn" aria-label="Comment" data-tip="Comment  C" data-tip-side="right" [attr.aria-pressed]="tool() === 'comment'" (click)="pickTool('comment')"><app-icon name="comment" /></button>
       }
     </div>
     @if (pen() && !readOnly()) {
