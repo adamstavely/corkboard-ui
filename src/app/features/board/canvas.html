@@ -1054,10 +1054,17 @@
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickArrow('elbow')"><app-icon name="elbow" /><span class="app-menu-label">Right-angle arrow</span></button>
             <button type="button" class="app-menu-item" role="menuitem" (click)="pickArrow('curve')"><app-icon name="curve" /><span class="app-menu-label">Curved arrow</span></button>
             <hr />
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('rect')"><app-icon name="rect" /><span class="app-menu-label">Rectangle</span><kbd>R</kbd></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('ellipse')"><app-icon name="oval" /><span class="app-menu-label">Oval</span><kbd>O</kbd></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('diamond')"><app-icon name="rhombus" /><span class="app-menu-label">Rhombus</span></button>
-            <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool('triangle')"><app-icon name="triangle" /><span class="app-menu-label">Triangle</span></button>
+            <!-- Every shape, two to a row so the list stays short. -->
+            <div class="shape-grid" role="group" aria-label="Shapes">
+            @for (shape of shapes; track shape) {
+              <button type="button" class="app-menu-item" role="menuitem" (click)="pickTool(shape)">
+                <app-icon [name]="shapeIcons[shape]" /><span class="app-menu-label">{{ shapeNames[shape] }}</span>
+                @if (shapeKeys[shape]; as key) {
+                  <kbd>{{ key }}</kbd>
+                }
+              </button>
+            }
+            </div>
           </div>
         </tc-menu-morph>
         <button type="button" class="icon-btn" aria-label="Pen" data-tip="Pen  P" data-tip-side="right" [attr.aria-pressed]="tool() === 'pen'" (click)="pickTool('pen')"><app-icon name="pen" /></button>
