@@ -705,6 +705,7 @@
           <button type="button" class="icon-btn" aria-label="Run top to bottom" data-tip="Run top to bottom" (click)="tidyDiagram('TB')"><app-icon name="runDown" /></button>
         }
         <button type="button" class="icon-btn" [attr.aria-label]="f.part?.type === 'bpmn' ? 'Copy as BPMN XML' : f.part?.type === 'c4' ? 'Copy as C4 JSON' : 'Copy as Mermaid text'" [attr.data-tip]="f.part?.type === 'bpmn' ? 'Copy as BPMN' : 'Copy as text'" (click)="copyDiagramText()"><app-icon name="copy" /></button>
+        <button type="button" class="icon-btn" aria-label="Edit the diagram as text" data-tip="Edit as text" (click)="startTextEdit()"><app-icon name="code" /></button>
         @if (f.part?.type === 'flowchart' || f.part?.type === 'bpmn') {
           <button type="button" class="icon-btn" aria-label="Add a lane" data-tip="Add lane" (click)="addLaneToDiagram()"><app-icon name="addLane" /></button>
         }
@@ -947,6 +948,21 @@
 }
 
 @if (arrowBar(); as bar) {
+  @if (relationOf(); as rel) {
+    <!-- A use case diagram's arrow: what it means, under its style bar. -->
+    <div class="app-island arrow-relation" role="toolbar" aria-label="Relation" [style.left.px]="bar.left" [style.top.px]="bar.top + 52">
+      <tc-menu-morph [open]="relationOpen()" (tc-open-change)="relationOpen.set($event.detail.open)">
+        <button type="button" class="icon-btn text-btn" data-menu-trigger aria-label="Relation: what the arrow means" data-tip="Relation">{{ relationLabel(rel.relation) }}</button>
+        <div data-menu class="app-menu" aria-label="Relation">
+          @for (r of usecaseRelations; track r.kind) {
+            <button type="button" class="app-menu-item" role="menuitemradio" [attr.aria-checked]="rel.relation === r.kind" (click)="relationOpen.set(false); setRelation(r.kind)">
+              <span class="app-menu-label">{{ r.label }}</span>
+            </button>
+          }
+        </div>
+      </tc-menu-morph>
+    </div>
+  }
   <app-arrow-style
     class="arrow-bar"
     label="Arrow"
@@ -1085,4 +1101,21 @@
     [editor]="editorElement()"
     (tc-command)="onFormat($event)"
   ></tc-selection-toolbar>
+}
+
+@if (textEdit(); as t) {
+  <!-- An editable diagram as its text: change it and it's drawn again in its place. -->
+  <form class="app-island diagram-text" aria-label="Edit the diagram as text" (submit)="$event.preventDefault(); applyTextEdit()" (keydown.escape)="textEdit.set(null)">
+    <div class="diagram-text-head">
+      <span class="diagram-text-title">{{ t.what }} as text</span>
+      <tc-button size="sm" label="Apply" (click)="applyTextEdit()"></tc-button>
+      <tc-button size="sm" variant="ghost" label="Cancel" (click)="textEdit.set(null)"></tc-button>
+    </div>
+    <textarea aria-label="The diagram's text" spellcheck="false" [value]="t.text" (input)="textEdit.set({ id: t.id, what: t.what, text: $any($event.target).value })" [attr.data-autofocus]="true"></textarea>
+    @if (t.error) {
+      <p class="diagram-text-error" role="alert">{{ t.error }}</p>
+    } @else {
+      <p class="diagram-text-hint">Apply draws the diagram again from this text, where it is now. Comments on its parts don't carry over.</p>
+    }
+  </form>
 }
